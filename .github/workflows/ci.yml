@@ -43,6 +43,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Keep Supabase's ports free
+        # Its ports sit in the range Linux hands out to outgoing connections, so
+        # one can be taken (by an image download, say) just as the stack starts.
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54330
       - name: Start Supabase
         run: npx supabase start -x realtime,imgproxy,studio,postgres-meta,edge-runtime,logflare,vector,supavisor
       - name: Database tests
