@@ -1,11 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Camera, ImagePlus, LoaderCircle, MousePointerClick, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { Camera, ImagePlus, LoaderCircle, MousePointerClick, Trash2, Undo2 } from 'lucide-react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { Segmented } from '@/components/Field'
 import { cn } from '@/lib/cn'
-import type { Point, Progress } from '@/lib/cutout'
+import type { Pick, Point, Progress } from '@/lib/cutout'
 import { loadPhoto } from '@/lib/db/cookies'
 import { db } from '@/lib/db/db'
 import type { DraftRecord, ProcessedPhoto } from '@/lib/db/schema'
@@ -22,6 +22,9 @@ interface Props {
 }
 
 type View = 'cutout' | 'original'
+
+/** A finger that has moved less than this (in pixels) was a tap, not a drawing. */
+const TAP_SLOP = 14
 
 /** People on a metered connection have asked their browser to go easy. */
 function savingData(): boolean {
@@ -49,6 +52,12 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
   const [finding, setFinding] = useState<Progress | 'starting' | null>(null)
   /** Bumped whenever the photo changes, so a slow cut-out can't land on a newer photo. */
   const run = useRef(0)
+  const image = useRef<HTMLImageElement>(null)
+  /** Width over height of the photo on show, once it has loaded. */
+  const [shape, setShape] = useState<number | null>(null)
+  /** The loop being drawn around the cookie, as spots on the picture box (0–1). */
+  const [loop, setLoop] = useState<Point[] | null>(null)
+  const drawing = useRef<{ x: number; y: number }[] | null>(null)
 
   const saved = usePhotoUrl(editId ?? undefined, 'full', 0, photo === 'keep')
   const savedIsCutout = useLiveQuery(
@@ -79,24 +88,24 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
     return photo
   }
 
-  async function cutOut(source: ProcessedPhoto, point: Point | undefined, asked: boolean) {
+  async function cutOut(source: ProcessedPhoto, pick: Pick | undefined, asked: boolean) {
     const token = ++run.current
     setFinding('starting')
     try {
       const { cutOutCookie } = await import('@/lib/cutout')
-      const result = await cutOutCookie(source, point, (progress) => {
+      const result = await cutOutCookie(source, pick, (progress) => {
         if (run.current === token) setFinding(progress)
       })
       if (run.current !== token) return
       if (result) onChange(result)
-      else if (point) {
+      else if (pick) {
         toast('Couldn’t find a cookie there', {
-          description: 'Tap right on the cookie to try again, or keep the photo as it is.',
+          description: 'Tap right on the cookie, or draw a circle around it, to try again.',
         })
       } else {
         // Left alone on purpose: a photo as taken beats a wrong thing cut out of it.
         toast('Couldn’t pick out the cookie', {
-          description: 'Tap it in the photo to cut it out, or keep the photo as it is.',
+          description: 'Tap it in the photo, or draw a circle around it, to cut it out.',
         })
       }
     } catch (error) {
@@ -139,22 +148,66 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
     }
   }
 
-  /** Tapping the original photo says "the cookie is here". */
-  async function pick(event: MouseEvent<HTMLImageElement>) {
-    if (view !== 'original' || finding) return
-    const img = event.currentTarget
+  /** Where on the photo a spot on the screen is (0–1), with the whole photo on show. */
+  function onPhoto(clientX: number, clientY: number): Point | null {
+    const img = image.current
+    if (!img || !img.naturalWidth) return null
     const box = img.getBoundingClientRect()
-    // Undo `object-fit: cover` to get from the tap to a spot on the photo.
-    const scale = Math.max(box.width / img.naturalWidth, box.height / img.naturalHeight)
+    // Undo `object-fit: contain`.
+    const scale = Math.min(box.width / img.naturalWidth, box.height / img.naturalHeight)
     const x =
-      (event.clientX - box.left - (box.width - img.naturalWidth * scale) / 2) /
-      (img.naturalWidth * scale)
+      (clientX - box.left - (box.width - img.naturalWidth * scale) / 2) / (img.naturalWidth * scale)
     const y =
-      (event.clientY - box.top - (box.height - img.naturalHeight * scale) / 2) /
+      (clientY - box.top - (box.height - img.naturalHeight * scale) / 2) /
       (img.naturalHeight * scale)
+    return { x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) }
+  }
+
+  const pickable = view === 'original' && !busy && finding === null
+
+  /**
+   * On the original photo, a tap says "the cookie is here" and a loop drawn
+   * around it says "the cookie is in here".
+   */
+  function startPick(event: PointerEvent<SVGSVGElement>) {
+    if (!pickable || !event.isPrimary) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    drawing.current = [{ x: event.clientX, y: event.clientY }]
+  }
+
+  function movePick(event: PointerEvent<SVGSVGElement>) {
+    const path = drawing.current
+    if (!path) return
+    const last = path[path.length - 1]!
+    if (Math.hypot(event.clientX - last.x, event.clientY - last.y) < 4) return
+    path.push({ x: event.clientX, y: event.clientY })
+    // Shown once it is clearly a drawing rather than an unsteady tap.
+    const box = event.currentTarget.getBoundingClientRect()
+    const start = path[0]!
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > TAP_SLOP || loop) {
+      setLoop(
+        path.map((spot) => ({
+          x: (spot.x - box.left) / box.width,
+          y: (spot.y - box.top) / box.height,
+        })),
+      )
+    }
+  }
+
+  async function endPick(event: PointerEvent<SVGSVGElement>) {
+    const path = drawing.current
+    drawing.current = null
+    setLoop(null)
+    if (!path || !pickable) return
+    const reach = Math.max(
+      ...path.map((spot) => Math.hypot(spot.x - path[0]!.x, spot.y - path[0]!.y)),
+    )
+    const spots = (reach > TAP_SLOP ? path : [{ x: event.clientX, y: event.clientY }])
+      .map((spot) => onPhoto(spot.x, spot.y))
+      .filter((spot): spot is Point => spot !== null)
     const source = await current()
-    if (source)
-      await cutOut(source, { x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) }, true)
+    if (!source || spots.length === 0) return
+    await cutOut(source, spots.length >= 3 ? spots : spots[0]!, true)
   }
 
   const inputs = (
@@ -190,21 +243,70 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
     const working = busy || finding !== null
     return (
       <div>
-        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-oat shadow-card">
+        <div
+          className="relative overflow-hidden rounded-3xl bg-oat shadow-card"
+          // The original is shown whole, so a cookie at the edge of the photo
+          // can still be pointed at; the cut-out is always a tidy 4:3.
+          style={{
+            aspectRatio: view === 'original' && shape ? Math.min(1.6, Math.max(0.7, shape)) : 4 / 3,
+          }}
+        >
           {inputs}
           {preview && (
-            // Tapping is a shortcut; the Cut-out switch below does the same from the keyboard.
-            // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
             <img
+              ref={image}
               src={preview}
               alt={view === 'cutout' ? 'Your cookie, cut out of its photo' : 'Your cookie'}
               data-view={view}
-              onClick={(e) => void pick(e)}
+              onLoad={(e) =>
+                setShape(e.currentTarget.naturalWidth / Math.max(1, e.currentTarget.naturalHeight))
+              }
               className={cn(
-                'size-full animate-fade object-cover',
-                view === 'original' && !working && 'cursor-crosshair',
+                'size-full animate-fade',
+                view === 'original' ? 'object-contain' : 'object-cover',
               )}
             />
+          )}
+          {preview && view === 'original' && (
+            // Pointing at the photo is a shortcut; the Cut-out switch below
+            // finds the cookie without it, from the keyboard too.
+            <svg
+              data-testid="pick-cookie"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden
+              className={cn(
+                'absolute inset-0 size-full touch-none',
+                pickable && 'cursor-crosshair',
+              )}
+              onPointerDown={startPick}
+              onPointerMove={movePick}
+              onPointerUp={(e) => void endPick(e)}
+              onPointerCancel={() => {
+                drawing.current = null
+                setLoop(null)
+              }}
+            >
+              {loop && (
+                <polyline
+                  points={loop.map((spot) => `${spot.x * 100},${spot.y * 100}`).join(' ')}
+                  fill="rgb(255 255 255 / 0.18)"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                  style={{ filter: 'drop-shadow(0 0 2px rgb(0 0 0 / 0.7))' }}
+                />
+              )}
+            </svg>
+          )}
+
+          {pickable && !loop && (
+            <p className="pointer-events-none absolute inset-x-0 top-3 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-2xl bg-black/60 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md">
+              <MousePointerClick className="size-4 shrink-0" aria-hidden />
+              Tap the cookie, or circle it
+            </p>
           )}
 
           {finding !== null && (
@@ -218,6 +320,17 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
           )}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end gap-2 p-3">
+            {view === 'cutout' && !working && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="pointer-events-auto mr-auto border-transparent bg-white/92 text-[#2a1810] shadow-card hover:bg-white"
+                onClick={() => void show('original')}
+              >
+                <Undo2 className="size-4" />
+                Not the cookie?
+              </Button>
+            )}
             <Button
               size="sm"
               variant="secondary"
@@ -260,14 +373,9 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
             ]}
           />
           <p className="flex min-w-0 flex-1 basis-40 items-center gap-1.5 text-[13px] leading-snug text-ink-soft">
-            {view === 'original' ? (
-              <>
-                <MousePointerClick className="size-4 shrink-0" aria-hidden />
-                Tap the cookie to lift it out of the photo.
-              </>
-            ) : (
-              'Wrong thing cut out? Switch to Original and tap the cookie.'
-            )}
+            {view === 'original'
+              ? 'Your photo as you took it. Point out the cookie to lift it out.'
+              : 'Lifted out of your photo and set on a clean tabletop.'}
           </p>
         </div>
       </div>

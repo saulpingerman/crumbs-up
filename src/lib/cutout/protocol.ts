@@ -18,6 +18,8 @@ export interface CutoutRequest {
    * worker looks for the cookie itself.
    */
   point?: { x: number; y: number }
+  /** A loop they drew around it instead of tapping; `point` is then its middle. */
+  around?: { x: number; y: number }[]
 }
 
 export type WorkerMessage =
