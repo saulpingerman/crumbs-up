@@ -40,10 +40,6 @@ export function SettingsPage() {
         <AccountCard />
         <Card>
           <SectionTitle>Overall score</SectionTitle>
-          <p className="mt-1 text-sm text-ink-soft">
-            How taste, texture and appearance combine into one number. Changing this re-ranks every
-            cookie instantly — the category scores themselves never change.
-          </p>
           <div role="radiogroup" aria-label="Overall score weighting" className="mt-4 space-y-2">
             {(Object.keys(WEIGHT_PRESETS) as WeightPreset[]).map((key) => {
               const preset = WEIGHT_PRESETS[key]
@@ -105,11 +101,7 @@ export function SettingsPage() {
 
         <Card>
           <SectionTitle>Appearance</SectionTitle>
-          <Row
-            label="Theme"
-            hint="“Midnight snack” is easier on the eyes at night."
-            className="mt-3"
-          >
+          <Row label="Theme" className="mt-3">
             <Segmented<ThemeChoice>
               label="Theme"
               value={settings.theme}
@@ -136,12 +128,6 @@ export function SettingsPage() {
               onChange={(autoCutout) => updateSettings({ autoCutout })}
             />
           </Row>
-          <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-            The cut-out is done entirely on your device — a photo is never sent anywhere to be
-            processed. The first time, it downloads its cookie-finding models (about 42 MB) from
-            Google; after that it works offline. Cookies without a photo get an illustration drawn
-            from your review.
-          </p>
         </Card>
 
         <Card>
@@ -157,11 +143,6 @@ export function SettingsPage() {
               onChange={(onlinePlaces) => updateSettings({ onlinePlaces })}
             />
           </Row>
-          <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-            Lookups go to OpenStreetMap’s search service and carry only the name you typed or the
-            area on screen — never your ratings. The street map’s tiles load from OpenFreeMap. City
-            suggestions and the States view need no connection at all.
-          </p>
         </Card>
 
         <DataCard />
@@ -309,16 +290,11 @@ function DataCard() {
     }
   }
 
-  async function toggleSamples() {
+  async function removeSamples() {
     setBusy('samples')
     try {
-      if (samples > 0) {
-        const removed = await deleteSampleCookies()
-        toast(`Removed ${plural(removed, 'sample cookie')}`)
-      } else {
-        const { addSampleCookies } = await import('@/lib/samples')
-        toast.success(`Added ${await addSampleCookies()} sample cookies`)
-      }
+      const removed = await deleteSampleCookies()
+      toast(`Removed ${plural(removed, 'sample cookie')}`)
     } catch (error) {
       console.error(error)
       toast.error('That didn’t work')
@@ -383,14 +359,17 @@ function DataCard() {
           <FileSpreadsheet className="size-4" />
           Export spreadsheet
         </Button>
-        <Button variant="secondary" onClick={() => void toggleSamples()} disabled={busy !== null}>
-          {busy === 'samples' ? (
-            <LoaderCircle className="size-4 animate-spin" />
-          ) : (
-            <Sparkles className="size-4" />
-          )}
-          {samples > 0 ? 'Remove sample cookies' : 'Add sample cookies'}
-        </Button>
+        {/* Sample cookies can no longer be added; this clears out any from before. */}
+        {samples > 0 && (
+          <Button variant="secondary" onClick={() => void removeSamples()} disabled={busy !== null}>
+            {busy === 'samples' ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            Remove sample cookies
+          </Button>
+        )}
       </div>
       <input
         ref={fileInput}

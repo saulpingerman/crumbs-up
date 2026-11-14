@@ -81,9 +81,8 @@ export function DiscoverPage() {
             </>
           ) : (
             <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-ink-soft">
-              Rate {plural(missing, 'more cookie')} and these suggestions start following your taste
-              — what your favorites have in common, and what to order to get more of it. Until then,
-              here are the classics every cookie hunter should have an opinion on.
+              Rate {plural(missing, 'more cookie')} and this page will suggest cookies based on what
+              you like. For now, these are the classics.
             </p>
           )}
         </Card>
