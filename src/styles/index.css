@@ -1,0 +1,328 @@
+@import 'tailwindcss';
+
+@import '@fontsource-variable/fraunces/full.css';
+@import '@fontsource-variable/figtree/index.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* -------------------------------------------------------------------------
+   Design tokens
+   Light = "Bakery case" (cream, parchment, chocolate ink)
+   Dark  = "Midnight snack" (dark chocolate, warm cream ink)
+   ------------------------------------------------------------------------- */
+:root,
+.theme-light {
+  --cream: #faf4e8;
+  --paper: #fffcf6;
+  --oat: #f2e7d5;
+  --line: #e5d6bf;
+  --ink: #2a1810;
+  --ink-soft: #6b5446;
+  --ink-faint: #7c6757;
+
+  --cocoa: #2a1810;
+  --on-cocoa: #fdf6ea;
+  --crust: #a84d15;
+  --butter: #f5cf6b;
+  --baked-1: #ecc07f;
+  --baked-2: #cf9450;
+  --baked-ink: #3a2012;
+
+  /* Category colors. The plain token is for marks (bars, dots) and was
+     checked for colorblind separation; `-ink` is the darker cut for text. */
+  --taste: #c5306a;
+  --taste-ink: #a81f55;
+  --taste-soft: #fbe4ec;
+  --texture: #b67800;
+  --texture-ink: #8a5a00;
+  --texture-soft: #f9ecd0;
+  --look: #2c74cf;
+  --look-ink: #1f5fb0;
+  --look-soft: #dfeafa;
+
+  /* One-hue ramp for the map: more is darker. */
+  --seq-1: #d9a55a;
+  --seq-2: #c4853a;
+  --seq-3: #a8641f;
+  --seq-4: #864913;
+  --seq-5: #5c2f0a;
+
+  --danger: #b3261e;
+  --danger-soft: #fbe3e0;
+  --ok: #2f7a4b;
+
+  --shadow-card: 0 1px 2px rgb(74 44 20 / 0.06), 0 6px 20px -8px rgb(74 44 20 / 0.16);
+  --shadow-pop: 0 2px 6px rgb(74 44 20 / 0.08), 0 18px 40px -12px rgb(74 44 20 / 0.28);
+
+  color-scheme: light;
+}
+
+.dark {
+  --cream: #17100c;
+  --paper: #211812;
+  --oat: #2d2119;
+  --line: #3d2e23;
+  --ink: #f6ecdd;
+  --ink-soft: #cbb8a4;
+  --ink-faint: #a08b79;
+
+  --cocoa: #f3e3cb;
+  --on-cocoa: #24160e;
+  --crust: #e99a55;
+  --butter: #f5cf6b;
+  --baked-1: #e9bb78;
+  --baked-2: #c98d4a;
+  --baked-ink: #2b170c;
+
+  --taste: #d55181;
+  --taste-ink: #f08aa8;
+  --taste-soft: #3a1a26;
+  --texture: #c98500;
+  --texture-ink: #e5a93a;
+  --texture-soft: #382a10;
+  --look: #3987e5;
+  --look-ink: #6aa8f0;
+  --look-soft: #14263f;
+
+  /* On a dark surface the ramp flips: more is brighter. */
+  --seq-1: #855225;
+  --seq-2: #a66d30;
+  --seq-3: #c58a45;
+  --seq-4: #e0ab62;
+  --seq-5: #f5d08f;
+
+  --danger: #f2877f;
+  --danger-soft: #401c19;
+  --ok: #6fca92;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -10px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 2px 6px rgb(0 0 0 / 0.35), 0 20px 44px -12px rgb(0 0 0 / 0.65);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-cream: var(--cream);
+  --color-paper: var(--paper);
+  --color-oat: var(--oat);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-cocoa: var(--cocoa);
+  --color-on-cocoa: var(--on-cocoa);
+  --color-crust: var(--crust);
+  --color-butter: var(--butter);
+  --color-baked-1: var(--baked-1);
+  --color-baked-2: var(--baked-2);
+  --color-baked-ink: var(--baked-ink);
+  --color-taste: var(--taste);
+  --color-taste-ink: var(--taste-ink);
+  --color-taste-soft: var(--taste-soft);
+  --color-texture: var(--texture);
+  --color-texture-ink: var(--texture-ink);
+  --color-texture-soft: var(--texture-soft);
+  --color-look: var(--look);
+  --color-look-ink: var(--look-ink);
+  --color-look-soft: var(--look-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', ui-serif, Georgia, 'Times New Roman', serif;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-rise: rise 0.5s var(--ease-out-soft) both;
+  --animate-fade: fade 0.3s ease-out both;
+  --animate-sheet-up: sheet-up 0.36s var(--ease-out-soft) both;
+  --animate-sheet-down: sheet-down 0.22s ease-in both;
+  --animate-pop: pop 0.3s var(--ease-out-soft) both;
+  --animate-step-forward: step-forward 0.26s var(--ease-out-soft) both;
+  --animate-step-back: step-back 0.26s var(--ease-out-soft) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes sheet-down {
+    from {
+      opacity: 1;
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+    }
+  }
+  @keyframes step-forward {
+    from {
+      opacity: 0;
+      transform: translateX(28px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes step-back {
+    from {
+      opacity: 0;
+      transform: translateX(-28px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--cream);
+    /* Stops the page behind from rubber-banding in a standalone app. */
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-cream font-sans text-ink antialiased;
+    min-height: 100dvh;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* iOS zooms the page when a focused control's text is under 16px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  [role='button'],
+  a,
+  select,
+  label[for] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--crust);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: var(--butter);
+    color: #2a1810;
+  }
+}
+
+@layer utilities {
+  /* Fraunces: soft, slightly "wonky" optical display cut for headlines. */
+  .font-display {
+    font-variation-settings:
+      'SOFT' 100,
+      'WONK' 1;
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  /* Score numerals: tabular so digits never jitter while counting up. */
+  .numerals {
+    font-family: var(--font-display);
+    font-variation-settings:
+      'SOFT' 100,
+      'WONK' 0;
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Subtle paper grain used behind hero areas. */
+  .grain {
+    background-image: radial-gradient(rgb(120 80 40 / 0.07) 1px, transparent 1px);
+    background-size: 14px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
