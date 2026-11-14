@@ -133,14 +133,12 @@ describe.skipIf(!url || !key)('cloud journal (real Supabase)', () => {
     // Sent in a few goes, so many rows share the moment they were written.
     for (let start = 0; start < ids.length; start += 400) {
       await remote.push(
-        ids
-          .slice(start, start + 400)
-          .map((id, i) => ({
-            id,
-            data: cookie(id, start + i),
-            edited_at: start + i,
-            deleted: false,
-          })),
+        ids.slice(start, start + 400).map((id, i) => ({
+          id,
+          data: cookie(id, start + i),
+          edited_at: start + i,
+          deleted: false,
+        })),
       )
     }
     const rows = await remote.pull(null)
