@@ -108,6 +108,16 @@ test('shows the journal’s bakeries on the map and finds new ones nearby', asyn
   await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
   await expect(map).toHaveAttribute('data-pins', '9')
 
+  // The map's credits stay folded behind their "i" button; the credit that
+  // must always be in sight is a small label in the map's corner. There is
+  // no paragraph under the map explaining it.
+  await expect(page.locator('.maplibregl-ctrl-attrib')).not.toHaveAttribute('open')
+  await expect(page.getByRole('link', { name: '© OpenStreetMap' })).toHaveAttribute(
+    'href',
+    'https://www.openstreetmap.org/copyright',
+  )
+  await expect(page.getByText(/Gold pins are bakeries/)).toHaveCount(0)
+
   // Picking one from the list shows its cookies and flies the map there.
   await page.getByRole('button', { name: /Butter & Ember/ }).click()
   await expect(page.getByRole('heading', { name: 'Butter & Ember' })).toBeVisible()
@@ -151,7 +161,6 @@ test('the map asks for nothing when online lookups are turned off', async ({ pag
   await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
   await page.getByRole('button', { name: /Butter & Ember/ }).click()
   await expect(page.getByRole('heading', { name: 'Butter & Ember' })).toBeVisible()
-  await expect(page.getByText('Online bakery search is turned off in Settings.')).toBeVisible()
   // Long enough for the map to settle and a search to have gone out, if one were going to.
   await page.waitForTimeout(3000)
   expect(asked).toBe(false)

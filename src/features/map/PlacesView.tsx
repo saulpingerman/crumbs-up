@@ -7,16 +7,20 @@ import { Card, SectionTitle } from '@/components/Page'
 import { bakeryPlaces, type BakeryPlace } from '@/lib/bakery-places'
 import { cn } from '@/lib/cn'
 import { formatAverage, plural } from '@/lib/format'
-import { bakeriesNear, formatMiles, type NearbyPlace } from '@/lib/osm'
+import { distanceKm, isWithin } from '@/lib/geo'
+import { bakeriesWithin, formatMiles, type NearbyPlace, type OsmPlace } from '@/lib/osm'
 import { loadPlaces, type PlaceIndex } from '@/lib/places'
 import { resolveTheme, useSettings } from '@/lib/settings'
 import type { RatedCookie } from '@/lib/stats'
 import { OpenInMaps } from './OpenInMaps'
-import { SETTLE_MS, TOO_WIDE_KM, searchArea, worthSearching, type SearchedArea } from './nearby'
+import { SETTLE_MS, TOO_WIDE_KM, searchBounds, worthSearching, type SearchedArea } from './nearby'
 import type { MapPin as Pin, MapView } from './PlacesMap'
 
 // The map library is large, so it only loads when this view is opened.
 const PlacesMap = lazy(() => import('./PlacesMap').then((m) => ({ default: m.PlacesMap })))
+
+/** More rings than this and the map is more rings than map. */
+const MOST_RINGS = 200
 
 /** "Flour & Salt Bakery" and "flour and salt" are the same shop. */
 function essence(name: string): string {
@@ -58,7 +62,8 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
   }, [])
 
   const places = useMemo(() => bakeryPlaces(cookies, towns), [cookies, towns])
-  const [found, setFound] = useState<NearbyPlace[]>([])
+  /** Bakeries the last search turned up that aren't in the journal. */
+  const [spotted, setSpotted] = useState<OsmPlace[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** Where the look for new bakeries around the current view has got to. */
   const [search, setSearch] = useState<'idle' | 'looking' | 'done' | 'failed'>('idle')
@@ -72,29 +77,27 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
     latest.current = { places, selectedId }
   }, [places, selectedId])
 
-  // Once the map has sat still for a moment, look for bakeries around it that
-  // aren't in the journal yet. Nobody has to ask.
+  // Once the map has sat still for a moment, look for bakeries that aren't in
+  // the journal yet across everything it is showing. Nobody has to ask.
   useEffect(() => {
     if (!settings.onlinePlaces || !view || !worthSearching(searched.current, view)) return
-    const area = searchArea(view)
+    const bounds = searchBounds(view)
     const stop = new AbortController()
     let looking = false
     const timer = setTimeout(() => {
       looking = true
       setSearch('looking')
       const visited = new Set(latest.current.places.map((p) => `${essence(p.bakery)}|${p.state}`))
-      bakeriesNear(area.center, area.radiusKm, stop.signal)
-        .then((places) => {
-          const nearby = places
+      bakeriesWithin(bounds, stop.signal)
+        .then(({ places: all, complete }) => {
+          const fresh = all
             .filter((p) => essence(p.name) && !visited.has(`${essence(p.name)}|${p.state}`))
-            // Nearest first, but a cookie shop outranks a doughnut shop next door.
-            .sort((a, b) => promise(b.name) - promise(a.name) || a.km - b.km)
-            .slice(0, 40)
-          searched.current = area
+            .slice(0, MOST_RINGS)
+          searched.current = { bounds, complete: complete && fresh.length === all.length }
           // Whatever is open in the card stays, even if the map has moved off it.
-          setFound((before) => {
+          setSpotted((before) => {
             const open = before.find((p) => `f:${p.id}` === latest.current.selectedId)
-            return open && !nearby.some((p) => p.id === open.id) ? [open, ...nearby] : nearby
+            return open && !fresh.some((p) => p.id === open.id) ? [open, ...fresh] : fresh
           })
           looking = false
           setSearch('done')
@@ -113,6 +116,20 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
       if (looking) setSearch('idle')
     }
   }, [view, settings.onlinePlaces])
+
+  /** The same places, with how far each is from the middle of the map as it stands. */
+  const found = useMemo<NearbyPlace[]>(
+    () => spotted.map((place) => ({ ...place, km: view ? distanceKm(view.center, place) : 0 })),
+    [spotted, view],
+  )
+  /** The ones on screen: nearest the middle first, but a cookie shop outranks a doughnut shop. */
+  const inView = useMemo(
+    () =>
+      found
+        .filter((place) => !view || isWithin(place, view.bounds))
+        .sort((a, b) => promise(b.name) - promise(a.name) || a.km - b.km),
+    [found, view],
+  )
 
   const pins = useMemo<Pin[]>(
     () => [
@@ -158,8 +175,8 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
       : search === 'failed'
         ? 'Couldn’t look for bakeries just now'
         : search === 'done'
-          ? found.length > 0
-            ? `${plural(found.length, 'bakery', 'bakeries')} to try here`
+          ? inView.length > 0
+            ? `${plural(inView.length, 'bakery', 'bakeries')} to try here`
             : 'No new bakeries here'
           : null
   const unplaced = places.filter((p) => !p.position)
@@ -180,6 +197,16 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
               className="h-[52dvh] min-h-80 lg:h-[34rem]"
             />
           </Suspense>
+          {/* The map data's licence asks for this credit to be in plain sight.
+              The fuller credits are behind the "i" in the other corner. */}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-1.5 left-1.5 rounded-md bg-paper/80 px-1.5 py-0.5 text-[10px] leading-tight text-ink-soft"
+          >
+            © OpenStreetMap
+          </a>
           {settings.onlinePlaces && notice && (
             <p
               role="status"
@@ -194,12 +221,6 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
             </p>
           )}
         </div>
-        <p className="mt-2 px-1 text-xs leading-relaxed text-ink-faint">
-          Gold pins are bakeries you’ve rated, with their average score.{' '}
-          {settings.onlinePlaces
-            ? 'Rings are bakeries from OpenStreetMap you haven’t tried; they appear as you move in close.'
-            : 'Online bakery search is turned off in Settings.'}
-        </p>
       </div>
 
       <div className="min-w-0 space-y-5">
@@ -208,11 +229,11 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
           {selectedFound && <FoundPlace place={selectedFound} />}
         </div>
 
-        {found.length > 0 && (
+        {inView.length > 0 && (
           <Card>
             <SectionTitle>Somewhere new nearby</SectionTitle>
             <ul className="mt-2 divide-y divide-line/70">
-              {found.slice(0, 12).map((place) => (
+              {inView.slice(0, 12).map((place) => (
                 <li key={place.id}>
                   <PlaceButton
                     active={selectedId === `f:${place.id}`}

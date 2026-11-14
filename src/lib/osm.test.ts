@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { formatMiles, parsePhoton } from './osm'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { bakeriesWithin, formatMiles, parsePhoton } from './osm'
 
 /** Trimmed from real Photon responses. */
 const response = {
@@ -86,5 +86,87 @@ describe('formatMiles', () => {
   it('shows a decimal only for short hops', () => {
     expect(formatMiles(0.5)).toBe('0.3 mi')
     expect(formatMiles(20)).toBe('12 mi')
+  })
+})
+
+describe('bakeries across a stretch of map', () => {
+  const bounds = { south: 45.4, north: 45.6, west: -122.8, east: -122.5 }
+
+  /** A made-up bakery from the search service, `n` of them spread over the rectangle. */
+  const feature = (id: number, lat: number, lng: number) => ({
+    properties: {
+      osm_type: 'N',
+      osm_id: id,
+      osm_key: 'shop',
+      osm_value: 'bakery',
+      name: `Bakery ${id}`,
+      state: 'Oregon',
+      countrycode: 'US',
+    },
+    geometry: { type: 'Point', coordinates: [lng, lat] },
+  })
+  const spread = (count: number, from = 0) =>
+    Array.from({ length: count }, (_, i) =>
+      feature(from + i, 45.41 + ((i * 7) % 18) / 100, -122.79 + ((i * 11) % 28) / 100),
+    )
+
+  /** Stand in for the service: `answer` decides what each question gets back. */
+  function serve(answer: (url: URL, asked: number) => unknown[]) {
+    const asked: URL[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: URL | string) => {
+        const url = new URL(String(input))
+        asked.push(url)
+        const features = answer(url, asked.length)
+        return Promise.resolve(new Response(JSON.stringify({ features }), { status: 200 }))
+      }),
+    )
+    return asked
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('asks once for a quiet area, and for bakeries spread over it, not the nearest', async () => {
+    const asked = serve(() => spread(12))
+    const { places, complete } = await bakeriesWithin(bounds)
+    expect(asked).toHaveLength(1)
+    expect(asked[0]!.searchParams.get('distance_sort')).toBe('false')
+    expect(asked[0]!.searchParams.getAll('osm_tag')).toEqual(['shop:bakery', 'shop:pastry'])
+    // The circle asked about reaches the corners of the rectangle.
+    expect(Number(asked[0]!.searchParams.get('radius'))).toBeGreaterThanOrEqual(16)
+    expect(places).toHaveLength(12)
+    expect(complete).toBe(true)
+  })
+
+  it('leaves out anything outside the rectangle', async () => {
+    serve(() => [feature(1, 45.5, -122.6), feature(2, 45.7, -122.6), feature(3, 45.5, -122.9)])
+    const { places } = await bakeriesWithin(bounds)
+    expect(places.map((p) => p.name)).toEqual(['Bakery 1'])
+  })
+
+  it('asks square by square when one answer comes back full', async () => {
+    // The whole-view question gets the full fifty; each of the nine squares
+    // then has a handful of its own, some of them repeats.
+    const asked = serve((_url, n) => (n === 1 ? spread(50) : spread(6, 40 + n * 3)))
+    const { places, complete } = await bakeriesWithin(bounds)
+    expect(asked).toHaveLength(10)
+    expect(new Set(places.map((p) => p.id)).size).toBe(places.length)
+    expect(places.length).toBeGreaterThan(50)
+    expect(complete).toBe(true)
+  })
+
+  it('says so when even a square has more than it could list', async () => {
+    serve((_url, n) => spread(50, n * 100))
+    const { complete } = await bakeriesWithin(bounds)
+    expect(complete).toBe(false)
+  })
+
+  it('gives up cleanly when the service is down', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response('busy', { status: 503 }))),
+    )
+    await expect(bakeriesWithin(bounds)).rejects.toThrow(/503/)
   })
 })
