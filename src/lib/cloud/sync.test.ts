@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { exportBackup, importBackup } from '@/lib/db/backup'
 import { noteChange } from '@/lib/db/cookies'
 import { CrumbsDb } from '@/lib/db/db'
 import type { CookieRecord, PhotoImages } from '@/lib/db/schema'
 import type { PhotoName, PushRow, Remote, RemoteRow } from './remote'
+import { WEIGHT_PRESETS } from '@/lib/rubric'
 import { DifferentAccountError, forgetAccount, sync, type SyncTools } from './sync'
 
 /* ------------------------- An in-memory stand-in cloud ------------------------- */
@@ -27,6 +29,10 @@ class FakeCloud {
         [...this.rows.values()]
           .filter((row) => row.owner === userId && (!cursor || row.changed_at > cursor))
           .sort((a, b) => a.changed_at.localeCompare(b.changed_at))
+          .map(({ owner: _owner, ...row }) => structuredClone(row)),
+      current: async (ids) =>
+        [...this.rows.values()]
+          .filter((row) => row.owner === userId && ids.includes(row.id))
           .map(({ owner: _owner, ...row }) => structuredClone(row)),
       push: async (rows: PushRow[]) => {
         for (const row of rows) {
@@ -331,6 +337,88 @@ describe('sync', () => {
     cloud.offlineForPhotos = false
     await syncLaptop()
     expect(read((await laptop.photos.get('a'))?.data)).toEqual([5, 6])
+  })
+
+  it('does not let a losing edit’s photo replace the winner’s', async () => {
+    await rate(phone, cookie('a', 10), { full: bytes(1) })
+    await syncPhone()
+    await syncLaptop()
+
+    // The phone, offline, swaps the photo. Later the laptop does too, and syncs first.
+    await rate(phone, cookie('a', 20), { full: bytes(2) })
+    await rate(laptop, cookie('a', 30, { notes: 'the keeper' }), { full: bytes(3) })
+    await syncLaptop()
+
+    await syncPhone()
+    // The cloud still has the laptop's picture, and the phone has caught up with it.
+    expect(read(cloud.photos.get('ana/a/full'))).toEqual([3])
+    expect((await phone.cookies.get('a'))?.notes).toBe('the keeper')
+    expect(read((await phone.photos.get('a'))?.data)).toEqual([3])
+    expect(await phone.outbox.count()).toBe(0)
+  })
+
+  it('does not let a stale deletion remove the photo of a cookie edited since', async () => {
+    await rate(phone, cookie('a', 10), { full: bytes(1) })
+    await syncPhone()
+    await syncLaptop()
+
+    await remove(phone, 'a', 20) // offline
+    await rate(laptop, cookie('a', 30), { full: bytes(3) })
+    await syncLaptop()
+
+    await syncPhone()
+    expect(read(cloud.photos.get('ana/a/full'))).toEqual([3])
+    expect(read((await phone.photos.get('a'))?.data)).toEqual([3])
+    await syncLaptop()
+    expect(await laptop.cookies.get('a')).toBeDefined()
+  })
+
+  it('never shows the old photo as the new one when the new one fails to arrive', async () => {
+    await rate(phone, cookie('a', 10), { full: bytes(1) })
+    await syncPhone()
+    await syncLaptop()
+
+    await rate(phone, cookie('a', 20), { full: bytes(2) })
+    await syncPhone()
+
+    cloud.offlineForPhotos = true
+    await syncLaptop()
+    // Better no picture (the app draws one) than the wrong picture…
+    expect((await laptop.cookies.get('a'))?.photoUpdatedAt).toBe(20)
+    expect(await laptop.photos.get('a')).toBeUndefined()
+
+    // …and having none is what gets it fetched once the connection is back.
+    cloud.offlineForPhotos = false
+    const changed: string[] = []
+    await sync(laptop, cloud.as('ana'), { ...tools, photoChanged: (id) => changed.push(id) })
+    expect(read((await laptop.photos.get('a'))?.data)).toEqual([2])
+    expect(changed).toEqual(['a'])
+  })
+
+  it('brings cookies back from a backup after they were deleted everywhere', async () => {
+    const weights = WEIGHT_PRESETS.equal.weights
+    await rate(phone, cookie('a', 10), { full: bytes(1) })
+    await rate(phone, cookie('b', 11))
+    await syncPhone()
+    await syncLaptop()
+    const backup = await exportBackup({ weights, precision: 'half', skipSamples: true }, phone)
+
+    await remove(phone, 'a', 50)
+    await remove(phone, 'b', 50)
+    await syncPhone()
+    await syncLaptop()
+    expect(await laptop.cookies.count()).toBe(0)
+
+    // Restoring is a new decision: it must outrank the deletions on record.
+    const result = await importBackup(backup.blob, phone)
+    expect(result.added).toBe(2)
+    await syncPhone()
+    await syncLaptop()
+    expect((await laptop.cookies.toArray()).map((c) => c.id).sort()).toEqual(['a', 'b'])
+    expect(read((await laptop.photos.get('a'))?.data)).toEqual([1])
+    // And they stay, on the phone as well, however many times it syncs.
+    await syncPhone()
+    expect(await phone.cookies.count()).toBe(2)
   })
 
   it('keeps a change that was made while a sync was in flight', async () => {

@@ -353,7 +353,7 @@ A few decisions worth knowing about:
   ([`src/lib/cloud/sync.ts`](src/lib/cloud/sync.ts)) rather than a framework: an outbox of changes
   to send, a cursor for changes to fetch, and "the newer edit wins" enforced by the database
   itself, so a slow device can never overwrite a newer edit. It talks to the server through a
-  five-method interface, which is how the tests run it against both an in-memory stand-in and a
+  six-method interface, which is how the tests run it against both an in-memory stand-in and a
   real Supabase.
 - **Privacy is enforced by the database, not the app.** Row-level security limits every query and
   every stored photo to its owner, so the key shipped in the app can't read anyone else's journal.

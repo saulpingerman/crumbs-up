@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { ILLUSTRATION_SIZE, illustrationUrl, type ArtSource } from '@/lib/cookie-art'
 import { db } from '@/lib/db/db'
 import { toObjectUrl } from '@/lib/object-url'
@@ -11,6 +11,24 @@ type Kind = 'thumb' | 'full'
  * released with the component that shows them.
  */
 const thumbCache = new Map<string, string>()
+
+/**
+ * How many times each cookie's stored picture has changed underneath it this
+ * session. A picture can arrive from another device after the cookie it
+ * belongs to, with nothing else to tell the screens showing that cookie.
+ */
+const arrivals = new Map<string, number>()
+const watchers = new Set<() => void>()
+const watch = (watcher: () => void) => {
+  watchers.add(watcher)
+  return () => watchers.delete(watcher)
+}
+
+/** Say that a cookie's stored picture changed, so anything showing it reloads it. */
+export function photoArrived(cookieId: string): void {
+  arrivals.set(cookieId, (arrivals.get(cookieId) ?? 0) + 1)
+  watchers.forEach((watcher) => watcher())
+}
 
 export function forgetPhoto(cookieId: string): void {
   for (const [key, url] of thumbCache) {
@@ -52,7 +70,12 @@ export function usePhoto(
   version: number,
   enabled = true,
 ): PhotoState {
-  const key = `${cookieId}:${version}`
+  const arrival = useSyncExternalStore(
+    watch,
+    () => arrivals.get(cookieId ?? '') ?? 0,
+    () => 0,
+  )
+  const key = `${cookieId}:${version}:${arrival}`
   const cached = kind === 'thumb' && enabled ? (thumbCache.get(key) ?? null) : null
   const [loaded, setLoaded] = useState<{ key: string; url: string | null } | null>(null)
 

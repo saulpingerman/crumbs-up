@@ -26,6 +26,8 @@ export interface Remote {
   readonly userId: string
   /** Rows changed since `cursor` (all of them when it is null), oldest change first. */
   pull(cursor: string | null): Promise<RemoteRow[]>
+  /** What the cloud holds right now for these cookies; ones it has never seen are left out. */
+  current(ids: string[]): Promise<RemoteRow[]>
   push(rows: PushRow[]): Promise<void>
   uploadPhoto(cookieId: string, name: PhotoName, bytes: ArrayBuffer): Promise<void>
   /** `null` when there is no such photo. */
@@ -58,19 +60,52 @@ export class SupabaseRemote implements Remote {
   async pull(cursor: string | null): Promise<RemoteRow[]> {
     const since = cursor ? new Date(new Date(cursor).getTime() - OVERLAP_MS).toISOString() : null
     const rows: RemoteRow[] = []
-    for (let from = 0; ; from += PAGE) {
+    const seen = new Set<string>()
+    // Each page starts where the last one ended, rather than "skip the first
+    // N rows": a row edited while this is under way moves to the end of the
+    // list, and counting from the top would then step over one of the others.
+    let from = since
+    for (;;) {
       let query = this.client
         .from('cookies')
         .select('id, data, edited_at, deleted, changed_at')
         .order('changed_at', { ascending: true })
         .order('id', { ascending: true })
-        .range(from, from + PAGE - 1)
-      if (since) query = query.gt('changed_at', since)
+        .limit(PAGE)
+      // The first page is strictly after the cursor; later ones re-read the
+      // row they left off at, in case others share its timestamp.
+      if (from)
+        query = from === since ? query.gt('changed_at', from) : query.gte('changed_at', from)
       const { data, error } = await query
       if (error) throw new Error(`Could not read the cloud journal: ${error.message}`)
-      rows.push(...(data as RemoteRow[]))
-      if (data.length < PAGE) return rows
+      const page = data as RemoteRow[]
+      let fresh = 0
+      for (const row of page) {
+        const key = `${row.id}@${row.changed_at}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        rows.push(row)
+        fresh += 1
+      }
+      const last = page[page.length - 1]
+      // Done when the page wasn't full, or (so this can't loop) brought nothing new.
+      if (page.length < PAGE || fresh === 0 || !last) return rows
+      from = last.changed_at
     }
+  }
+
+  async current(ids: string[]): Promise<RemoteRow[]> {
+    const rows: RemoteRow[] = []
+    // In batches: the ids travel in the address, which has a length limit.
+    for (let start = 0; start < ids.length; start += 100) {
+      const { data, error } = await this.client
+        .from('cookies')
+        .select('id, data, edited_at, deleted, changed_at')
+        .in('id', ids.slice(start, start + 100))
+      if (error) throw new Error(`Could not read the cloud journal: ${error.message}`)
+      rows.push(...(data as RemoteRow[]))
+    }
+    return rows
   }
 
   async push(rows: PushRow[]): Promise<void> {

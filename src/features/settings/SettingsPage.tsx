@@ -17,6 +17,7 @@ import { Button } from '@/components/Button'
 import { AccountCard } from './AccountCard'
 import { Segmented } from '@/components/Field'
 import { useSession } from '@/lib/cloud/session'
+import { forgetAccount } from '@/lib/cloud/sync'
 import { Card, Page, SectionTitle } from '@/components/Page'
 import { Confirm } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
@@ -446,7 +447,11 @@ function DataCard() {
         confirmLabel="Delete everything"
         destructive
         onConfirm={() => {
-          void deleteEverything().then(() => {
+          // Signed in, the deletion is recorded so it reaches the account and
+          // every other device. Signed out, it is this device and nothing
+          // more — including any record that would delete things later, the
+          // next time someone signs in here.
+          void (signedIn ? deleteEverything() : forgetAccount(db, true)).then(() => {
             updateSettings({ changesSinceBackup: 0 })
             toast('Journal deleted')
           })

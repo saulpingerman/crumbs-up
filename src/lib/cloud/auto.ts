@@ -7,6 +7,7 @@ import { liveQuery } from 'dexie'
 import { useSyncExternalStore } from 'react'
 import { db } from '@/lib/db/db'
 import { photoFromBytes } from '@/lib/image'
+import { photoArrived } from '@/lib/use-photo'
 import { getClient } from './client'
 import { getSession, startSession, subscribeToSession, type LinkEvents } from './session'
 import { DifferentAccountError, sync, type SyncResult } from './sync'
@@ -102,7 +103,10 @@ async function runOnce(): Promise<SyncResult | null> {
   try {
     const { SupabaseRemote } = await import('./remote')
     const remote = new SupabaseRemote(await getClient(), session.userId)
-    const result = await sync(db, remote, { describePhoto: photoFromBytes })
+    const result = await sync(db, remote, {
+      describePhoto: photoFromBytes,
+      photoChanged: photoArrived,
+    })
     update({ phase: 'idle', lastSyncedAt: new Date().toISOString() })
     return result
   } catch (error) {
