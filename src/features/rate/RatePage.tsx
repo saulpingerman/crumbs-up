@@ -14,6 +14,7 @@ import {
   CATEGORY_META,
   TASTING_ORDER,
   TEXTURE_STYLE_QUESTION_ID,
+  answersFor,
   getQuestion,
   type Category,
   type Scores,
@@ -87,7 +88,7 @@ export function RatePage() {
   /** Where to land once the wizard's own history entries have been unwound. */
   const [exitTo, setExitTo] = useState<string | null>(null)
   const advance = useRef<ReturnType<typeof setTimeout>>(undefined)
-  /** Scores typed in quick entry, kept in case the user comes back to it. */
+  /** Scores typed in by hand, kept in case the user comes back to them. */
   const typedScores = useRef<Scores | null>(null)
 
   const searchFor = useCallback(
@@ -152,9 +153,11 @@ export function RatePage() {
         id: editId ?? undefined,
         details: draft.details,
         notes: draft.notes,
-        // Kept even for a hand-scored cookie, so switching back to the
-        // questions later picks up where they were left.
-        answers: draft.answers,
+        // A cookie keeps the answers of the one way it was rated, which is how
+        // its page and a later edit tell a quick review from a full tasting.
+        // A hand-scored cookie keeps any full-tasting answers too, so going
+        // back to the questions later picks up where they were left.
+        answers: answersFor(draft.answers, draft.quick && !draft.manual ? 'quick' : 'full'),
         suggested,
         scores,
         photo: draft.photo,
@@ -219,7 +222,12 @@ export function RatePage() {
           >
             <ArrowLeft className="size-5" />
           </IconButton>
-          <Progress step={step} manual={Boolean(draft.manual)} answers={draft.answers} />
+          <Progress
+            step={step}
+            manual={Boolean(draft.manual)}
+            quick={draft.quick}
+            answers={draft.answers}
+          />
           <IconButton label="Close" onClick={close} disabled={saving}>
             <X className="size-5" />
           </IconButton>
@@ -265,6 +273,15 @@ export function RatePage() {
             // longer exists.
             go(1, 'replace')
           }}
+          onFull={() => {
+            api.setQuick(false)
+            // The quick questions each left a history entry behind. Unwind to
+            // the first of them, which now shows the full tasting's first
+            // question, so "back" from there lands on the details instead of
+            // stepping through screens that no longer exist.
+            if (depth > 1) void navigate(-(depth - 1))
+            else go(1, 'replace')
+          }}
           onSave={() => void save()}
         />
       </main>
@@ -297,6 +314,7 @@ interface StepViewProps {
   onAdjust: (category: Category) => void
   onManual: () => void
   onGuided: () => void
+  onFull: () => void
   onSave: () => void
 }
 
@@ -314,6 +332,7 @@ function StepView({
   onAdjust,
   onManual,
   onGuided,
+  onFull,
   onSave,
 }: StepViewProps) {
   const { draft } = api
@@ -395,8 +414,10 @@ function StepView({
           saving={saving}
           onNotes={api.setNotes}
           onManual={api.setManual}
+          onNudge={api.setNudge}
           onAdjust={onAdjust}
           onGuided={onGuided}
+          onFull={onFull}
           onSave={onSave}
         />
       )
@@ -415,20 +436,22 @@ function textureStyleName(answers: Record<string, string | string[]>): string | 
 function Progress({
   step,
   manual,
+  quick,
   answers,
 }: {
   step: Step
   manual: boolean
+  quick: boolean
   answers: Record<string, string | string[]>
 }) {
   if (manual) {
-    return <p className="flex-1 text-center text-sm font-semibold text-ink-soft">Quick entry</p>
+    return <p className="flex-1 text-center text-sm font-semibold text-ink-soft">Your own scores</p>
   }
   const active = step.kind === 'question' || step.kind === 'result' ? step.category : null
   return (
     <ol aria-label="Progress" className="flex flex-1 items-start gap-1.5 px-1 pt-1">
       {TASTING_ORDER.map((category) => {
-        const done = step.kind === 'summary' ? 1 : categoryProgress(category, answers)
+        const done = step.kind === 'summary' ? 1 : categoryProgress(category, answers, quick)
         return (
           <li
             key={category}

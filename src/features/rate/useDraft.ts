@@ -3,7 +3,16 @@ import { clearDraft, draftKey, loadDraft, saveDraft } from '@/lib/db/cookies'
 import { db } from '@/lib/db/db'
 import type { CookieDetails, CookieRecord, DraftRecord, ProcessedPhoto } from '@/lib/db/schema'
 import { todayIso } from '@/lib/format'
-import { assessAll, CATEGORIES, getQuestion, type Category, type Scores } from '@/lib/rubric'
+import {
+  assessAll,
+  CATEGORIES,
+  getQuestion,
+  isQuickReview,
+  quickScores,
+  type Answers,
+  type Category,
+  type Scores,
+} from '@/lib/rubric'
 import { getSettings } from '@/lib/settings'
 
 export function blankDraft(key: string): DraftRecord {
@@ -23,13 +32,29 @@ export function blankDraft(key: string): DraftRecord {
     answers: {},
     nudges: { taste: 0, texture: 0, appearance: 0 },
     manual: null,
+    quick: getSettings().reviewStyle === 'quick',
     photo: 'none',
+  }
+}
+
+/** What the answers alone come to, for whichever way of rating is in use. */
+function suggestedScores(answers: Answers, quick: boolean): Scores {
+  if (quick) return quickScores(answers)
+  const assessed = assessAll(answers)
+  return {
+    taste: assessed.taste.score,
+    texture: assessed.texture.score,
+    appearance: assessed.appearance.score,
   }
 }
 
 export function draftFromCookie(cookie: CookieRecord): DraftRecord {
   const assessed = assessAll(cookie.answers)
-  const guided = CATEGORIES.every((c) => assessed[c].complete)
+  const full = CATEGORIES.every((c) => assessed[c].complete)
+  const quick = !full && isQuickReview(cookie.answers)
+  // Scored by answering questions, the full set or the quick three?
+  const guided = full || quick
+  const suggested = suggestedScores(cookie.answers, quick)
   return {
     key: draftKey(cookie.id),
     updatedAt: Date.now(),
@@ -46,12 +71,13 @@ export function draftFromCookie(cookie: CookieRecord): DraftRecord {
     answers: cookie.answers,
     nudges: guided
       ? {
-          taste: cookie.scores.taste - assessed.taste.score,
-          texture: cookie.scores.texture - assessed.texture.score,
-          appearance: cookie.scores.appearance - assessed.appearance.score,
+          taste: cookie.scores.taste - suggested.taste,
+          texture: cookie.scores.texture - suggested.texture,
+          appearance: cookie.scores.appearance - suggested.appearance,
         }
       : { taste: 0, texture: 0, appearance: 0 },
     manual: guided ? null : { ...cookie.scores },
+    quick,
     photo: cookie.hasPhoto ? 'keep' : 'none',
   }
 }
@@ -84,6 +110,8 @@ export interface DraftApi {
   setNotes: (notes: string) => void
   setPhoto: (photo: ProcessedPhoto | 'none') => void
   setManual: (manual: Scores | null) => void
+  /** Switch between the quick three questions and the full tasting. */
+  setQuick: (quick: boolean) => void
   startOver: () => void
   /** Stop autosaving and delete the stored draft (after a successful save). */
   finish: () => Promise<void>
@@ -207,6 +235,14 @@ export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>
     setNotes: useCallback((notes) => update((d) => ({ ...d, notes })), [update]),
     setPhoto: useCallback((photo) => update((d) => ({ ...d, photo })), [update]),
     setManual: useCallback((manual) => update((d) => ({ ...d, manual })), [update]),
+    setQuick: useCallback(
+      (quick) =>
+        update((d) =>
+          // A nudge adjusts one way's suggestion; it means nothing to the other's.
+          d.quick === quick ? d : { ...d, quick, nudges: { taste: 0, texture: 0, appearance: 0 } },
+        ),
+      [update],
+    ),
     startOver: useCallback(() => {
       setResumed(false)
       setTouched(false)
@@ -225,12 +261,7 @@ export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>
 /** Final scores for a draft: suggestion plus nudge, or the typed-in values. */
 export function draftScores(draft: DraftRecord): { suggested: Scores; scores: Scores } {
   if (draft.manual) return { suggested: { ...draft.manual }, scores: { ...draft.manual } }
-  const assessed = assessAll(draft.answers)
-  const suggested = {
-    taste: assessed.taste.score,
-    texture: assessed.texture.score,
-    appearance: assessed.appearance.score,
-  }
+  const suggested = suggestedScores(draft.answers, draft.quick)
   const scores = { ...suggested }
   for (const c of CATEGORIES) {
     scores[c] = Math.min(10, Math.max(1, suggested[c] + draft.nudges[c]))

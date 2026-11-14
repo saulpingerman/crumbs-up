@@ -26,11 +26,14 @@ import { formatDate, formatPlace, formatPrice } from '@/lib/format'
 import {
   CATEGORIES,
   CATEGORY_META,
+  QUICK_QUESTIONS,
   TASTING_ORDER,
   TEXTURE_STYLE_QUESTION_ID,
   assessCategory,
   formatScore,
   getQuestion,
+  isQuickReview,
+  quickAnswer,
   tierFor,
   type Category,
 } from '@/lib/rubric'
@@ -262,8 +265,10 @@ function Standing({ cookie }: { cookie: RatedCookie }) {
 
 /** The answers behind each score. */
 function Breakdown({ cookie }: { cookie: RatedCookie }) {
-  // Only a fully answered questionnaire explains the scores.
+  // Only a fully answered questionnaire explains the scores in detail. A
+  // quick review has one answer behind each of them.
   const hasAnswers = CATEGORIES.every((c) => assessCategory(c, cookie.answers).complete)
+  const quick = !hasAnswers && isQuickReview(cookie.answers)
   const styleQuestion = getQuestion(TEXTURE_STYLE_QUESTION_ID)
   const styleAnswer = cookie.answers[TEXTURE_STYLE_QUESTION_ID]
   const style =
@@ -274,7 +279,19 @@ function Breakdown({ cookie }: { cookie: RatedCookie }) {
   return (
     <section className="mt-8">
       <h2 className="font-display text-xl font-semibold">How it earned its scores</h2>
-      {!hasAnswers ? (
+      {quick ? (
+        <>
+          <p className="mt-1.5 text-sm text-ink-soft">
+            A quick review: one overall answer behind each score. Choose{' '}
+            <strong className="font-semibold text-ink">Edit</strong> to do the full tasting.
+          </p>
+          <div className="mt-3 space-y-2">
+            {TASTING_ORDER.map((category) => (
+              <CategoryBreakdown key={category} category={category} cookie={cookie} quick />
+            ))}
+          </div>
+        </>
+      ) : !hasAnswers ? (
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
           These scores were entered by hand, so there are no questionnaire answers behind them.
           Choose <strong className="font-semibold text-ink">Edit</strong> to run the questions for
@@ -298,8 +315,22 @@ function Breakdown({ cookie }: { cookie: RatedCookie }) {
   )
 }
 
-function CategoryBreakdown({ category, cookie }: { category: Category; cookie: RatedCookie }) {
+function CategoryBreakdown({
+  category,
+  cookie,
+  quick = false,
+}: {
+  category: Category
+  cookie: RatedCookie
+  /** Scored from the one quick question rather than the full set. */
+  quick?: boolean
+}) {
   const assessed = assessCategory(category, cookie.answers)
+  const picked = quick ? quickAnswer(category, cookie.answers) : undefined
+  const lines =
+    picked && picked.score !== null
+      ? [{ question: QUICK_QUESTIONS[category], option: picked, score: picked.score }]
+      : assessed.lines
   const recorded = cookie.scores[category]
   const suggested = cookie.suggested[category]
   const moved = recorded - suggested
@@ -318,7 +349,7 @@ function CategoryBreakdown({ category, cookie }: { category: Category; cookie: R
       </summary>
       <div className="px-4 pb-3">
         <ul className="divide-y divide-line/70 border-t border-line/70">
-          {assessed.lines.map((line) => (
+          {lines.map((line) => (
             <li key={line.question.id} className="flex items-center gap-3 py-2.5">
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] text-ink-soft">{line.question.title}</p>
@@ -346,8 +377,8 @@ function CategoryBreakdown({ category, cookie }: { category: Category; cookie: R
         </ul>
         {moved !== 0 && (
           <p className="mt-2 text-[13px] text-ink-soft">
-            The questions suggested {formatScore(suggested)}; you moved it{' '}
-            {moved > 0 ? 'up' : 'down'} to {formatScore(recorded)}.
+            {quick ? 'Your answer' : 'The questions'} suggested {formatScore(suggested)}; you moved
+            it {moved > 0 ? 'up' : 'down'} to {formatScore(recorded)}.
           </p>
         )}
       </div>

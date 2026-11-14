@@ -420,7 +420,75 @@ export const QUESTIONS: Record<Category, Question[]> = { appearance, texture, ta
 
 export const ALL_QUESTIONS: Question[] = [...appearance, ...texture, ...taste]
 
-const BY_ID = new Map(ALL_QUESTIONS.map((q) => [q.id, q]))
+/* ----------------------------- Quick review ----------------------------- */
+
+/**
+ * The short way to rate: one overall question per category instead of five
+ * detailed ones. The answers sit on the same six rungs, so a quick 8 and a
+ * full 8 mean the same thing — the quick one just comes with less reasoning.
+ */
+export const QUICK_QUESTIONS: Record<Category, ScaleQuestion> = {
+  appearance: scale({
+    id: 'quick.look',
+    category: 'appearance',
+    title: 'Overall look',
+    prompt: 'How did it look?',
+    hint: 'All things considered: color, shape, finish, toppings.',
+    weight: 1,
+    rungs: [
+      ['Off-putting', 'I almost didn’t buy it'],
+      ['A little sad', 'Tired, plain or sloppy'],
+      ['A normal cookie', 'Looks like one from the bag recipe'],
+      ['Inviting', 'Looked good — I wanted it'],
+      ['Gorgeous', 'Caught my eye right away'],
+      ['Showstopper', 'The best-looking cookie in any case'],
+    ],
+  }),
+  texture: scale({
+    id: 'quick.bite',
+    category: 'texture',
+    title: 'Overall texture',
+    prompt: 'How was the texture?',
+    hint: 'Judge it as the kind of cookie it is trying to be.',
+    weight: 1,
+    rungs: [
+      ['Bad', 'Stale, raw in the middle or rock hard'],
+      ['Off', 'Dry, tough or greasy'],
+      ['Fine', 'Like a decent homemade cookie'],
+      ['Good', 'Pleasant all the way through'],
+      ['Great', 'Just what this kind of cookie should be'],
+      ['Perfect', 'I can’t imagine it eating any better'],
+    ],
+  }),
+  taste: scale({
+    id: 'quick.taste',
+    category: 'taste',
+    title: 'Overall taste',
+    prompt: 'How did it taste?',
+    weight: 1,
+    rungs: [
+      ['Bad', 'I couldn’t finish it'],
+      ['Disappointing', 'Bland, or something tasted off'],
+      ['Fine', 'Like the bag recipe: good, nothing special'],
+      ['Good', 'Clearly better than homemade'],
+      ['Delicious', 'I’d go out of my way for it'],
+      ['Unforgettable', 'One of the best I’ve ever had'],
+    ],
+  }),
+}
+
+export const QUICK_QUESTION_LIST: ScaleQuestion[] = [
+  QUICK_QUESTIONS.appearance,
+  QUICK_QUESTIONS.texture,
+  QUICK_QUESTIONS.taste,
+]
+
+/** Is this the id of a quick-review answer rather than a full-tasting one? */
+export function isQuickAnswer(questionId: string): boolean {
+  return QUICK_QUESTION_LIST.some((q) => q.id === questionId)
+}
+
+const BY_ID = new Map([...ALL_QUESTIONS, ...QUICK_QUESTION_LIST].map((q) => [q.id, q]))
 
 export function getQuestion(id: string): Question | undefined {
   return BY_ID.get(id)

@@ -28,7 +28,7 @@ export function GuidePage() {
     <Page
       title="How the scoring works"
       kicker="The rule book"
-      lede="Fifteen quick questions, one fixed reference point, and no mystery math."
+      lede="Worded questions, one fixed reference point, and no mystery math."
       className="max-w-2xl"
       action={
         <Link
@@ -74,8 +74,13 @@ export function GuidePage() {
           <SectionTitle>Look, bite, savor</SectionTitle>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
             The questions follow the order you actually meet a cookie: how it looks before you touch
-            it, how it eats, then how it tastes. Each category asks five questions. Heavier bars
-            count for more.
+            it, how it eats, then how it tastes. In a full tasting each category asks five scored
+            questions and then checks for flaws. Heavier bars count for more.
+          </p>
+          <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+            Short on time? A <strong className="font-semibold text-ink">quick review</strong> asks
+            one overall question for each of the three instead — same rungs, same scale — and lets
+            you fine-tune the scores by half points on the verdict. You pick which before you start.
           </p>
           <div className="mt-4 space-y-5">
             {TASTING_ORDER.map((category) => (

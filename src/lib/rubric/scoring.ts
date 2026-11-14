@@ -1,4 +1,4 @@
-import { MAX_FLAW_PENALTY, QUESTIONS } from './questions'
+import { MAX_FLAW_PENALTY, QUESTIONS, QUICK_QUESTIONS, isQuickAnswer } from './questions'
 import {
   CATEGORIES,
   type Answers,
@@ -129,6 +129,41 @@ export function assessAll(answers: Answers): Record<Category, CategoryAssessment
     texture: assessCategory('texture', answers),
     appearance: assessCategory('appearance', answers),
   }
+}
+
+/* ----------------------------- Quick review ----------------------------- */
+
+/** The answer picked for a category's one quick question, if there is one. */
+export function quickAnswer(category: Category, answers: Answers): Option | undefined {
+  const question = QUICK_QUESTIONS[category]
+  const answer = answers[question.id]
+  return typeof answer === 'string'
+    ? question.options.find((o) => o.id === answer && o.score !== null)
+    : undefined
+}
+
+/**
+ * Scores from a quick review: each answer taken at face value. A category
+ * that hasn't been answered yet sits at the standard.
+ */
+export function quickScores(answers: Answers): Scores {
+  const score = (category: Category) => quickAnswer(category, answers)?.score ?? STANDARD_SCORE
+  return { taste: score('taste'), texture: score('texture'), appearance: score('appearance') }
+}
+
+/** True when all three quick questions have been answered. */
+export function isQuickReview(answers: Answers): boolean {
+  return CATEGORIES.every((category) => quickAnswer(category, answers) !== undefined)
+}
+
+/**
+ * The answers that belong to one way of rating. A saved cookie keeps only
+ * the set it was scored with, so how it was rated can be read back from it.
+ */
+export function answersFor(answers: Answers, style: 'quick' | 'full'): Answers {
+  return Object.fromEntries(
+    Object.entries(answers).filter(([id]) => isQuickAnswer(id) === (style === 'quick')),
+  )
 }
 
 /* ------------------------------- Overall -------------------------------- */
