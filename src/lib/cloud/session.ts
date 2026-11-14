@@ -183,6 +183,14 @@ export async function signUp(email: string, password: string): Promise<'signed-i
   return data.session ? 'signed-in' : 'confirm'
 }
 
+/**
+ * Finish a sign-in that Google's own box started: hand the account service
+ * the token Google signed, and the one-time value that goes with it.
+ */
+export async function signInWithGoogleToken(token: string, nonce: string): Promise<void> {
+  await run((client) => client.auth.signInWithIdToken({ provider: 'google', token, nonce }))
+}
+
 export async function signInWith(provider: Provider): Promise<void> {
   // Leaves the page for the provider; the session is picked up on return.
   await run((client) =>
