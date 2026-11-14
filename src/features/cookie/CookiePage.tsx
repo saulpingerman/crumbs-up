@@ -409,9 +409,13 @@ function ShareButton({ cookie }: { cookie: RatedCookie }) {
       {busy &&
         createPortal(
           // Rendered off-screen at full size; never visible, only photographed.
+          // It is parked by its own width, not the screen's: the card is far
+          // wider than a phone, so "two screens to the left" left its edge
+          // showing for as long as the share sheet stayed open.
           <div
             aria-hidden
-            className="pointer-events-none fixed top-0 left-[-200vw]"
+            className="pointer-events-none fixed top-0"
+            style={{ left: -(SHARE_WIDTH + 200) }}
             data-testid="share-card"
           >
             <ShareCard

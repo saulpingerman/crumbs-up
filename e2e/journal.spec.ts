@@ -137,3 +137,27 @@ test('the privacy page says what is kept and where', async ({ page }) => {
   await page.getByRole('link', { name: 'Privacy' }).click()
   await expect(page.getByRole('heading', { name: 'What is kept, and where' })).toBeVisible()
 })
+
+test('the scorecard stays out of sight while it is being shared', async ({ page }) => {
+  // Stand in for a phone's share sheet, and leave it open.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true })
+    Object.defineProperty(navigator, 'share', {
+      value: () => {
+        document.documentElement.dataset.sharing = 'yes'
+        return new Promise(() => {})
+      },
+      configurable: true,
+    })
+  })
+  await addSamples(page)
+  await page.locator('main ul a[href*="/cookie/"]').first().click()
+  await page.getByRole('button', { name: 'Share scorecard' }).click()
+  await expect(page.locator('html[data-sharing]')).toBeAttached({ timeout: 20_000 })
+
+  // The card is built at full size, far wider than a phone. None of it may
+  // reach onto the screen.
+  const box = await page.getByTestId('share-card').boundingBox()
+  expect(box).not.toBeNull()
+  expect(box!.x + box!.width).toBeLessThanOrEqual(0)
+})
