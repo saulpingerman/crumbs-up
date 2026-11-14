@@ -17,7 +17,7 @@ import { useCookies } from '@/lib/use-cookies'
 import { useTitle } from '@/lib/use-title'
 import { BiteableCookie } from './BiteableCookie'
 import { CookieCard } from './CookieCard'
-import { BackupNudge, InstallHint } from './InstallHint'
+import { BackupNudge } from './BackupNudge'
 
 type Sort = 'recent' | 'ranked'
 
@@ -88,7 +88,6 @@ export function JournalPage() {
         </>
       }
     >
-      <InstallHint />
       <BackupNudge />
 
       {summary.best && cookies.length >= 3 && !filtered && (
