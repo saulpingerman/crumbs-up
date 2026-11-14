@@ -44,9 +44,14 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Keep Supabase's ports free
-        # Its ports sit in the range Linux hands out to outgoing connections, so
-        # one can be taken (by an image download, say) just as the stack starts.
-        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54330
+        # supabase/config.toml keeps the stack's ports below the range Linux
+        # hands out to outgoing connections, so nothing should be sitting on
+        # them. This holds that true even on a machine with a wider range, and
+        # shows what is there if a start ever fails on a port again.
+        run: |
+          sudo sysctl -w net.ipv4.ip_local_reserved_ports=24320-24330
+          cat /proc/sys/net/ipv4/ip_local_port_range
+          sudo ss -Htanp '( sport >= :24320 and sport <= :24330 )' || true
       - name: Start Supabase
         run: npx supabase start -x realtime,imgproxy,studio,postgres-meta,edge-runtime,logflare,vector,supavisor
       - name: Database tests
