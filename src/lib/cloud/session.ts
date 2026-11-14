@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { cloudConfigured, findProviders, getClient, returnUrl } from './client'
+import { cloudConfigured, getClient, returnUrl } from './client'
 import type { Provider } from './providers'
 
 export type Session =
@@ -81,7 +81,6 @@ let started = false
 export function startSession(events: LinkEvents = {}): void {
   if (!cloudConfigured || started) return
   started = true
-  void findProviders()
   void getClient()
     .then(async (client) => {
       // Before listening for changes, so arriving by link counts as how the

@@ -13,7 +13,7 @@
  */
 import type { CrumbsDb } from '@/lib/db/db'
 import { cookieSchema, type CookieRecord, type PhotoImages } from '@/lib/db/schema'
-import type { Remote } from './remote'
+import type { Remote, RemoteRow } from './remote'
 
 /** This device's journal already belongs to a different account. */
 export class DifferentAccountError extends Error {
@@ -25,6 +25,11 @@ export class DifferentAccountError extends Error {
 export interface SyncTools {
   /** Work out a downloaded photo's size and make its thumbnail. */
   describePhoto: (full: ArrayBuffer) => Promise<PhotoImages>
+  /**
+   * Told when a cookie's picture on this device changes without the cookie
+   * itself changing — it arrived late, say — so screens showing it can catch up.
+   */
+  photoChanged?: (cookieId: string) => void
 }
 
 export interface SyncResult {
@@ -58,9 +63,38 @@ async function linkToAccount(database: CrumbsDb, remote: Remote): Promise<void> 
   })
 }
 
-async function send(database: CrumbsDb, remote: Remote): Promise<number> {
+async function crossOff(
+  database: CrumbsDb,
+  entry: { id: string; op: 'put' | 'delete'; editedAt: number },
+): Promise<void> {
+  // Unless the cookie changed again while this was in flight.
+  await database.transaction('rw', database.outbox, async () => {
+    const current = await database.outbox.get(entry.id)
+    if (current && current.editedAt === entry.editedAt && current.op === entry.op) {
+      await database.outbox.delete(entry.id)
+    }
+  })
+}
+
+async function send(database: CrumbsDb, remote: Remote, tools: SyncTools): Promise<number> {
+  const outbox = await database.outbox.toArray()
+  if (outbox.length === 0) return 0
+  // What the cloud already has for these cookies. Another device may have
+  // changed one more recently than this one did.
+  const theirs = new Map((await remote.current(outbox.map((e) => e.id))).map((r) => [r.id, r]))
+
   let sent = 0
-  for (const entry of await database.outbox.toArray()) {
+  for (const entry of outbox) {
+    const winner = theirs.get(entry.id)
+    if (winner && winner.edited_at > entry.editedAt) {
+      // Ours is the older edit and has lost. Sending it would be pointless
+      // (the database would drop it) and worse for its photos, which have no
+      // such guard: they would replace the winner's. Take the winner instead.
+      await crossOff(database, entry)
+      await applyRow(database, remote, tools, winner)
+      continue
+    }
+
     const cookie = entry.op === 'put' ? await database.cookies.get(entry.id) : undefined
 
     if (cookie && !cookie.sample) {
@@ -88,13 +122,7 @@ async function send(database: CrumbsDb, remote: Remote): Promise<number> {
       sent += 1
     }
 
-    // Cross it off — unless the cookie changed again while this was in flight.
-    await database.transaction('rw', database.outbox, async () => {
-      const current = await database.outbox.get(entry.id)
-      if (current && current.editedAt === entry.editedAt && current.op === entry.op) {
-        await database.outbox.delete(entry.id)
-      }
-    })
+    await crossOff(database, entry)
   }
   return sent
 }
@@ -168,6 +196,58 @@ async function removeLocally(database: CrumbsDb, id: string): Promise<void> {
   })
 }
 
+/**
+ * Bring one cookie on this device into line with the cloud's copy of it,
+ * if the cloud's is the newer. @returns whether anything changed here.
+ */
+async function applyRow(
+  database: CrumbsDb,
+  remote: Remote,
+  tools: SyncTools,
+  row: RemoteRow,
+): Promise<boolean> {
+  // An edit made here that hasn't been sent yet, and is at least as new, stands.
+  const pending = await database.outbox.get(row.id)
+  if (pending && pending.editedAt >= row.edited_at) return false
+
+  const local = await database.cookies.get(row.id)
+
+  if (row.deleted) {
+    if (!local || local.updatedAt > row.edited_at) return false
+    await removeLocally(database, row.id)
+    return true
+  }
+  if (local && local.updatedAt >= row.edited_at) return false
+
+  const parsed = cookieSchema.safeParse(row.data)
+  if (!parsed.success) return false // written by a newer app version, perhaps; leave it be
+  const { sample: _sample, ...cookie } = parsed.data
+
+  await database.transaction('rw', database.cookies, database.outbox, async () => {
+    await database.cookies.put(cookie)
+    await database.outbox.delete(cookie.id)
+  })
+
+  const dropPhoto = () =>
+    Promise.all([
+      database.photos.delete(cookie.id),
+      database.thumbs.delete(cookie.id),
+      database.originals.delete(cookie.id),
+    ])
+  if (!cookie.hasPhoto) {
+    await dropPhoto()
+  } else if (!local?.hasPhoto || local.photoUpdatedAt !== cookie.photoUpdatedAt) {
+    // A new or replaced picture. If it can't be fetched right now the cookie
+    // still arrives. Any picture already here is the *old* one, so it goes:
+    // the cookie shows its illustration meanwhile, and having no picture is
+    // what tells the repair pass to keep trying.
+    const arrived = await storePhoto(database, remote, tools, cookie).catch(() => false)
+    if (!arrived) await dropPhoto()
+    tools.photoChanged?.(cookie.id)
+  }
+  return true
+}
+
 async function receive(database: CrumbsDb, remote: Remote, tools: SyncTools): Promise<number> {
   const cursor = (await database.meta.get('cursor'))?.value ?? null
   const rows = await remote.pull(cursor)
@@ -176,43 +256,7 @@ async function receive(database: CrumbsDb, remote: Remote, tools: SyncTools): Pr
 
   for (const row of rows) {
     if (!newest || row.changed_at > newest) newest = row.changed_at
-
-    // An edit made here that hasn't been sent yet, and is at least as new, stands.
-    const pending = await database.outbox.get(row.id)
-    if (pending && pending.editedAt >= row.edited_at) continue
-
-    const local = await database.cookies.get(row.id)
-
-    if (row.deleted) {
-      if (local && local.updatedAt <= row.edited_at) {
-        await removeLocally(database, row.id)
-        received += 1
-      }
-      continue
-    }
-    if (local && local.updatedAt >= row.edited_at) continue
-
-    const parsed = cookieSchema.safeParse(row.data)
-    if (!parsed.success) continue // written by a newer app version, perhaps; leave it be
-    const { sample: _sample, ...cookie } = parsed.data
-
-    await database.transaction('rw', database.cookies, database.outbox, async () => {
-      await database.cookies.put(cookie)
-      await database.outbox.delete(cookie.id)
-    })
-    received += 1
-
-    if (!cookie.hasPhoto) {
-      await Promise.all([
-        database.photos.delete(cookie.id),
-        database.thumbs.delete(cookie.id),
-        database.originals.delete(cookie.id),
-      ])
-    } else if (!local?.hasPhoto || local.photoUpdatedAt !== cookie.photoUpdatedAt) {
-      // A new or replaced picture. If it can't be fetched right now the
-      // cookie still arrives, and the repair pass below tries again later.
-      await storePhoto(database, remote, tools, cookie).catch(() => false)
-    }
+    if (await applyRow(database, remote, tools, row)) received += 1
   }
 
   if (newest && newest !== cursor) await database.meta.put({ key: 'cursor', value: newest })
@@ -226,7 +270,8 @@ async function repairPhotos(database: CrumbsDb, remote: Remote, tools: SyncTools
     .filter((c) => c.hasPhoto && !c.sample && !have.has(c.id))
     .slice(0, REPAIRS_PER_SYNC)
   for (const cookie of missing) {
-    await storePhoto(database, remote, tools, cookie).catch(() => false)
+    const arrived = await storePhoto(database, remote, tools, cookie).catch(() => false)
+    if (arrived) tools.photoChanged?.(cookie.id)
   }
 }
 
@@ -240,7 +285,7 @@ export async function sync(
   tools: SyncTools,
 ): Promise<SyncResult> {
   await linkToAccount(database, remote)
-  const sent = await send(database, remote)
+  const sent = await send(database, remote, tools)
   const received = await receive(database, remote, tools)
   await repairPhotos(database, remote, tools)
   await database.meta.put({ key: 'syncedAt', value: new Date().toISOString() })

@@ -127,6 +127,45 @@ describe.skipIf(!url || !key)('cloud journal (real Supabase)', () => {
     expect((await ana.remote.pull(cursor)).map((r) => r.id)).toContain(second)
   })
 
+  it('reads a journal too long for one page without dropping or repeating a cookie', async () => {
+    const { remote } = await signUp()
+    const ids = Array.from({ length: 1150 }, () => crypto.randomUUID())
+    // Sent in a few goes, so many rows share the moment they were written.
+    for (let start = 0; start < ids.length; start += 400) {
+      await remote.push(
+        ids.slice(start, start + 400).map((id, i) => ({
+          id,
+          data: cookie(id, start + i),
+          edited_at: start + i,
+          deleted: false,
+        })),
+      )
+    }
+    const rows = await remote.pull(null)
+    expect(rows.length).toBe(ids.length)
+    expect(new Set(rows.map((row) => row.id)).size).toBe(ids.length)
+    // In the order they changed, which is what the cursor relies on.
+    const stamps = rows.map((row) => row.changed_at)
+    expect([...stamps].sort()).toEqual(stamps)
+  }, 60_000)
+
+  it('says what the cloud holds for the cookies asked about, and only those', async () => {
+    const { remote } = await signUp()
+    const [a, b, never] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()]
+    await remote.push([
+      { id: a, data: cookie(a, 10), edited_at: 10, deleted: false },
+      { id: b, data: {}, edited_at: 20, deleted: true },
+    ])
+    const held = await remote.current([a, b, never])
+    expect(held.map((row) => [row.id, row.edited_at, row.deleted]).sort()).toEqual(
+      [
+        [a, 10, false],
+        [b, 20, true],
+      ].sort(),
+    )
+    expect(await remote.current([])).toEqual([])
+  })
+
   it('never shows one person’s cookies to another', async () => {
     const id = crypto.randomUUID()
     await ana.remote.push([

@@ -84,10 +84,15 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
   const { onlinePlaces } = useSettings()
   const typedBakery = details.bakery.trim()
   const [lookup, setLookup] = useState<{ query: string; matches: OsmPlace[] } | null>(null)
-  const nearLat = details.place?.lat ?? places?.find(details.city, details.state)?.lat
-  const nearLng = details.place?.lng ?? places?.find(details.city, details.state)?.lng
+  // Lookups are steered towards the town that was typed — never towards the
+  // phone's own position, which stays on the device.
+  const town = places?.find(details.city, details.state)
+  const nearLat = town?.lat
+  const nearLng = town?.lng
+  const pinned = Boolean(details.place)
   useEffect(() => {
-    if (!onlinePlaces || typedBakery.length < 3 || !navigator.onLine) return
+    // With the exact spot already known there is nothing to look up.
+    if (pinned || !onlinePlaces || typedBakery.length < 3 || !navigator.onLine) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
       const near =
@@ -102,7 +107,7 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
       clearTimeout(timer)
       controller.abort()
     }
-  }, [onlinePlaces, typedBakery, nearLat, nearLng])
+  }, [pinned, onlinePlaces, typedBakery, nearLat, nearLng])
   const mapMatches =
     lookup?.query === typedBakery && !details.place
       ? lookup.matches

@@ -218,8 +218,15 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
     database.thumbs,
     database.originals,
     database.outbox,
+    database.meta,
   ]
+  const now = Date.now()
   await database.transaction('rw', tables, async () => {
+    // On a device that syncs, a cookie missing here was deleted, and that
+    // deletion is on record with a later date than anything in the backup.
+    // Bringing the cookie back is a new decision, so it is dated now — with
+    // its old date it would simply lose to the deletion all over again.
+    const syncs = Boolean(await database.meta.get('owner'))
     for (const raw of manifest.cookies) {
       const parsed = cookieSchema.safeParse(raw)
       if (!parsed.success) {
@@ -238,7 +245,13 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
       const thumb = files[`${root}thumbs/${cookie.id}.jpg`]
       const hasPhoto = Boolean(meta && photo && thumb)
 
-      await database.cookies.put({ ...cookie, hasPhoto })
+      const restoredAt = syncs ? Math.max(now, cookie.updatedAt) : cookie.updatedAt
+      await database.cookies.put({
+        ...cookie,
+        hasPhoto,
+        updatedAt: restoredAt,
+        ...(syncs && hasPhoto ? { photoUpdatedAt: restoredAt } : {}),
+      })
       if (meta && photo && thumb) {
         const full: StoredImage = {
           cookieId: cookie.id,
@@ -276,7 +289,7 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
         ])
       }
       // A restored cookie is a change like any other: it should reach the cloud copy.
-      if (!cookie.sample) await noteChange(database, cookie.id, 'put', cookie.updatedAt, true)
+      if (!cookie.sample) await noteChange(database, cookie.id, 'put', restoredAt, true)
       if (existing) result.updated += 1
       else result.added += 1
     }

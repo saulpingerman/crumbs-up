@@ -1,11 +1,12 @@
 import { Cloud, CloudOff, LoaderCircle, LogOut, RefreshCw, TriangleAlert } from 'lucide-react'
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { Field, TextInput } from '@/components/Field'
 import { Card, SectionTitle } from '@/components/Page'
 import { Sheet } from '@/components/Sheet'
 import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
+import { findProviders } from '@/lib/cloud/client'
 import { useProviders, type Provider } from '@/lib/cloud/providers'
 import {
   AuthError,
@@ -93,6 +94,9 @@ export function AccountCard() {
 function SignIn() {
   const id = useId()
   const providers = useProviders()
+  // Asked for here rather than at start-up, so that someone who never opens
+  // the sign-in form never contacts the account service at all.
+  useEffect(() => void findProviders(), [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState<'in' | 'up' | 'reset' | Provider | null>(null)

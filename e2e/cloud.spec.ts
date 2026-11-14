@@ -346,3 +346,47 @@ test('a device is not cleared while it holds cookies the account has not receive
     device.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
   ).toBeVisible()
 })
+
+test('deleting everything on a signed-out device leaves the account alone', async ({ browser }) => {
+  const email = `careful-${crypto.randomUUID()}@example.com`
+  const device = await openDevice(browser)
+  await rateByHand(device, 'Biscotti', 'Kept Safe Bakery')
+  await signIn(device, email, 'Create account')
+
+  // Sign out but keep the journal here, then wipe the device.
+  await device.getByRole('button', { name: 'Sign out' }).click()
+  await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
+  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await device.getByRole('button', { name: 'Delete everything' }).click()
+  const dialog = device.getByRole('alertdialog')
+  await expect(dialog).toContainText('erased from this device')
+  await expect(dialog).not.toContainText('from your account')
+  await dialog.getByRole('button', { name: 'Delete everything' }).click()
+  await expect(device.getByText('Journal deleted')).toBeVisible()
+
+  // Signing back in brings the journal back: nothing was deleted from the account.
+  await signIn(device, email, 'Sign in')
+  await device.goto('/')
+  await expect(device.getByText('Kept Safe Bakery')).toBeVisible()
+})
+
+test('a photo that arrives after its cookie replaces the stand-in drawing by itself', async ({
+  browser,
+}) => {
+  const email = `watching-${crypto.randomUUID()}@example.com`
+  const phone = await openDevice(browser)
+  const laptop = await openDevice(browser)
+  await signIn(phone, email, 'Create account')
+  await signIn(laptop, email, 'Sign in')
+  // The laptop is left sitting on the journal.
+  await laptop.goto('/')
+
+  await rateByHand(phone, 'Linzer', 'Late Photo Bakery', true)
+  await syncNow(phone)
+
+  // Coming back to the tab is one of the moments the app syncs.
+  await laptop.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+  await expect(laptop.getByAltText('Linzer cookie from Late Photo Bakery')).toBeVisible({
+    timeout: 30_000,
+  })
+})
