@@ -66,7 +66,9 @@ test('cuts the cookie out of its photo and keeps the original', async ({ page })
   ).toBe(800)
 })
 
-test('finds the cookie wherever it is, and leaves a photo without one alone', async ({ page }) => {
+test('finds the cookie wherever it is, takes correction, and leaves a photo without one alone', async ({
+  page,
+}) => {
   test.setTimeout(300_000)
   await page.goto('/rate')
   await expect(page.getByRole('heading', { name: 'What are we rating?' })).toBeVisible()
@@ -84,6 +86,44 @@ test('finds the cookie wherever it is, and leaves a photo without one alone', as
     return [...context.getImageData(4, 4, 1, 1).data]
   })
   expect(red! - blue!).toBeGreaterThan(60)
+
+  // "Not the cookie?" shows the whole photo, where a tap says which thing is meant…
+  const middleOfCutout = () =>
+    cutout.evaluate((img: HTMLImageElement) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = 9
+      const context = canvas.getContext('2d')!
+      context.drawImage(img, img.naturalWidth * 0.45, img.naturalHeight * 0.45, 9, 9, 0, 0, 9, 9)
+      return [...context.getImageData(4, 4, 1, 1).data]
+    })
+  await page.getByRole('button', { name: 'Not the cookie?' }).click()
+  const photo = page.getByTestId('pick-cookie')
+  await expect(page.getByText('Tap the cookie, or circle it')).toBeVisible()
+  let box = (await photo.boundingBox())!
+  expect(box.height).toBeGreaterThan(box.width) // the whole portrait photo, not a crop of it
+  await page.mouse.click(box.x + box.width * 0.54, box.y + box.height * 0.46)
+  await expect(cutout).toBeVisible({ timeout: 120_000 })
+  const napkin = await middleOfCutout()
+  expect(napkin[0]! - napkin[2]!).toBeLessThan(20) // the napkin, as asked: white, not golden
+
+  // …and so does a rough circle drawn around it.
+  await page.getByRole('button', { name: 'Not the cookie?' }).click()
+  await expect(photo).toBeVisible()
+  box = (await photo.boundingBox())!
+  const centre = { x: box.x + box.width * 0.275, y: box.y + box.height * 0.745 }
+  await page.mouse.move(centre.x + box.width * 0.27, centre.y)
+  await page.mouse.down()
+  for (let step = 1; step <= 26; step++) {
+    const angle = (step / 24) * Math.PI * 2
+    await page.mouse.move(
+      centre.x + box.width * 0.27 * Math.cos(angle),
+      centre.y + box.height * 0.2 * Math.sin(angle),
+    )
+  }
+  await page.mouse.up()
+  await expect(cutout).toBeVisible({ timeout: 120_000 })
+  const circled = await middleOfCutout()
+  expect(circled[0]! - circled[2]!).toBeGreaterThan(60)
 
   // A label on a table: nothing to cut out, so the photo is kept as it was taken.
   await page.getByTestId('photo-input').setInputFiles(fixture('no-cookie.jpg'))

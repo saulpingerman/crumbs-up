@@ -2,7 +2,7 @@ import { hash } from '@/lib/cookie-art/recipe'
 import type { PhotoImages, ProcessedPhoto } from '@/lib/db/schema'
 import { findOutline, type Progress } from './client'
 import { composeCutout, CUTOUT_SIZE, CUTOUT_THUMB } from './compose'
-import type { Point } from './mask'
+import { middleOf, type Point } from './mask'
 
 export type { Progress } from './client'
 export type { Point } from './mask'
@@ -15,11 +15,14 @@ export function originalOf(photo: ProcessedPhoto): PhotoImages {
   return photo.original ?? photo
 }
 
+/** How someone showed where the cookie is: a tap on it, or a loop drawn around it. */
+export type Pick = Point | Point[]
+
 /**
  * Cut the cookie out of a photo and set it on a clean tabletop.
  *
- * With a `point` — someone tapped the cookie — it cuts out whatever is
- * there. Without one it finds the cookie itself.
+ * With a `pick` — someone tapped the cookie, or drew a loop around it — it
+ * cuts out whatever is there. Without one it finds the cookie itself.
  *
  * Resolves to the new picture (which carries the original inside it, so
  * nothing is lost), or `null` when no cookie could be found.
@@ -28,9 +31,11 @@ export function originalOf(photo: ProcessedPhoto): PhotoImages {
  */
 export async function cutOutCookie(
   photo: ProcessedPhoto,
-  point?: Point,
+  pick?: Pick,
   onProgress?: (progress: Progress) => void,
 ): Promise<ProcessedPhoto | null> {
+  const around = Array.isArray(pick) ? pick : undefined
+  const point = around ? middleOf(around) : (pick as Point | undefined)
   const original = originalOf(photo)
   const blob = new Blob([original.full], { type: original.mime })
   const scale = Math.min(1, ANALYSIS_EDGE / Math.max(original.width, original.height))
@@ -44,7 +49,7 @@ export async function cutOutCookie(
   ])
 
   try {
-    const mask = await findOutline(analysis, point, onProgress)
+    const mask = await findOutline(analysis, point, around, onProgress)
     if (!mask) return null
 
     // The same photo always lands on the same tabletop.

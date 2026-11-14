@@ -52,18 +52,19 @@ function getWorker(): Worker {
 
 /**
  * Ask the worker for the cookie's outline: at `point` if someone tapped
- * there, otherwise wherever it finds one. Resolves to null if there's no
- * cookie to be found.
+ * there (trimmed to `around`, if they drew a loop), otherwise wherever it
+ * finds one. Resolves to null if there's no cookie to be found.
  */
 export function findOutline(
   image: ImageBitmap,
   point: Point | undefined,
+  around: Point[] | undefined,
   onProgress?: (progress: Progress) => void,
 ): Promise<RefinedMask | null> {
   return new Promise((resolve, reject) => {
     const id = nextId++
     pending.set(id, { resolve, reject, onProgress })
-    const request: CutoutRequest = { type: 'cutout', id, image, point }
+    const request: CutoutRequest = { type: 'cutout', id, image, point, around }
     getWorker().postMessage(request, [image])
   })
 }

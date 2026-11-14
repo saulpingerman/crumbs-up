@@ -287,3 +287,85 @@ function hullArea(rowMin: Int32Array, rowMax: Int32Array): number {
   }
   return Math.abs(twice) / 2
 }
+
+/** The middle of a hand-drawn loop: where its area balances. */
+export function middleOf(outline: Point[]): Point {
+  let twice = 0
+  let x = 0
+  let y = 0
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]!
+    const b = outline[(i + 1) % outline.length]!
+    const cross = a.x * b.y - b.x * a.y
+    twice += cross
+    x += (a.x + b.x) * cross
+    y += (a.y + b.y) * cross
+  }
+  if (Math.abs(twice) < 1e-9) {
+    // A line, or a scribble that cancels itself out: fall back to the average.
+    const n = Math.max(1, outline.length)
+    return {
+      x: outline.reduce((sum, point) => sum + point.x, 0) / n,
+      y: outline.reduce((sum, point) => sum + point.y, 0) / n,
+    }
+  }
+  return { x: x / (3 * twice), y: y / (3 * twice) }
+}
+
+/**
+ * Trim a shape to a loop someone drew around the cookie. The loop is taken
+ * generously — nobody draws a tight circle with a thumb — so it only cuts
+ * away what is clearly outside it, like the wrapper the cookie sits on.
+ *
+ * @param slack How much to grow the loop about its middle before trimming.
+ * @returns the trimmed shape, or null if the loop misses it altogether.
+ */
+export function keepWithin(mask: RefinedMask, outline: Point[], slack = 0.12): RefinedMask | null {
+  if (outline.length < 3) return mask
+  const { width, height } = mask
+  const middle = middleOf(outline)
+  const loop = outline.map((point) => ({
+    x: (middle.x + (point.x - middle.x) * (1 + slack)) * (width - 1),
+    y: (middle.y + (point.y - middle.y) * (1 + slack)) * (height - 1),
+  }))
+
+  const alpha = new Uint8ClampedArray(mask.alpha.length)
+  let count = 0
+  let minX = width
+  let minY = height
+  let maxX = -1
+  let maxY = -1
+  const crossings: number[] = []
+  for (let y = 0; y < height; y++) {
+    // Where this row crosses the loop; between each pair of crossings is inside.
+    crossings.length = 0
+    for (let i = 0; i < loop.length; i++) {
+      const a = loop[i]!
+      const b = loop[(i + 1) % loop.length]!
+      if (a.y <= y !== b.y <= y) crossings.push(a.x + ((y - a.y) / (b.y - a.y)) * (b.x - a.x))
+    }
+    crossings.sort((p, q) => p - q)
+    for (let k = 0; k + 1 < crossings.length; k += 2) {
+      const from = Math.max(0, Math.ceil(crossings[k]!))
+      const to = Math.min(width - 1, Math.floor(crossings[k + 1]!))
+      for (let x = from; x <= to; x++) {
+        const value = mask.alpha[y * width + x]!
+        if (value === 0) continue
+        alpha[y * width + x] = value
+        count++
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  }
+  const coverage = count / (width * height)
+  if (coverage < MIN_COVERAGE) return null
+  return {
+    ...mask,
+    alpha,
+    coverage,
+    box: { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
+  }
+}

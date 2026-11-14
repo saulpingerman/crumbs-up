@@ -15,7 +15,7 @@ import wasmLoaderUrl from '@mediapipe/tasks-vision/vision_wasm_module_internal.j
 import wasmBinaryUrl from '@mediapipe/tasks-vision/vision_wasm_module_internal.wasm?url'
 import { COLOUR_EDGE, readColours, type Colours } from './colour'
 import { findCookie, type Spotted } from './find'
-import { refineMask, type Point, type RefinedMask } from './mask'
+import { keepWithin, refineMask, type Point, type RefinedMask } from './mask'
 import type { CutoutRequest, Stage, WorkerMessage } from './protocol'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -192,7 +192,7 @@ function coloursOf(image: ImageBitmap): Colours | null {
 }
 
 async function handle(request: CutoutRequest) {
-  const { id, image, point } = request
+  const { id, image, point, around } = request
   const report = (stage: Stage, loaded?: number, total?: number) =>
     post({ type: 'progress', id, stage, loaded, total })
   try {
@@ -208,8 +208,12 @@ async function handle(request: CutoutRequest) {
         mask.close()
       }
     }
-    // A tap is an instruction; without one, go looking.
-    const mask = point ? look(point) : findCookie(spot(spotter, image), coloursOf(image), look)
+    // A tap or a drawn loop is an instruction; without one, go looking.
+    const pointed = point ? look(point) : null
+    const mask = point
+      ? // The loop trims the shape — unless it misses it, when the shape stands.
+        (pointed && around && keepWithin(pointed, around)) || pointed
+      : findCookie(spot(spotter, image), coloursOf(image), look)
     post({ type: 'result', id, mask }, mask ? [mask.alpha.buffer] : [])
   } catch (error) {
     post({ type: 'error', id, message: error instanceof Error ? error.message : String(error) })

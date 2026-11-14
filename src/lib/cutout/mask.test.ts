@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { refineMask } from './mask'
+import { keepWithin, middleOf, refineMask } from './mask'
 
 const W = 40
 const H = 30
@@ -126,5 +126,66 @@ describe('the shape of what was found', () => {
     expect(wrapper.gap!.center.y).toBeCloseTo(13 / (H - 1), 1)
     // The outline is still a clean disc.
     expect(wrapper.solidity).toBeGreaterThan(0.9)
+  })
+})
+
+describe('a loop drawn around the cookie', () => {
+  /** A rough circle, as a thumb would draw it (positions 0–1). */
+  const loop = (cx: number, cy: number, r: number) =>
+    Array.from({ length: 16 }, (_, i) => {
+      const angle = (i / 16) * Math.PI * 2
+      const wobble = 1 + 0.1 * Math.sin(i * 2.3)
+      return {
+        x: cx + (r * wobble * Math.cos(angle)) / (W - 1),
+        y: cy + (r * wobble * Math.sin(angle)) / (H - 1),
+      }
+    })
+
+  it('has its middle where the cookie is', () => {
+    const middle = middleOf(loop(0.3, 0.6, 7))
+    expect(middle.x).toBeCloseTo(0.3, 1)
+    expect(middle.y).toBeCloseTo(0.6, 1)
+  })
+
+  it('still has a middle when it is only a line', () => {
+    const middle = middleOf([
+      { x: 0.2, y: 0.2 },
+      { x: 0.4, y: 0.4 },
+      { x: 0.6, y: 0.6 },
+    ])
+    expect(middle.x).toBeCloseTo(0.4)
+    expect(middle.y).toBeCloseTo(0.4)
+  })
+
+  it('trims away the wrapper the cookie was sitting on', () => {
+    // The model returned cookie and wrapper as one wide shape…
+    const wide = refineMask(
+      scene([
+        [12, 15, 7],
+        [22, 15, 9],
+      ]),
+      W,
+      H,
+      { x: 12 / (W - 1), y: 0.5 },
+    )!
+    expect(wide.box.width).toBeGreaterThan(25)
+    // …and the loop was drawn around the cookie on the left.
+    const trimmed = keepWithin(wide, loop(12 / (W - 1), 15 / (H - 1), 8))!
+    expect(trimmed.box.x + trimmed.box.width).toBeLessThan(24)
+    expect(trimmed.alpha[15 * W + 12]).toBe(255)
+    expect(trimmed.alpha[15 * W + 29]).toBe(0)
+    expect(trimmed.coverage).toBeLessThan(wide.coverage)
+  })
+
+  it('leaves a shape alone when the loop goes right round it', () => {
+    const cookie = refineMask(scene([[20, 15, 7]]), W, H, { x: 0.5, y: 0.5 })!
+    const kept = keepWithin(cookie, loop(20 / (W - 1), 15 / (H - 1), 9))!
+    expect(kept.coverage).toBeCloseTo(cookie.coverage, 5)
+    expect(kept.box).toEqual(cookie.box)
+  })
+
+  it('says so when the loop misses the shape altogether', () => {
+    const cookie = refineMask(scene([[10, 10, 6]]), W, H, { x: 10 / (W - 1), y: 10 / (H - 1) })!
+    expect(keepWithin(cookie, loop(32 / (W - 1), 22 / (H - 1), 4))).toBeNull()
   })
 })
