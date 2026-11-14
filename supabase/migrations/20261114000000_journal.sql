@@ -3,12 +3,15 @@
 -- The app stays local-first. Each device keeps its own copy and syncs through
 -- this table, so the rules here do two jobs: keep every person's journal
 -- private to them, and settle which copy wins when two devices disagree.
+--
+-- Every statement is safe to run again, so it does no harm if this file is
+-- both pasted into the SQL editor and applied as a migration.
 
 -- ---------------------------------------------------------------------------
 -- Cookies
 -- ---------------------------------------------------------------------------
 
-create table public.cookies (
+create table if not exists public.cookies (
   -- Chosen by the device that rated the cookie, so it is the same on all of
   -- that person's devices. Unique per person, not globally: two accounts can
   -- hold the same cookie (a journal moved from one account to another), and
@@ -30,11 +33,11 @@ create table public.cookies (
 
 comment on table public.cookies is 'One row per rated cookie, private to the person who rated it.';
 
-create index cookies_owner_changed on public.cookies (user_id, changed_at);
+create index if not exists cookies_owner_changed on public.cookies (user_id, changed_at);
 
 -- Newest edit wins, whoever writes last. An older copy arriving late (a phone
 -- that was offline, say) is quietly dropped instead of undoing newer work.
-create function public.cookies_keep_newest()
+create or replace function public.cookies_keep_newest()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -52,7 +55,7 @@ begin
 end;
 $$;
 
-create trigger cookies_keep_newest
+create or replace trigger cookies_keep_newest
 before insert or update on public.cookies
 for each row execute function public.cookies_keep_newest();
 
@@ -63,19 +66,23 @@ alter table public.cookies enable row level security;
 revoke all on table public.cookies from anon, authenticated;
 grant select, insert, update, delete on table public.cookies to authenticated;
 
+drop policy if exists "People read their own cookies" on public.cookies;
 create policy "People read their own cookies"
 on public.cookies for select to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "People add their own cookies" on public.cookies;
 create policy "People add their own cookies"
 on public.cookies for insert to authenticated
 with check ((select auth.uid()) = user_id);
 
+drop policy if exists "People change their own cookies" on public.cookies;
 create policy "People change their own cookies"
 on public.cookies for update to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
 
+drop policy if exists "People remove their own cookies" on public.cookies;
 create policy "People remove their own cookies"
 on public.cookies for delete to authenticated
 using ((select auth.uid()) = user_id);
@@ -90,19 +97,23 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('photos', 'photos', false, 5242880, array['image/jpeg'])
 on conflict (id) do nothing;
 
+drop policy if exists "People read their own photos" on storage.objects;
 create policy "People read their own photos"
 on storage.objects for select to authenticated
 using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+drop policy if exists "People add their own photos" on storage.objects;
 create policy "People add their own photos"
 on storage.objects for insert to authenticated
 with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+drop policy if exists "People replace their own photos" on storage.objects;
 create policy "People replace their own photos"
 on storage.objects for update to authenticated
 using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text)
 with check (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+drop policy if exists "People remove their own photos" on storage.objects;
 create policy "People remove their own photos"
 on storage.objects for delete to authenticated
 using (bucket_id = 'photos' and (storage.foldername(name))[1] = (select auth.uid())::text);
