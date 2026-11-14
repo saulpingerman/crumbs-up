@@ -118,12 +118,14 @@ test('shows the journal’s bakeries on the map and finds new ones nearby', asyn
     /Butter%20%26%20Ember%2C%20Portland%2C%20OR/,
   )
 
-  // Now zoomed in on Portland, search the area.
-  const find = page.getByRole('button', { name: 'Find bakeries here' })
-  await expect(find).toBeEnabled({ timeout: 15_000 })
-  await find.click()
-  await expect(page.getByRole('heading', { name: 'Somewhere new nearby' })).toBeVisible()
+  // Now zoomed in on Portland and sitting still, the map looks for somewhere
+  // new by itself: nothing to press.
+  await expect(page.getByRole('heading', { name: 'Somewhere new nearby' })).toBeVisible({
+    timeout: 15_000,
+  })
   await expect(map).toHaveAttribute('data-pins', '10')
+  await expect(page.getByText('1 bakery to try here')).toBeVisible()
+  await page.getByRole('button', { name: /Rise & Shine Cookie Co\./ }).click()
   await expect(page.getByRole('heading', { name: 'Rise & Shine Cookie Co.' })).toBeVisible()
 
   // …and go rate it, with its details and exact spot carried over.
@@ -132,6 +134,28 @@ test('shows the journal’s bakeries on the map and finds new ones nearby', asyn
   await expect(page.getByLabel('City')).toHaveValue('Portland')
   await expect(page.getByLabel('State')).toHaveValue('OR')
   await expect(page.getByText('Exact spot saved for the map.')).toBeVisible()
+})
+
+test('the map asks for nothing when online lookups are turned off', async ({ page }) => {
+  let asked = false
+  await fakeTiles(page)
+  await page.route('https://photon.komoot.io/**', (route) => {
+    asked = true
+    return route.fulfill({ json: { type: 'FeatureCollection', features: [BAKERY] } })
+  })
+  await addSamples(page)
+  await page.goto('/settings')
+  await page.getByRole('switch', { name: 'Look up bakeries online' }).click()
+  await page.goto('/map')
+  const map = page.getByRole('application')
+  await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  await page.getByRole('button', { name: /Butter & Ember/ }).click()
+  await expect(page.getByRole('heading', { name: 'Butter & Ember' })).toBeVisible()
+  await expect(page.getByText('Online bakery search is turned off in Settings.')).toBeVisible()
+  // Long enough for the map to settle and a search to have gone out, if one were going to.
+  await page.waitForTimeout(3000)
+  expect(asked).toBe(false)
+  await expect(map).toHaveAttribute('data-pins', '9')
 })
 
 test('recommends what to try next from the journal', async ({ page }) => {

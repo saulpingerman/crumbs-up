@@ -15,8 +15,9 @@ import { ELSEWHERE, stateName } from '@/lib/states'
 import { byNewest, byScoreDesc, summarize, type RatedCookie } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { useTitle } from '@/lib/use-title'
+import { BiteableCookie } from './BiteableCookie'
 import { CookieCard } from './CookieCard'
-import { BackupNudge, InstallHint } from './InstallHint'
+import { BackupNudge } from './BackupNudge'
 
 type Sort = 'recent' | 'ranked'
 
@@ -87,7 +88,6 @@ export function JournalPage() {
         </>
       }
     >
-      <InstallHint />
       <BackupNudge />
 
       {summary.best && cookies.length >= 3 && !filtered && (
@@ -239,7 +239,9 @@ function FirstRun() {
     // On a short phone everything tightens up, so both buttons are on screen
     // without scrolling instead of hiding behind the tab bar.
     <div className="mx-auto flex max-w-xl flex-col items-center px-6 pt-10 pb-16 text-center md:pt-20 short:pt-2">
-      <LogoMark className="size-28 animate-rise short:size-20" />
+      <div className="animate-rise">
+        <BiteableCookie className="size-28 short:size-20" />
+      </div>
       <p className="mt-6 text-xs font-bold tracking-[0.16em] text-crust uppercase short:mt-3">
         Welcome to Crumbs Up
       </p>

@@ -19,7 +19,6 @@ export interface Settings {
   lastBackupAt: number | null
   /** Cookies saved or changed since the last backup. */
   changesSinceBackup: number
-  installHintDismissed: boolean
   /** Lift the cookie out of each new photo and set it on a clean tabletop. */
   autoCutout: boolean
   /** Allow looking bakeries up in OpenStreetMap (sends a name or map area, never ratings). */
@@ -35,7 +34,6 @@ export const DEFAULT_SETTINGS: Settings = {
   lastState: '',
   lastBackupAt: null,
   changesSinceBackup: 0,
-  installHintDismissed: false,
   autoCutout: true,
   onlinePlaces: true,
   reviewStyle: 'full',

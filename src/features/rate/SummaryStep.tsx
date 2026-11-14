@@ -1,9 +1,11 @@
 import { Check, ListChecks, LoaderCircle, Minus, PencilLine, Plus } from 'lucide-react'
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/Button'
+import { Crumbs } from '@/components/Crumbs'
 import { Medallion, ScoreBar } from '@/components/Score'
 import { categoryText } from '@/components/category-styles'
+import { scatter } from '@/components/scatter'
 import { cn } from '@/lib/cn'
 import type { DraftRecord } from '@/lib/db/schema'
 import { formatPlace } from '@/lib/format'
@@ -14,18 +16,34 @@ import {
   MIN_SCORE,
   WEIGHT_PRESETS,
   formatScore,
+  overallExact,
   overallScore,
   tierFor,
   type Category,
   type Scores,
 } from '@/lib/rubric'
 import { useSettings, weightsFor } from '@/lib/settings'
+import { topsTheJournal } from '@/lib/stats'
+import { useCookies } from '@/lib/use-cookies'
 import { useCountUp } from '@/lib/use-count-up'
 import { draftScores } from './useDraft'
 
+/** A good cookie throws a few crumbs; a legendary one throws a lot more. */
+const GOOD = 7
+const LEGENDARY = 9
+/** Thrown up and out from behind the score, clear of the words underneath. */
+const SOME_CRUMBS = scatter(11, { seed: 7, reach: [92, 128], from: -12, to: 192 })
+const LOTS_OF_CRUMBS = [
+  ...scatter(14, { seed: 3, reach: [96, 150], from: -20, to: 200, size: [6, 12] }),
+  ...scatter(9, { seed: 5, reach: [84, 112], from: 10, to: 170, size: [4, 7] }),
+]
+/** When the number has finished counting up and the fun can start. */
+const LANDED = 820
+
 interface Props {
   draft: DraftRecord
-  editing: boolean
+  /** The cookie being re-rated, if this isn't a new one. */
+  editId: string | null
   saving: boolean
   onNotes: (notes: string) => void
   onManual: (scores: Scores | null) => void
@@ -43,7 +61,7 @@ interface Props {
 
 export function SummaryStep({
   draft,
-  editing,
+  editId,
   saving,
   onNotes,
   onManual,
@@ -58,8 +76,17 @@ export function SummaryStep({
   const settings = useSettings()
   const { suggested, scores } = draftScores(draft)
   const quick = draft.quick && !draft.manual
-  const overall = overallScore(scores, weightsFor(settings), settings.overallPrecision)
+  const weights = weightsFor(settings)
+  const overall = overallScore(scores, weights, settings.overallPrecision)
   const tier = tierFor(overall)
+  const editing = editId !== null
+  // A fresh verdict gets its moment once, as it arrives — not on every
+  // nudge of a typed-in score, and not for reopening an old cookie.
+  const [burst] = useState(() =>
+    editing || overall < GOOD ? null : overall >= LEGENDARY ? LOTS_OF_CRUMBS : SOME_CRUMBS,
+  )
+  const others = useCookies()?.filter((cookie) => cookie.id !== editId)
+  const champion = others !== undefined && topsTheJournal(overallExact(scores, weights), others)
   const shown = useCountUp(overall, 1100, 1)
   const step = settings.overallPrecision === 'half' ? 2 : 10
   const display = Math.round(shown * step) / step
@@ -85,14 +112,33 @@ export function SummaryStep({
           <PencilLine className="size-3.5" />
           Edit details
         </button>
-        <Medallion
-          value={formatScore(display, settings.overallPrecision)}
-          size="xl"
-          label={`Overall score ${formatScore(overall, settings.overallPrecision)} out of 10`}
-          className="mt-5 animate-pop"
-        />
+        <div className="relative mt-5">
+          {burst && (
+            <Crumbs
+              crumbs={burst}
+              delay={LANDED}
+              duration={burst === LOTS_OF_CRUMBS ? 1150 : 950}
+              className="top-1/2 left-1/2"
+            />
+          )}
+          <Medallion
+            value={formatScore(display, settings.overallPrecision)}
+            size="xl"
+            label={`Overall score ${formatScore(overall, settings.overallPrecision)} out of 10`}
+            className={burst ? 'animate-verdict' : 'animate-pop'}
+          />
+          {champion && <Crown className="absolute -top-5 right-1 w-16" />}
+        </div>
         <p className="mt-4 font-display text-3xl leading-none font-semibold">{tier.name}</p>
         <p className="mt-1.5 text-[15px] text-ink-soft">{tier.line}</p>
+        {champion && (
+          <p
+            className="mt-3 animate-rise rounded-full bg-butter/45 px-3.5 py-1 text-[13px] font-bold"
+            style={{ animationDelay: `${LANDED + 150}ms` }}
+          >
+            {editing ? 'Top of your journal' : 'Your new number one'}
+          </p>
+        )}
       </div>
 
       <section className="mt-6 space-y-4 rounded-3xl border border-line bg-paper p-5 shadow-card">
@@ -189,6 +235,32 @@ export function SummaryStep({
         </Button>
       </div>
     </div>
+  )
+}
+
+/** Dropped onto the best cookie in the journal, at a jaunty angle. */
+function Crown({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 64 52"
+      aria-hidden
+      data-testid="crown"
+      className={cn(
+        'pointer-events-none animate-crown drop-shadow-[0_2px_3px_rgb(60_30_10/0.3)]',
+        className,
+      )}
+      style={{ animationDelay: `${LANDED}ms` }}
+    >
+      <g stroke="var(--baked-ink)" strokeWidth="3" strokeLinejoin="round">
+        <path d="M8 40 4 14l15 11L32 5l13 20 15-11-4 26Z" fill="var(--butter)" />
+        <rect x="8" y="39" width="48" height="9" rx="3" fill="var(--butter)" />
+      </g>
+      <g fill="var(--taste)">
+        <circle cx="4" cy="13" r="3.4" />
+        <circle cx="32" cy="5" r="3.8" />
+        <circle cx="60" cy="13" r="3.4" />
+      </g>
+    </svg>
   )
 }
 

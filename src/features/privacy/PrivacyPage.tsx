@@ -91,10 +91,11 @@ export function PrivacyPage() {
               the area you are looking at.
             </li>
             <li>
-              <strong>Finding a bakery</strong> by name, or bakeries near a spot on the map, asks
-              Photon (built on OpenStreetMap). It sees what you typed, the town you entered, and the
-              area the map is showing — which is your own area if you centred the map on yourself.
-              You can switch this off in Settings.
+              <strong>Finding a bakery</strong> by name asks Photon (built on OpenStreetMap), which
+              sees what you typed and the town you entered. The map also asks it for bakeries you
+              haven’t tried, by itself, whenever you stop on a close-up view: it sees the area the
+              map is showing — which is your own area if you centred the map on yourself. You can
+              switch both off in Settings.
             </li>
             <li>
               <strong>Your location</strong> is only read when you tap a button for it. In the

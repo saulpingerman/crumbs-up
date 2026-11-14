@@ -180,3 +180,26 @@ test('the journal is as it was left after a look at a cookie', async ({ page }) 
   await expect(page.getByRole('radio', { name: 'Ranked' })).toBeChecked()
   await expect(cards).toHaveCount(2)
 })
+
+test('the welcome cookie can be nibbled, and the + button asks to be pressed', async ({ page }) => {
+  await page.goto('/')
+  const cookie = page.locator('[data-bites]')
+  await expect(cookie).toHaveAttribute('data-bites', '0')
+  // It never stops bobbing, so don't wait for it to hold still.
+  await cookie.click({ force: true })
+  await expect(cookie).toHaveAttribute('data-bites', '1')
+  await expect(page.getByTestId('crumbs')).toBeAttached()
+  // Bite by bite it is eaten right across, until only crumbs are left…
+  for (let i = 0; i < 4; i++) await cookie.click({ force: true })
+  await expect(cookie).toHaveAttribute('data-bites', '5')
+  // …and the next tap bakes a fresh one.
+  await cookie.click({ force: true })
+  await expect(cookie).toHaveAttribute('data-bites', '0')
+
+  // The pulse behind the + button is there to get a first cookie rated, and
+  // goes once there is one.
+  await expect(page.getByTestId('beckon')).toBeAttached()
+  await page.getByRole('button', { name: 'Look around with sample cookies' }).click()
+  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(page.getByTestId('beckon')).toHaveCount(0)
+})

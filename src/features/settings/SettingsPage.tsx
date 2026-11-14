@@ -25,7 +25,6 @@ import { BackupError, downloadBlob, exportBackup, importBackup, toCsv } from '@/
 import { deleteEverything, deleteSampleCookies } from '@/lib/db/cookies'
 import { db, requestPersistentStorage } from '@/lib/db/db'
 import { plural, todayIso } from '@/lib/format'
-import { promptInstall, useInstallState } from '@/lib/install'
 import { WEIGHT_PRESETS, type OverallPrecision, type WeightPreset } from '@/lib/rubric'
 import { updateSettings, useSettings, weightsFor, type ThemeChoice } from '@/lib/settings'
 
@@ -149,7 +148,7 @@ export function SettingsPage() {
           <SectionTitle>Maps &amp; places</SectionTitle>
           <Row
             label="Look up bakeries online"
-            hint="Pin a bakery’s exact spot as you type its name, and search the map for bakeries you haven’t tried."
+            hint="Pin a bakery’s exact spot as you type its name, and show bakeries you haven’t tried as you move around the map."
             className="mt-3 flex-nowrap items-start"
           >
             <Switch
@@ -166,7 +165,6 @@ export function SettingsPage() {
         </Card>
 
         <DataCard />
-        <InstallCard />
 
         <p className="px-2 text-center text-xs leading-relaxed text-ink-faint">
           Crumbs Up {__APP_VERSION__} ·{' '}
@@ -458,36 +456,6 @@ function DataCard() {
           })
         }}
       />
-    </Card>
-  )
-}
-
-function InstallCard() {
-  const state = useInstallState()
-  if (state === 'installed' || state === 'unavailable') return null
-  return (
-    <Card>
-      <SectionTitle>Install the app</SectionTitle>
-      {state === 'ios' ? (
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-[15px] text-ink-soft">
-          <li>
-            Tap the <strong className="font-semibold text-ink">Share</strong> button in Safari.
-          </li>
-          <li>
-            Choose <strong className="font-semibold text-ink">Add to Home Screen</strong>.
-          </li>
-          <li>Open Crumbs Up from its new icon.</li>
-        </ol>
-      ) : (
-        <>
-          <p className="mt-1 text-sm text-ink-soft">
-            Put Crumbs Up on your home screen. It opens full-screen and works without a signal.
-          </p>
-          <Button className="mt-4" onClick={() => void promptInstall()}>
-            Install app
-          </Button>
-        </>
-      )}
     </Card>
   )
 }
