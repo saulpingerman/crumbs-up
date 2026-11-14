@@ -246,7 +246,9 @@ without an account. Signing in adds a copy in your account and keeps the two in 
    **Redirect URLs**, plus `http://localhost:5173/**` for development.
 4. Give the app the project's **URL** and **publishable key** (Project Settings → API keys) as
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` — in `.env.local` for development and
-   `.env.production` for the published build. See [`.env.example`](.env.example).
+   [`.env.production`](.env.production) for the published build. See
+   [`.env.example`](.env.example). (This repository's `.env.production` points at its own live
+   project; a fork should replace both values with its own.)
 
 Both of those values are public by design: they end up in the app's code, where anyone can read
 them, and the database rules are what protect the data. **The secret key (`sb_secret_…`) and the

@@ -30,6 +30,13 @@ export default defineConfig({
   ],
   webServer: {
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
+    // The tests must not lean on the live Supabase project that production
+    // builds are pointed at (.env.production). Unless a run supplies its own
+    // (the account tests do, pointing at a local one), build with accounts off.
+    env: {
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? '',
+      VITE_SUPABASE_PUBLISHABLE_KEY: process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '',
+    },
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
