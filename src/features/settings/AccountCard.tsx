@@ -10,6 +10,7 @@ import { findProviders } from '@/lib/cloud/client'
 import { useProviders, type Provider } from '@/lib/cloud/providers'
 import {
   AuthError,
+  deleteMyAccount,
   sendPasswordReset,
   setNewPassword,
   signInWith,
@@ -286,6 +287,7 @@ function NewPassword() {
 function SignedIn({ email }: { email: string }) {
   const status = useSyncStatus()
   const [leaving, setLeaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [busy, setBusy] = useState(false)
 
   async function leave(removeJournal: boolean) {
@@ -314,6 +316,24 @@ function SignedIn({ email }: { email: string }) {
       setLeaving(false)
     } catch (error) {
       toast.error(error instanceof AuthError ? error.message : 'Couldn’t sign out')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Delete the account for good; the journal on this device goes or stays as asked. */
+  async function erase(andThisDevice: boolean) {
+    setBusy(true)
+    try {
+      await withoutSyncing(async () => {
+        await deleteMyAccount()
+        // Unlink whatever stays here, so it is simply a journal on a device again.
+        await forgetAccount(db, andThisDevice)
+      })
+      toast('Account deleted')
+      setDeleting(false)
+    } catch (error) {
+      toast.error(error instanceof AuthError ? error.message : 'Couldn’t delete the account')
     } finally {
       setBusy(false)
     }
@@ -432,6 +452,14 @@ function SignedIn({ email }: { email: string }) {
         </>
       )}
 
+      <button
+        type="button"
+        onClick={() => setDeleting(true)}
+        className="mt-4 block text-sm font-semibold text-ink-soft underline underline-offset-4 hover:text-danger"
+      >
+        Delete account…
+      </button>
+
       <Sheet
         open={leaving}
         onOpenChange={setLeaving}
@@ -447,6 +475,26 @@ function SignedIn({ email }: { email: string }) {
           </Button>
           <Button variant="ghost" disabled={busy} onClick={() => setLeaving(false)}>
             Stay signed in
+          </Button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={deleting}
+        onOpenChange={setDeleting}
+        title="Delete your account?"
+        description="Your account, and the copy of your journal and photos kept in it, will be deleted for good. Other devices signed in to it will be signed out. This can’t be undone."
+      >
+        <div className="grid gap-2">
+          <Button variant="danger" disabled={busy} onClick={() => void erase(false)}>
+            {busy && <LoaderCircle className="size-4 animate-spin" />}
+            Delete account, keep the journal on this device
+          </Button>
+          <Button variant="danger" disabled={busy} onClick={() => void erase(true)}>
+            Delete account and erase this device too
+          </Button>
+          <Button variant="ghost" disabled={busy} onClick={() => setDeleting(false)}>
+            Keep my account
           </Button>
         </div>
       </Sheet>

@@ -147,8 +147,8 @@ export function PrivacyPage() {
             </li>
             {cloudConfigured && (
               <li>
-                <strong>Delete your account.</strong> Ask using the link below and the account, and
-                anything left in it, will be removed.
+                <strong>Delete your account.</strong> Settings → Account → Delete account removes
+                the account and everything kept in it, straight away.
               </li>
             )}
           </ul>

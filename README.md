@@ -229,6 +229,7 @@ without an account. Signing in adds a copy in your account and keeps the two in 
   Deleting a cookie deletes it everywhere.
 - Photos (the picture and, for a cut-out, the original behind it) go to private storage that only
   your account can read.
+- An account can be deleted from Settings, with everything kept in it, at any time.
 - Signing out asks whether to keep the journal on the device or take it off. Taking it off is
   refused while the device holds cookies the account hasn't received. A device that holds one
   account's journal won't quietly merge it into another: signing in as someone else asks first.
@@ -237,10 +238,11 @@ without an account. Signing in adds a copy in your account and keeps the two in 
 **Setting it up**
 
 1. Create a project at [supabase.com](https://supabase.com) (the free plan will do).
-2. Open the project's **SQL Editor**, paste in
-   [`supabase/migrations/20261114000000_journal.sql`](supabase/migrations/20261114000000_journal.sql)
-   and run it. That creates the one table, the private photo storage and the rules that keep each
-   person's journal to themselves.
+2. Open the project's **SQL Editor** and run each file in
+   [`supabase/migrations`](supabase/migrations), in name order: paste one in, run it, then the
+   next. Together they create the one table, the private photo storage, the rules that keep each
+   person's journal to themselves, and the means for someone to delete their own account. Every
+   file is safe to run twice.
 3. Under **Authentication → URL Configuration**, set the **Site URL** to where the app lives
    (for example `https://<user>.github.io/<repo>/`) and add that address followed by `**` to the
    **Redirect URLs**, plus `http://localhost:5173/**` for development.
@@ -363,9 +365,6 @@ A few decisions worth knowing about:
 
 - **Public pages.** With accounts in place, a shareable public page per cookie or per reviewer
   becomes a small step.
-- **Deleting an account from inside the app.** Today "Delete everything" empties the journal on
-  every device and in the account, but the sign-in itself is removed from the Supabase dashboard.
-  An in-app button needs a small server-side function — and the App Store requires one.
 - **App Store and Google Play.** The same code can be wrapped with
   [Capacitor](https://capacitorjs.com) to ship through the stores, which needs Apple and Google
   developer accounts.

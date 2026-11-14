@@ -203,3 +203,23 @@ export async function setNewPassword(password: string): Promise<void> {
 export async function signOut(): Promise<void> {
   await run((client) => client.auth.signOut())
 }
+
+/**
+ * Delete the signed-in person's account, and the journal and photos kept in
+ * it, for good. What is on this device is left for the caller to deal with.
+ */
+export async function deleteMyAccount(): Promise<void> {
+  if (session.status !== 'signed-in') throw new AuthError('You’re not signed in.')
+  const userId = session.userId
+  const client = await getClient()
+  const { deleteAccount } = await import('./account')
+  try {
+    await deleteAccount(client, userId)
+  } catch (error) {
+    throw new AuthError(explain(error instanceof Error ? error.message : String(error)))
+  }
+  // The account is gone, so there is nothing to sign out of on the server;
+  // just forget the session here.
+  await client.auth.signOut({ scope: 'local' }).catch(() => {})
+  set({ status: 'signed-out' })
+}
