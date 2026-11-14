@@ -1,8 +1,7 @@
 import { LoaderCircle, MapPin, Plus, Search } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { toast } from 'sonner'
-import { Button, ButtonLink } from '@/components/Button'
+import { ButtonLink } from '@/components/Button'
 import { CookieRow } from '@/components/CookieRow'
 import { Card, SectionTitle } from '@/components/Page'
 import { bakeryPlaces, type BakeryPlace } from '@/lib/bakery-places'
@@ -13,15 +12,11 @@ import { loadPlaces, type PlaceIndex } from '@/lib/places'
 import { resolveTheme, useSettings } from '@/lib/settings'
 import type { RatedCookie } from '@/lib/stats'
 import { OpenInMaps } from './OpenInMaps'
+import { SETTLE_MS, TOO_WIDE_KM, searchArea, worthSearching, type SearchedArea } from './nearby'
 import type { MapPin as Pin, MapView } from './PlacesMap'
 
 // The map library is large, so it only loads when this view is opened.
 const PlacesMap = lazy(() => import('./PlacesMap').then((m) => ({ default: m.PlacesMap })))
-
-/** Photon looks at most this far from the middle of the map. */
-const MAX_SEARCH_KM = 15
-/** Beyond this the view covers too much ground for "nearby" to mean anything. */
-const TOO_WIDE_KM = 80
 
 /** "Flour & Salt Bakery" and "flour and salt" are the same shop. */
 function essence(name: string): string {
@@ -65,9 +60,59 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
   const places = useMemo(() => bakeryPlaces(cookies, towns), [cookies, towns])
   const [found, setFound] = useState<NearbyPlace[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [searching, setSearching] = useState(false)
+  /** Where the look for new bakeries around the current view has got to. */
+  const [search, setSearch] = useState<'idle' | 'looking' | 'done' | 'failed'>('idle')
   const [view, setView] = useState<MapView | null>(null)
   const card = useRef<HTMLDivElement>(null)
+  /** The last stretch of map that was searched, so a nudge doesn't ask again. */
+  const searched = useRef<SearchedArea | null>(null)
+  /** What the search needs to know but shouldn't restart for. */
+  const latest = useRef({ places, selectedId })
+  useEffect(() => {
+    latest.current = { places, selectedId }
+  }, [places, selectedId])
+
+  // Once the map has sat still for a moment, look for bakeries around it that
+  // aren't in the journal yet. Nobody has to ask.
+  useEffect(() => {
+    if (!settings.onlinePlaces || !view || !worthSearching(searched.current, view)) return
+    const area = searchArea(view)
+    const stop = new AbortController()
+    let looking = false
+    const timer = setTimeout(() => {
+      looking = true
+      setSearch('looking')
+      const visited = new Set(latest.current.places.map((p) => `${essence(p.bakery)}|${p.state}`))
+      bakeriesNear(area.center, area.radiusKm, stop.signal)
+        .then((places) => {
+          const nearby = places
+            .filter((p) => essence(p.name) && !visited.has(`${essence(p.name)}|${p.state}`))
+            // Nearest first, but a cookie shop outranks a doughnut shop next door.
+            .sort((a, b) => promise(b.name) - promise(a.name) || a.km - b.km)
+            .slice(0, 40)
+          searched.current = area
+          // Whatever is open in the card stays, even if the map has moved off it.
+          setFound((before) => {
+            const open = before.find((p) => `f:${p.id}` === latest.current.selectedId)
+            return open && !nearby.some((p) => p.id === open.id) ? [open, ...nearby] : nearby
+          })
+          looking = false
+          setSearch('done')
+        })
+        .catch((error: unknown) => {
+          if (stop.signal.aborted) return
+          console.warn(error)
+          looking = false
+          setSearch('failed')
+        })
+    }, SETTLE_MS)
+    return () => {
+      clearTimeout(timer)
+      stop.abort()
+      // The map moved on before an answer came back.
+      if (looking) setSearch('idle')
+    }
+  }, [view, settings.onlinePlaces])
 
   const pins = useMemo<Pin[]>(
     () => [
@@ -104,36 +149,19 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
       )
   }
 
-  async function search() {
-    if (!view) return
-    setSearching(true)
-    try {
-      const visited = new Set(places.map((p) => `${essence(p.bakery)}|${p.state}`))
-      const nearby = (await bakeriesNear(view.center, Math.min(MAX_SEARCH_KM, view.radiusKm)))
-        .filter((p) => essence(p.name) && !visited.has(`${essence(p.name)}|${p.state}`))
-        // Nearest first, but a cookie shop outranks a doughnut shop next door.
-        .sort((a, b) => promise(b.name) - promise(a.name) || a.km - b.km)
-        .slice(0, 40)
-      setFound(nearby)
-      if (nearby.length === 0) {
-        toast('No new bakeries turned up here', {
-          description: 'Try moving the map or zooming out a little.',
-        })
-      } else {
-        toast.success(`Found ${plural(nearby.length, 'bakery', 'bakeries')} you haven’t rated`)
-        select(`f:${nearby[0]!.id}`)
-      }
-    } catch (error) {
-      console.warn(error)
-      toast.error('Couldn’t search right now', {
-        description: 'Check your connection and try again.',
-      })
-    } finally {
-      setSearching(false)
-    }
-  }
-
   const tooWide = view !== null && view.radiusKm > TOO_WIDE_KM
+  /** One quiet line on the map saying what the search is up to. */
+  const notice = tooWide
+    ? 'Zoom in to find bakeries'
+    : search === 'looking'
+      ? 'Looking for bakeries…'
+      : search === 'failed'
+        ? 'Couldn’t look for bakeries just now'
+        : search === 'done'
+          ? found.length > 0
+            ? `${plural(found.length, 'bakery', 'bakeries')} to try here`
+            : 'No new bakeries here'
+          : null
   const unplaced = places.filter((p) => !p.position)
 
   return (
@@ -152,26 +180,24 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
               className="h-[52dvh] min-h-80 lg:h-[34rem]"
             />
           </Suspense>
-          {settings.onlinePlaces && (
-            <Button
-              size="sm"
-              onClick={() => void search()}
-              disabled={searching || !view || tooWide}
-              className="absolute top-3 left-3 disabled:opacity-80"
+          {settings.onlinePlaces && notice && (
+            <p
+              role="status"
+              className="pointer-events-none absolute top-3 left-3 flex max-w-[calc(100%-4.5rem)] items-center gap-2 rounded-full bg-paper/95 px-3.5 py-2 text-sm font-semibold shadow-card"
             >
-              {searching ? (
-                <LoaderCircle className="size-4 animate-spin" />
+              {search === 'looking' && !tooWide ? (
+                <LoaderCircle className="size-4 shrink-0 animate-spin" />
               ) : (
-                <Search className="size-4" />
+                <Search className="size-4 shrink-0 text-crust" />
               )}
-              {tooWide ? 'Zoom in to find bakeries' : 'Find bakeries here'}
-            </Button>
+              {notice}
+            </p>
           )}
         </div>
         <p className="mt-2 px-1 text-xs leading-relaxed text-ink-faint">
           Gold pins are bakeries you’ve rated, with their average score.{' '}
           {settings.onlinePlaces
-            ? 'Rings are bakeries from OpenStreetMap you haven’t tried.'
+            ? 'Rings are bakeries from OpenStreetMap you haven’t tried; they appear as you move in close.'
             : 'Online bakery search is turned off in Settings.'}
         </p>
       </div>
