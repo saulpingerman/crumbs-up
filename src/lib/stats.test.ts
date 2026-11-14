@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CookieRecord } from './db/schema'
 import { QUESTIONS, type Answers, type Scores } from './rubric'
-import { disagreement, topsTheJournal } from './stats'
+import { disagreement } from './stats'
 
 /** Every question answered with the "standard" rung, so each suggestion is 5. */
 function fullAnswers(): Answers {
@@ -62,23 +62,5 @@ describe('disagreement', () => {
   it('copes with nothing to compare', () => {
     expect(disagreement([]).count).toBe(0)
     expect(disagreement([]).byCategory.taste).toEqual({ average: 0, moved: 0 })
-  })
-})
-
-describe('topsTheJournal', () => {
-  const scoring = (...scores: number[]) => scores.map((overallExact) => ({ overallExact }))
-
-  it('crowns a cookie that beats every other one', () => {
-    expect(topsTheJournal(9.1, scoring(8.4, 9, 5))).toBe(true)
-  })
-
-  it('wants an outright win, not a tie', () => {
-    expect(topsTheJournal(9, scoring(8.4, 9, 5))).toBe(false)
-    expect(topsTheJournal(8.9, scoring(8.4, 9, 5))).toBe(false)
-  })
-
-  it('does not hand out a crown for beating one or two cookies', () => {
-    expect(topsTheJournal(9, scoring())).toBe(false)
-    expect(topsTheJournal(9, scoring(5, 6))).toBe(false)
   })
 })

@@ -3,7 +3,6 @@ import { Camera, ImagePlus, LoaderCircle, MousePointerClick, Trash2, Undo2 } fro
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
-import { RollingCookie } from '@/components/RollingCookie'
 import { Segmented } from '@/components/Field'
 import { cn } from '@/lib/cn'
 import type { Pick, Point, Progress } from '@/lib/cutout'
@@ -315,7 +314,7 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
               role="status"
               className="absolute inset-x-0 top-3 mx-auto flex w-fit max-w-[90%] items-center gap-2 rounded-2xl bg-black/60 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md"
             >
-              <RollingCookie className="text-xl" />
+              <LoaderCircle className="size-4 shrink-0 animate-spin" />
               {describe(finding === 'starting' ? null : finding)}
             </div>
           )}
@@ -403,7 +402,7 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
       {inputs}
       {busy ? (
         <>
-          <RollingCookie className="text-4xl" />
+          <LoaderCircle className="size-8 animate-spin text-crust" />
           <p className="text-sm font-semibold text-ink-soft">Developing your photo…</p>
         </>
       ) : (

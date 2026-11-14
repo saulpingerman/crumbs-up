@@ -391,7 +391,7 @@ function StepView({
       return (
         <SummaryStep
           draft={draft}
-          editId={editId}
+          editing={Boolean(editId)}
           saving={saving}
           onNotes={api.setNotes}
           onManual={api.setManual}

@@ -1,10 +1,8 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { Wordmark } from '@/components/Logo'
 import { cn } from '@/lib/cn'
-import { db } from '@/lib/db/db'
 
 const TABS = [
   { to: '/', label: 'Journal', icon: BookOpen, end: true },
@@ -14,8 +12,6 @@ const TABS = [
 ] as const
 
 export function AppShell() {
-  // With nothing in the journal yet, the + button quietly asks to be pressed.
-  const beckon = useLiveQuery(() => db.cookies.count()) === 0
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -78,18 +74,11 @@ export function AppShell() {
         <div className="relative mx-auto grid h-16 max-w-md grid-cols-5 items-stretch px-1">
           <Tab {...TABS[0]} />
           <Tab {...TABS[1]} />
-          <div className="relative flex items-start justify-center">
-            {beckon && (
-              <span
-                aria-hidden
-                data-testid="beckon"
-                className="pointer-events-none absolute -top-6 size-16 animate-beckon rounded-full bg-cocoa"
-              />
-            )}
+          <div className="flex items-start justify-center">
             <NavLink
               to="/rate"
               aria-label="Rate a cookie"
-              className="relative -mt-6 flex size-16 items-center justify-center rounded-full bg-cocoa text-on-cocoa shadow-pop ring-4 ring-cream transition active:scale-95"
+              className="-mt-6 flex size-16 items-center justify-center rounded-full bg-cocoa text-on-cocoa shadow-pop ring-4 ring-cream transition active:scale-95"
             >
               <Plus className="size-7" strokeWidth={2.4} />
             </NavLink>
