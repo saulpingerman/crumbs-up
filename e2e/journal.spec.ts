@@ -189,8 +189,11 @@ test('the welcome cookie can be nibbled, and the + button asks to be pressed', a
   await cookie.click({ force: true })
   await expect(cookie).toHaveAttribute('data-bites', '1')
   await expect(page.getByTestId('crumbs')).toBeAttached()
-  for (let i = 0; i < 3; i++) await cookie.click({ force: true })
-  // Eaten down to a stub, the next tap bakes a fresh one.
+  // Bite by bite it is eaten right across, until only crumbs are left…
+  for (let i = 0; i < 4; i++) await cookie.click({ force: true })
+  await expect(cookie).toHaveAttribute('data-bites', '5')
+  // …and the next tap bakes a fresh one.
+  await cookie.click({ force: true })
   await expect(cookie).toHaveAttribute('data-bites', '0')
 
   // The pulse behind the + button is there to get a first cookie rated, and
