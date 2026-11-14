@@ -6,7 +6,7 @@ import { CookiePhoto } from '@/components/CookiePhoto'
 import { CookieRow } from '@/components/CookieRow'
 import { Card, Page, SectionTitle } from '@/components/Page'
 import type { CookieKind } from '@/lib/cookie-kinds'
-import { formatPlace, plural } from '@/lib/format'
+import { aScore, formatPlace, plural } from '@/lib/format'
 import { formatScore } from '@/lib/rubric'
 import { MIN_FOR_PALATE, listTastes, recommend, type Taste } from '@/lib/recommend'
 import { useSettings } from '@/lib/settings'
@@ -140,8 +140,8 @@ export function DiscoverPage() {
                 <li key={`${trip.bakery}|${trip.state}`}>
                   <p className="font-semibold">{trip.bakery}</p>
                   <p className="text-sm text-ink-soft">
-                    {formatPlace(trip)} · their {trip.best.cookieType} got a{' '}
-                    {formatScore(trip.best.overall)}
+                    {formatPlace(trip)} · their {trip.best.cookieType} got{' '}
+                    {aScore(formatScore(trip.best.overall))}
                     {trip.count > 1
                       ? `, across ${trip.count} cookies`
                       : ', the only one you’ve tried'}

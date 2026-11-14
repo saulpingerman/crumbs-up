@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { QUESTIONS, TASTING_ORDER, type Answers } from '@/lib/rubric'
-import { QUESTION_COUNT, categoryProgress, furthestStep, stepsFor } from './steps'
+import { todayIso } from '@/lib/format'
+import {
+  QUESTION_COUNT,
+  categoryProgress,
+  cleanPrice,
+  furthestStep,
+  stepsFor,
+  validateDetails,
+} from './steps'
 import { blankDraft } from './useDraft'
 
 const DETAILS = { cookieType: 'Snickerdoodle', bakery: 'Corner Market', state: 'PA' }
@@ -68,5 +76,44 @@ describe('how far a quick review has got', () => {
     expect(categoryProgress('texture', answers, true)).toBe(1)
     expect(categoryProgress('taste', answers, true)).toBe(0)
     expect(categoryProgress('texture', answers)).toBe(0)
+  })
+})
+
+describe('the price box', () => {
+  it('reads a comma as the decimal point', () => {
+    expect(cleanPrice('3,50')).toBe('3.50')
+    expect(cleanPrice('12,5')).toBe('12.5')
+  })
+
+  it('keeps one decimal point and two decimal places', () => {
+    expect(cleanPrice('4.5.5')).toBe('4.55')
+    expect(cleanPrice('4.999')).toBe('4.99')
+    expect(cleanPrice('$4.50 each')).toBe('4.50')
+    expect(cleanPrice('7')).toBe('7')
+    expect(cleanPrice('')).toBe('')
+  })
+})
+
+describe('checking the details', () => {
+  const details = { ...blankDraft('new').details, ...DETAILS }
+
+  it('passes a cookie eaten today', () => {
+    expect(validateDetails({ ...details, eatenOn: todayIso() })).toEqual({})
+  })
+
+  it('will not have a cookie eaten in the future, or in the year 206', () => {
+    expect(validateDetails({ ...details, eatenOn: '2999-01-01' }).eatenOn).toBe(
+      'Pick a date up to today.',
+    )
+    expect(validateDetails({ ...details, eatenOn: '0206-11-14' }).eatenOn).toBe(
+      'Pick a date up to today.',
+    )
+    expect(validateDetails({ ...details, eatenOn: '' }).eatenOn).toBe('Pick a date.')
+  })
+
+  it('will not have a cookie that cost thousands', () => {
+    expect(validateDetails({ ...details, price: 4.5 }).price).toBeUndefined()
+    expect(validateDetails({ ...details, price: null }).price).toBeUndefined()
+    expect(validateDetails({ ...details, price: 99999999 }).price).toBe('Enter a price like 4.50.')
   })
 })

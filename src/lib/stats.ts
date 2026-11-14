@@ -73,7 +73,9 @@ export function groupBy(
       key,
       label: g.label,
       count: sorted.length,
-      average: mean(sorted.map((c) => c.overallExact)),
+      // Averages are of the scores as shown, so a group of one reads the
+      // same as its cookie.
+      average: mean(sorted.map((c) => c.overall)),
       best: sorted[0]!,
       cookies: sorted,
     }
@@ -112,7 +114,7 @@ export function summarize(cookies: RatedCookie[]): Summary {
   ) as Record<Category, number>
   return {
     count: cookies.length,
-    average: mean(cookies.map((c) => c.overallExact)),
+    average: mean(cookies.map((c) => c.overall)),
     categoryAverages,
     bakeries: new Set(cookies.map(bakeryKey)).size,
     states: new Set(cookies.map((c) => c.state).filter((s) => s !== ELSEWHERE.code)).size,

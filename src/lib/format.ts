@@ -49,6 +49,16 @@ export function formatPlace(cookie: Pick<CookieRecord, 'city' | 'state'>): strin
   return cookie.city ? `${cookie.city}, ${cookie.state}` : stateName(cookie.state)
 }
 
+/** An average to one decimal place, the way every list shows it. */
+export function formatAverage(n: number): string {
+  return n.toFixed(1)
+}
+
+/** "a 7.5" but "an 8" and "an 8.5": the article a score takes when read aloud. */
+export function aScore(score: string): string {
+  return `${/^(8|11|18)/.test(score) ? 'an' : 'a'} ${score}`
+}
+
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }

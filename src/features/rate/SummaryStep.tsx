@@ -1,4 +1,4 @@
-import { Check, ListChecks, LoaderCircle, Minus, Plus } from 'lucide-react'
+import { Check, ListChecks, LoaderCircle, Minus, PencilLine, Plus } from 'lucide-react'
 import { useId } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/Button'
@@ -33,6 +33,8 @@ interface Props {
   onNudge: (category: Category, value: number) => void
   /** Jump back to a category's result screen to adjust it. */
   onAdjust: (category: Category) => void
+  /** Go and change the name, bakery, date, price or photo. */
+  onDetails: () => void
   onGuided: () => void
   /** Leave the quick review for the full tasting. */
   onFull: () => void
@@ -47,6 +49,7 @@ export function SummaryStep({
   onManual,
   onNudge,
   onAdjust,
+  onDetails,
   onGuided,
   onFull,
   onSave,
@@ -67,12 +70,21 @@ export function SummaryStep({
         <p className="text-xs font-bold tracking-[0.14em] text-crust uppercase">
           {draft.manual ? 'Your scores' : 'The verdict'}
         </p>
-        <h1 className="mt-1 font-display text-[28px] leading-tight font-semibold">
+        <h1 className="mt-1 font-display text-[28px] leading-tight font-semibold [overflow-wrap:anywhere]">
           {draft.details.cookieType}
         </h1>
-        <p className="text-sm text-ink-soft">
+        <p className="text-sm [overflow-wrap:anywhere] text-ink-soft">
           {draft.details.bakery} · {formatPlace(draft.details)}
         </p>
+        {/* Without this, fixing a typo meant walking back through every question. */}
+        <button
+          type="button"
+          onClick={onDetails}
+          className="-mb-1 flex min-h-11 items-center gap-1.5 px-3 text-sm font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline"
+        >
+          <PencilLine className="size-3.5" />
+          Edit details
+        </button>
         <Medallion
           value={formatScore(display, settings.overallPrecision)}
           size="xl"

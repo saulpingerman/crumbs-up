@@ -1,5 +1,5 @@
 import { Plus, Search, Sparkles, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { Button, ButtonLink } from '@/components/Button'
@@ -20,12 +20,26 @@ import { BackupNudge, InstallHint } from './InstallHint'
 
 type Sort = 'recent' | 'ranked'
 
+/**
+ * How the journal was last being looked at. Opening a cookie and coming back
+ * should return to the same search, state and order, not start again; a
+ * fresh launch of the app does start again.
+ */
+const lastView: { sort: Sort; query: string; state: string } = {
+  sort: 'recent',
+  query: '',
+  state: '',
+}
+
 export function JournalPage() {
   const cookies = useCookies()
   const { overallPrecision } = useSettings()
-  const [sort, setSort] = useState<Sort>('recent')
-  const [query, setQuery] = useState('')
-  const [state, setState] = useState('')
+  const [sort, setSort] = useState<Sort>(lastView.sort)
+  const [query, setQuery] = useState(lastView.query)
+  const [chosenState, setState] = useState(lastView.state)
+  useEffect(() => {
+    Object.assign(lastView, { sort, query, state: chosenState })
+  }, [sort, query, chosenState])
 
   const summary = useMemo(() => (cookies ? summarize(cookies) : undefined), [cookies])
 
@@ -33,6 +47,8 @@ export function JournalPage() {
     const codes = [...new Set((cookies ?? []).map((c) => c.state))]
     return codes.sort((a, b) => stateName(a).localeCompare(stateName(b)))
   }, [cookies])
+  // A remembered state whose last cookie has since gone filters nothing.
+  const state = states.includes(chosenState) ? chosenState : ''
 
   const ranks = useMemo(() => {
     const map = new Map<string, number>()
@@ -220,20 +236,26 @@ function FirstRun() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center px-6 pt-10 pb-16 text-center md:pt-20">
-      <LogoMark className="size-28 animate-rise" />
-      <p className="mt-6 text-xs font-bold tracking-[0.16em] text-crust uppercase">
+    // On a short phone everything tightens up, so both buttons are on screen
+    // without scrolling instead of hiding behind the tab bar.
+    <div className="mx-auto flex max-w-xl flex-col items-center px-6 pt-10 pb-16 text-center md:pt-20 short:pt-2">
+      <LogoMark className="size-28 animate-rise short:size-20" />
+      <p className="mt-6 text-xs font-bold tracking-[0.16em] text-crust uppercase short:mt-3">
         Welcome to Crumbs Up
       </p>
-      <h1 className="mt-2 font-display text-[40px] leading-[1.02] font-semibold md:text-6xl">
+      <h1 className="mt-2 font-display text-[40px] leading-[1.02] font-semibold md:text-6xl short:text-[32px]">
         Every cookie deserves a fair score.
       </h1>
-      <p className="mt-4 text-[17px] leading-relaxed text-ink-soft">
+      <p className="mt-4 text-[17px] leading-relaxed text-ink-soft short:hidden">
         Snap a photo, answer a few quick questions about how it looks, eats and tastes, and Crumbs
         Up works out what it should score — always measured against the same standard: a classic
         Toll House cookie is a <strong className="text-ink">5</strong>.
       </p>
-      <div className="mt-8 flex flex-col items-center gap-3">
+      <p className="mt-3 hidden text-base leading-normal text-ink-soft short:block">
+        Answer a few questions and Crumbs Up works out the score, always against one standard: a
+        classic Toll House cookie is a <strong className="text-ink">5</strong>.
+      </p>
+      <div className="mt-8 flex flex-col items-center gap-3 short:mt-5 short:gap-1">
         <ButtonLink to="/rate" size="lg">
           <Plus className="size-5" strokeWidth={2.6} />
           Rate your first cookie

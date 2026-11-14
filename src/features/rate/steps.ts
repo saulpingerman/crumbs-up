@@ -8,6 +8,7 @@ import {
   type Category,
   type Question,
 } from '@/lib/rubric'
+import { todayIso } from '@/lib/format'
 import { isKnownStateCode } from '@/lib/states'
 
 export type Step =
@@ -66,6 +67,22 @@ export const QUESTION_COUNT = {
   full: GUIDED_STEPS.filter((step) => step.kind === 'question').length,
 }
 
+const EARLIEST_DATE = '1950-01-01'
+/** No cookie costs this much; a figure this size is a typing slip. */
+const PRICE_LIMIT = 1000
+
+/**
+ * Tidy what was typed into the price box: digits and one decimal point,
+ * with a comma read as the decimal point ("3,50" is three-fifty, not 350).
+ */
+export function cleanPrice(typed: string): string {
+  const [whole = '', ...rest] = typed
+    .replace(/,/g, '.')
+    .replace(/[^\d.]/g, '')
+    .split('.')
+  return rest.length > 0 ? `${whole}.${rest.join('').slice(0, 2)}` : whole
+}
+
 export interface DetailErrors {
   cookieType?: string
   bakery?: string
@@ -80,7 +97,14 @@ export function validateDetails(details: CookieDetails): DetailErrors {
   if (!details.bakery.trim()) errors.bakery = 'Where did you get it?'
   if (!isKnownStateCode(details.state)) errors.state = 'Pick a state.'
   if (!/^\d{4}-\d{2}-\d{2}$/.test(details.eatenOn)) errors.eatenOn = 'Pick a date.'
-  if (details.price !== null && !(details.price >= 0)) errors.price = 'Enter a price like 4.50.'
+  // ISO dates sort as text. Tomorrow's cookie hasn't been eaten yet, and a
+  // year like 0206 is a slip of the keyboard.
+  else if (details.eatenOn > todayIso() || details.eatenOn < EARLIEST_DATE) {
+    errors.eatenOn = 'Pick a date up to today.'
+  }
+  if (details.price !== null && !(details.price >= 0 && details.price < PRICE_LIMIT)) {
+    errors.price = 'Enter a price like 4.50.'
+  }
   return errors
 }
 

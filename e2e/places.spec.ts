@@ -111,7 +111,8 @@ test('shows the journal’s bakeries on the map and finds new ones nearby', asyn
   // Picking one from the list shows its cookies and flies the map there.
   await page.getByRole('button', { name: /Butter & Ember/ }).click()
   await expect(page.getByRole('heading', { name: 'Butter & Ember' })).toBeVisible()
-  await expect(page.getByText('2 cookies · average 7.9')).toBeVisible()
+  // The average of the two scores as shown (9 and 7), so it adds up on screen.
+  await expect(page.getByText('2 cookies · average 8.0')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open in Maps' })).toHaveAttribute(
     'href',
     /Butter%20%26%20Ember%2C%20Portland%2C%20OR/,

@@ -7,10 +7,9 @@ import { CookieRow } from '@/components/CookieRow'
 import { Card, SectionTitle } from '@/components/Page'
 import { bakeryPlaces, type BakeryPlace } from '@/lib/bakery-places'
 import { cn } from '@/lib/cn'
-import { plural } from '@/lib/format'
+import { formatAverage, plural } from '@/lib/format'
 import { bakeriesNear, formatMiles, type NearbyPlace } from '@/lib/osm'
 import { loadPlaces, type PlaceIndex } from '@/lib/places'
-import { formatScore, roundToHalf } from '@/lib/rubric'
 import { resolveTheme, useSettings } from '@/lib/settings'
 import type { RatedCookie } from '@/lib/stats'
 import { OpenInMaps } from './OpenInMaps'
@@ -78,7 +77,8 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
           id: `m:${p.key}`,
           kind: 'mine',
           title: p.bakery,
-          score: formatScore(roundToHalf(p.average)),
+          // The same figure the list underneath shows, minus a trailing ".0".
+          score: formatAverage(p.average).replace(/\.0$/, ''),
           ...p.position!,
         })),
       ...found.map((p): Pin => ({
@@ -222,7 +222,7 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
                       onClick={() => select(`m:${place.key}`)}
                       title={place.bakery}
                       detail={`${[place.city, place.state].filter(Boolean).join(', ')} · ${plural(place.cookies.length, 'cookie')}`}
-                      trailing={place.average.toFixed(1)}
+                      trailing={formatAverage(place.average)}
                       numeric
                     />
                   </li>
@@ -233,9 +233,10 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
             <div className="mt-4 rounded-2xl bg-oat px-4 py-3 text-sm">
               <p className="font-semibold">Not on the map yet</p>
               <p className="mt-0.5 text-ink-soft">
-                {unplaced.map((p) => p.bakery).join(', ')} — add a town to{' '}
-                {unplaced.length === 1 ? 'its cookie' : 'their cookies'} and{' '}
-                {unplaced.length === 1 ? 'it appears' : 'they appear'} here.
+                {unplaced.map((p) => p.bakery).join(', ')} — the map only knows U.S. towns, and
+                couldn’t place {unplaced.length === 1 ? 'this one' : 'these'}. Check the town and
+                state on {unplaced.length === 1 ? 'its cookie' : 'their cookies'}, or pin the exact
+                spot with “Use my location” next time you’re there.
               </p>
             </div>
           )}
@@ -291,7 +292,7 @@ function MinePlace({ place }: { place: BakeryPlace }) {
   return (
     <Card>
       <p className="text-xs font-bold tracking-[0.14em] text-crust uppercase">
-        {plural(place.cookies.length, 'cookie')} · average {place.average.toFixed(1)}
+        {plural(place.cookies.length, 'cookie')} · average {formatAverage(place.average)}
       </p>
       <SectionTitle className="mt-1 text-2xl">{place.bakery}</SectionTitle>
       <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-soft">

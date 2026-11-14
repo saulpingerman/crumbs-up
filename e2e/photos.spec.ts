@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { fillDetails } from './helpers'
+import { answer, fillDetails, withoutCutout } from './helpers'
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))
 
@@ -46,8 +46,10 @@ test('cuts the cookie out of its photo and keeps the original', async ({ page })
   const original = page.getByAltText('Your cookie', { exact: true })
   await expect(original).toBeVisible()
   expect(await original.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(800)
+  // It is the same cut-out coming back, not a fresh search (which takes
+  // several seconds and could pick something else).
   await page.getByRole('radio', { name: 'Cut-out' }).click()
-  await expect(cutout).toBeVisible({ timeout: 60_000 })
+  await expect(cutout).toBeVisible({ timeout: 2_000 })
 
   await page.getByRole('button', { name: /Already scored it/ }).click()
   await page.getByRole('button', { name: 'Save to journal' }).click()
@@ -131,4 +133,39 @@ test('finds the cookie wherever it is, takes correction, and leaves a photo with
   await expect(page.getByAltText('Your cookie', { exact: true })).toBeVisible()
   await expect(cutout).toHaveCount(0)
   await expect(page.getByRole('radio', { name: 'Original' })).toBeChecked()
+})
+
+test('a photo removed by accident can be put back', async ({ page }) => {
+  await withoutCutout(page)
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Butterfingers', state: 'NY', photo: true })
+  await page.getByRole('button', { name: 'Remove photo' }).click()
+  await expect(page.getByAltText('Your cookie')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(page.getByAltText('Your cookie')).toBeVisible()
+})
+
+test('a rating saved before the cut-out arrives still gets it', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.goto('/rate')
+  await fillDetails(page, {
+    type: 'Snickerdoodle',
+    bakery: 'In A Hurry',
+    state: 'OR',
+    photo: true,
+  })
+  // Three taps and a save: quicker than the cookie finder.
+  await page.getByRole('radio', { name: /^Quick/ }).click()
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await answer(page, 'How did it look?', 'Inviting')
+  await answer(page, 'How was the texture?', 'Great')
+  await answer(page, 'How did it taste?', 'Delicious')
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+
+  const photo = page.getByAltText('Snickerdoodle cookie from In A Hurry')
+  await expect(photo).toBeVisible()
+  // The cut-out is a 1600px square; the photo as it was taken is 800 wide.
+  await expect
+    .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 180_000 })
+    .toBe(1600)
 })

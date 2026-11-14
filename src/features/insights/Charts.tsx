@@ -86,23 +86,28 @@ export function DistributionChart({ data }: DistributionProps) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <table className="sr-only">
-        <caption>Number of cookies by overall score</caption>
-        <thead>
-          <tr>
-            <th scope="col">Score</th>
-            <th scope="col">Cookies</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.band}>
-              <th scope="row">{r.range}</th>
-              <td>{r.count}</td>
+      {/* The wrapper does the hiding: a table ignores the 1px box that
+          "sr-only" asks for and stays as wide as its text, which pushed the
+          whole page sideways on a phone. */}
+      <div className="sr-only">
+        <table>
+          <caption>Number of cookies by overall score</caption>
+          <thead>
+            <tr>
+              <th scope="col">Score</th>
+              <th scope="col">Cookies</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.band}>
+                <th scope="row">{r.range}</th>
+                <td>{r.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   )
 }
@@ -189,25 +194,30 @@ export function TrendChart({ cookies, precision }: TrendProps) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <table className="sr-only">
-        <caption>Overall score of each cookie, oldest first</caption>
-        <thead>
-          <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Cookie</th>
-            <th scope="col">Overall</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.i}>
-              <td>{r.date}</td>
-              <th scope="row">{r.label}</th>
-              <td>{formatScore(r.overall, precision)}</td>
+      {/* The wrapper does the hiding: a table ignores the 1px box that
+          "sr-only" asks for and stays as wide as its text, which pushed the
+          whole page sideways on a phone. */}
+      <div className="sr-only">
+        <table>
+          <caption>Overall score of each cookie, oldest first</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Cookie</th>
+              <th scope="col">Overall</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.i}>
+                <td>{r.date}</td>
+                <th scope="row">{r.label}</th>
+                <td>{formatScore(r.overall, precision)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   )
 }

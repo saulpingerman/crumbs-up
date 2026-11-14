@@ -15,6 +15,7 @@ import {
   type Category,
 } from '@/lib/rubric'
 import { useCountUp } from '@/lib/use-count-up'
+import { StickyFooter } from './QuestionStep'
 
 interface Props {
   category: Category
@@ -131,12 +132,12 @@ export function ResultStep({ category, answers, nudge, onNudge, nextLabel, onCon
         </div>
       </section>
 
-      <div className="mt-auto pt-8">
+      <StickyFooter>
         <Button size="lg" className="w-full" onClick={onContinue}>
           {nextLabel}
           <ArrowRight className="size-5" />
         </Button>
-      </div>
+      </StickyFooter>
     </div>
   )
 }

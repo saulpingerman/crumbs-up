@@ -108,7 +108,7 @@ export interface DraftApi {
   setAnswer: (questionId: string, value: string | string[]) => void
   setNudge: (category: Category, value: number) => void
   setNotes: (notes: string) => void
-  setPhoto: (photo: ProcessedPhoto | 'none') => void
+  setPhoto: (photo: ProcessedPhoto | 'keep' | 'none') => void
   setManual: (manual: Scores | null) => void
   /** Switch between the quick three questions and the full tasting. */
   setQuick: (quick: boolean) => void
@@ -247,9 +247,14 @@ export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>
       setResumed(false)
       setTouched(false)
       dirty.current = false
-      setDraft(blankDraft(key))
+      // Starting over lands on what was asked for: a "rate another here"
+      // link's bakery, say, which the old draft had been hiding.
+      const blank = blankDraft(key)
+      setDraft(prefill ? { ...blank, details: { ...blank.details, ...prefill } } : blank)
       setGeneration((g) => g + 1)
       void clearDraft(key)
+      // `prefill` never changes after the first render.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key]),
     finish: useCallback(async () => {
       finished.current = true

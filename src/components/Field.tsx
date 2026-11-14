@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react
 import { cn } from '@/lib/cn'
 
 export const inputClass =
-  'h-12 w-full rounded-xl border border-line bg-paper px-3.5 text-ink placeholder:text-ink-faint transition-colors focus:border-crust focus:outline-none focus:ring-2 focus:ring-crust/25 aria-[invalid=true]:border-danger'
+  'h-12 w-full scroll-mt-28 rounded-xl border border-line bg-paper px-3.5 text-ink placeholder:text-ink-faint transition-colors focus:border-crust focus:outline-none focus:ring-2 focus:ring-crust/25 aria-[invalid=true]:border-danger'
 
 interface FieldProps {
   label: string

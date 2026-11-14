@@ -72,7 +72,7 @@ export function bakeryPlaces(cookies: RatedCookie[], index: PlaceIndex | null): 
       position,
       exact: pinned.length > 0,
       cookies: sorted,
-      average: mean(sorted.map((c) => c.overallExact)),
+      average: mean(sorted.map((c) => c.overall)),
     })
   }
   return places.sort((a, b) => b.average - a.average || b.cookies.length - a.cookies.length)

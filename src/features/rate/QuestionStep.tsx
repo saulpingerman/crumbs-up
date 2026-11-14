@@ -40,6 +40,26 @@ export function QuestionHeading({ category, index, count, prompt, hint }: Headin
   )
 }
 
+/**
+ * How long a question ignores taps after it appears. Answering moves on by
+ * itself, so a second tap meant for the last screen would otherwise answer
+ * this one before anyone had read it.
+ */
+const SETTLE_MS = 450
+
+/**
+ * The way forward, pinned to the bottom of the screen so it is never below
+ * the fold. It swallows the page's own bottom padding, so it sits in the same
+ * place whether it is stuck there or at rest.
+ */
+export function StickyFooter({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="sticky bottom-0 z-10 -mx-5 mt-auto -mb-[calc(1.25rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-cream from-80% to-transparent px-5 pt-8 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+      {children}
+    </div>
+  )
+}
+
 interface ChoiceProps {
   question: ScaleQuestion | ContextQuestion
   index: number
@@ -65,6 +85,11 @@ export function ChoiceStep({
   // Answering moves on by itself. Coming back to a question that already has
   // an answer needs an explicit way forward that doesn't involve re-tapping.
   const [revisit] = useState(value !== undefined)
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(true), SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [])
   const scored = question.options.filter((o) => o.score !== null)
   const notApplicable = question.options.filter(
     (o) => o.score === null && question.kind === 'scale',
@@ -77,11 +102,11 @@ export function ChoiceStep({
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const n = Number(e.key)
       const option = Number.isInteger(n) && n >= 1 ? list[n - 1] : undefined
-      if (option) onChoose(option.id)
+      if (option && settled) onChoose(option.id)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [list, onChoose])
+  }, [list, onChoose, settled])
 
   const prompt = styleName ? question.prompt.replace('that style', styleName) : question.prompt
 
@@ -102,6 +127,7 @@ export function ChoiceStep({
             type="button"
             role="radio"
             aria-checked={value === option.id}
+            disabled={!settled}
             onClick={() => onChoose(option.id)}
             className={cn(
               'mb-1 w-full rounded-2xl border border-dashed px-4 py-2.5 text-left text-sm transition active:scale-[0.99]',
@@ -120,17 +146,18 @@ export function ChoiceStep({
             category={question.category}
             selected={value === option.id}
             standard={question.kind === 'scale' && i === STANDARD_OPTION_INDEX}
+            disabled={!settled}
             onChoose={onChoose}
           />
         ))}
       </div>
       {revisit && value !== undefined && (
-        <div className="mt-auto pt-6">
+        <StickyFooter>
           <Button variant="soft" size="lg" className="w-full" onClick={onNext}>
             Keep this answer
             <ArrowRight className="size-5" />
           </Button>
-        </div>
+        </StickyFooter>
       )}
     </div>
   )
@@ -141,12 +168,14 @@ function ChoiceButton({
   category,
   selected,
   standard,
+  disabled,
   onChoose,
 }: {
   option: Option
   category: Category
   selected: boolean
   standard: boolean
+  disabled: boolean
   onChoose: (id: string) => void
 }) {
   return (
@@ -154,6 +183,7 @@ function ChoiceButton({
       type="button"
       role="radio"
       aria-checked={selected}
+      disabled={disabled}
       onClick={() => onChoose(option.id)}
       className={cn(
         'flex min-h-[60px] w-full items-center gap-3 rounded-2xl border-[1.5px] px-4 py-2.5 text-left transition duration-150 active:scale-[0.985]',
@@ -237,11 +267,11 @@ export function FlawStep({ question, index, count, value, onChange, onContinue }
           )
         })}
       </div>
-      <div className="mt-auto pt-8">
+      <StickyFooter>
         <Button size="lg" className="w-full" onClick={onContinue}>
           {value.length === 0 ? 'No flaws — carry on' : `Continue with ${value.length} flagged`}
         </Button>
-      </div>
+      </StickyFooter>
     </div>
   )
 }

@@ -7,9 +7,10 @@ import { IconButton } from '@/components/Button'
 import { categoryBg, categoryText } from '@/components/category-styles'
 import { Confirm } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
-import { saveCookie } from '@/lib/db/cookies'
-import type { CookieDetails } from '@/lib/db/schema'
-import { requestPersistentStorage } from '@/lib/db/db'
+import { pendingCutout } from '@/lib/cutout/pending'
+import { saveCookie, type SaveCookieInput } from '@/lib/db/cookies'
+import type { CookieDetails, CookieRecord, ProcessedPhoto } from '@/lib/db/schema'
+import { db, requestPersistentStorage } from '@/lib/db/db'
 import {
   CATEGORY_META,
   TASTING_ORDER,
@@ -21,7 +22,7 @@ import {
 } from '@/lib/rubric'
 import { getSettings, updateSettings } from '@/lib/settings'
 import { isKnownStateCode } from '@/lib/states'
-import { forgetPhoto } from '@/lib/use-photo'
+import { forgetPhoto, photoArrived } from '@/lib/use-photo'
 import { useTitle } from '@/lib/use-title'
 import { DetailsStep } from './DetailsStep'
 import { ChoiceStep, FlawStep } from './QuestionStep'
@@ -31,6 +32,25 @@ import { SummaryStep } from './SummaryStep'
 import { draftScores, hasContent, useDraft } from './useDraft'
 
 const ADVANCE_DELAY = 260
+
+/**
+ * A cookie was saved while its photo was still being cut out. Swap the
+ * cut-out in when it arrives — unless the cookie has been edited or deleted
+ * in the meantime, in which case whatever was done to it stands.
+ */
+async function finishCutout(
+  saved: CookieRecord,
+  input: SaveCookieInput,
+  job: Promise<ProcessedPhoto | null>,
+) {
+  const photo = await job
+  if (!photo) return
+  const current = await db.cookies.get(saved.id)
+  if (!current || current.updatedAt !== saved.updatedAt) return
+  await saveCookie({ ...input, id: saved.id, photo })
+  forgetPhoto(saved.id)
+  photoArrived(saved.id)
+}
 
 export function RatePage() {
   const navigate = useNavigate()
@@ -149,7 +169,9 @@ export function RatePage() {
     setSaving(true)
     try {
       const { suggested, scores } = draftScores(draft)
-      const cookie = await saveCookie({
+      // A quick review can be saved before the photo's cut-out has arrived.
+      const cutout = typeof draft.photo === 'object' ? pendingCutout(draft.photo) : undefined
+      const input: SaveCookieInput = {
         id: editId ?? undefined,
         details: draft.details,
         notes: draft.notes,
@@ -161,7 +183,9 @@ export function RatePage() {
         suggested,
         scores,
         photo: draft.photo,
-      })
+      }
+      const cookie = await saveCookie(input)
+      if (cutout) void finishCutout(cookie, input, cutout)
       await api.finish()
       forgetPhoto(cookie.id)
       updateSettings({
@@ -262,6 +286,16 @@ export function RatePage() {
               { state: { depth: depth + 1, fromVerdict: true } },
             )
           }
+          onDetails={() =>
+            void navigate(
+              { search: searchFor(0) },
+              { state: { depth: depth + 1, fromVerdict: true } },
+            )
+          }
+          // The details can hand straight back to the verdict when they were
+          // opened from it, or when an old cookie is being corrected — as
+          // long as every question still has its answer.
+          toVerdict={(fromVerdict || editId !== null) && furthest === steps.length - 1}
           onManual={() => {
             api.setManual(typedScores.current ?? draftScores(draft).scores)
             go(1)
@@ -312,6 +346,8 @@ interface StepViewProps {
   fromVerdict: boolean
   onBackToVerdict: () => void
   onAdjust: (category: Category) => void
+  onDetails: () => void
+  toVerdict: boolean
   onManual: () => void
   onGuided: () => void
   onFull: () => void
@@ -330,6 +366,8 @@ function StepView({
   fromVerdict,
   onBackToVerdict,
   onAdjust,
+  onDetails,
+  toVerdict,
   onManual,
   onGuided,
   onFull,
@@ -344,7 +382,8 @@ function StepView({
           key={api.generation}
           api={api}
           editId={editId}
-          onContinue={onNext}
+          onContinue={toVerdict ? onResume : onNext}
+          onQuestions={toVerdict ? onNext : undefined}
           onManual={onManual}
           onResume={onResume}
         />
@@ -416,6 +455,7 @@ function StepView({
           onManual={api.setManual}
           onNudge={api.setNudge}
           onAdjust={onAdjust}
+          onDetails={onDetails}
           onGuided={onGuided}
           onFull={onFull}
           onSave={onSave}
