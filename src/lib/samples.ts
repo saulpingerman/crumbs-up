@@ -234,7 +234,8 @@ export async function addSampleCookies(): Promise<number> {
   }
   // One transaction, so the journal fills in all at once and an interruption
   // can't leave half a batch behind.
-  await db.transaction('rw', db.cookies, db.photos, db.thumbs, db.originals, async () => {
+  const tables = [db.cookies, db.photos, db.thumbs, db.originals, db.outbox]
+  await db.transaction('rw', tables, async () => {
     for (const input of batch) await saveCookie(input)
   })
   return batch.length

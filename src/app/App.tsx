@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
-import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router'
+import {
+  createBrowserRouter,
+  Outlet,
+  RouterProvider,
+  ScrollRestoration,
+  useNavigate,
+} from 'react-router'
 import { Toaster } from 'sonner'
 import { JournalPage } from '@/features/journal/JournalPage'
+import { useRecovering } from '@/lib/cloud/session'
 import { db } from '@/lib/db/db'
 import { useSettings } from '@/lib/settings'
 import { AppShell } from './AppShell'
@@ -70,6 +77,14 @@ const router = createBrowserRouter(
  * opening a cookie and coming back returns to the same spot in the journal.
  */
 function Root() {
+  // A "reset password" email lands on the journal; the form for choosing the
+  // new password lives in Settings.
+  const recovering = useRecovering()
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (recovering) void navigate('/settings', { replace: true })
+  }, [recovering, navigate])
+
   return (
     <>
       <Outlet />

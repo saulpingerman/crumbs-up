@@ -50,8 +50,11 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
   three numbers in.
 - **Works like an app.** Installs to the home screen, runs offline, keeps drafts if you get
   interrupted mid-cookie, and has a dark "midnight snack" theme.
-- **Your data stays yours.** Everything is stored on the device. One button makes a `.zip` backup
-  (photos included, plus a spreadsheet-friendly CSV); another restores it on any device.
+- **Sign in, or don't.** Without an account everything stays on the device. Sign in and the
+  journal — photos included — is backed up and kept in step between your phone and your computer,
+  private to you. It still works offline; changes are sent when the connection comes back.
+- **Your data stays yours.** One button makes a `.zip` backup (photos included, plus a
+  spreadsheet-friendly CSV); another restores it on any device, account or no account.
 
 <p>
   <img src="docs/cutout.png" width="24%" alt="A cookie cut out of its photo" />
@@ -90,7 +93,7 @@ all follow.
 
 ## How the photo cut-out works
 
-The cut-out runs **entirely on the device** — photos are never uploaded anywhere.
+The cut-out runs **entirely on the device** — finding the cookie never sends the photo anywhere.
 
 - It uses Google's open-source
   [MediaPipe Interactive Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/interactive_segmenter):
@@ -110,8 +113,8 @@ By default the model file is fetched from Google's public model bucket. To host 
 
 ## Maps, places and recommendations
 
-**Recommendations are computed on the device** from your own journal — there is no account and
-nobody else's data. Each kind of cookie the app knows (about 35 of them) carries a few traits:
+**Recommendations are computed on the device** from your own journal — nothing is sent anywhere
+to produce them, and nobody else's data is involved. Each kind of cookie the app knows (about 35 of them) carries a few traits:
 chocolate, caramel, spice, citrus, chewy, crisp and so on. The app works out which traits score
 above and below your average, pulling small samples toward zero so one great cookie doesn't define
 your palate, and ranks untried kinds by how well they fit. If the questionnaire recorded how a
@@ -124,7 +127,7 @@ placing a bakery by its town all work with no connection and without sending you
 anywhere. A bakery pinned from your location or picked from the map sits at its exact spot; one
 known only by town sits near the town's center.
 
-**Three things do go online**, and none of them carries your ratings:
+**Three things here do go online**, and none of them carries your ratings:
 
 | What                     | Service                                            | What is sent                       |
 | ------------------------ | -------------------------------------------------- | ---------------------------------- |
@@ -151,8 +154,9 @@ Crumbs Up is a Progressive Web App: the website _is_ the phone app.
 - **Android:** open the site in Chrome → **Install app** (the app also offers a button).
 
 Installing matters for more than convenience. Safari clears a website's saved data after about a
-week without a visit, but not an installed app's — and the journal lives on the device. Either way,
-use **Settings → Back up journal** now and then; the app reminds you after every few cookies.
+week without a visit, but not an installed app's — and without an account the journal lives only
+on the device. Signing in (**Settings → Account**) keeps a copy safe in your account; otherwise use
+**Settings → Back up journal** now and then. The app reminds you after every few cookies.
 
 ## Run it locally
 
@@ -168,7 +172,7 @@ npm run dev        # http://localhost:5173
 | `npm run dev`       | Start the dev server with hot reload                  |
 | `npm run build`     | Type-check and build the production app into `dist/`  |
 | `npm run preview`   | Serve the production build locally                    |
-| `npm test`          | Unit tests (scoring engine, backup format)            |
+| `npm test`          | Unit tests (scoring engine, backup format, sync…)     |
 | `npm run test:e2e`  | End-to-end tests in a phone-sized browser (see below) |
 | `npm run lint`      | Lint with oxlint                                      |
 | `npm run typecheck` | Type-check only                                       |
@@ -176,6 +180,9 @@ npm run dev        # http://localhost:5173
 | `npm run icons`     | Regenerate app icons from `public/logo.svg`           |
 
 The end-to-end tests need a browser once: `npx playwright install chromium`.
+
+Run like this, the app has no accounts — it is the device-only journal. To work on sign-in and
+sync, see [Accounts and sync](#accounts-and-sync).
 
 ## Put it online
 
@@ -193,6 +200,73 @@ rewrite to `index.html`.
 
 To serve from a sub-folder, build with `BASE_PATH=/your/path/ npm run build`.
 
+## Accounts and sync
+
+Accounts are optional and off until the app is built with a [Supabase](https://supabase.com)
+project's address. Supabase supplies the three things sync needs — sign-in, a database and file
+storage — and its free plan is plenty for a personal journal.
+
+**What signing in does.** The journal on the device stays the real one: every screen reads and
+writes it directly, so the app is exactly as fast, and works exactly as well offline, as it does
+without an account. Signing in adds a copy in your account and keeps the two in step.
+
+- Cookies rated before signing in come along the first time you do.
+- Every change is noted in a small queue on the device and sent when there's a connection —
+  straight away if there is one, later if there isn't.
+- If the same cookie was edited on two devices, the more recent edit wins, cookie by cookie.
+  Deleting a cookie deletes it everywhere.
+- Photos (the picture and, for a cut-out, the original behind it) go to private storage that only
+  your account can read.
+- Signing out asks whether to keep the journal on the device or take it off. A device that holds
+  one account's journal won't quietly merge it into another: signing in as someone else asks first.
+- Sample cookies never leave the device.
+
+**Setting it up**
+
+1. Create a project at [supabase.com](https://supabase.com) (the free plan will do).
+2. Open the project's **SQL Editor**, paste in
+   [`supabase/migrations/20261114000000_journal.sql`](supabase/migrations/20261114000000_journal.sql)
+   and run it. That creates the one table, the private photo storage and the rules that keep each
+   person's journal to themselves.
+3. Under **Authentication → URL Configuration**, set the **Site URL** to where the app lives
+   (for example `https://<user>.github.io/<repo>/`) and add that address followed by `**` to the
+   **Redirect URLs**, plus `http://localhost:5173/**` for development.
+4. Give the app the project's **URL** and **publishable key** (Project Settings → API keys) as
+   `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` — in `.env.local` for development and
+   `.env.production` for the published build. See [`.env.example`](.env.example).
+
+Both of those values are public by design: they end up in the app's code, where anyone can read
+them, and the database rules are what protect the data. **The secret key (`sb_secret_…`) and the
+database password must never go into the app or this repository.**
+
+**Sign in with Google or Apple.** Switch the provider on under **Authentication → Sign In /
+Providers** in Supabase (each needs credentials from Google's or Apple's developer console — the
+Supabase page for the provider lists the steps), then add it to `VITE_AUTH_PROVIDERS`, for example
+`VITE_AUTH_PROVIDERS=google,apple`. The buttons appear on the sign-in form.
+
+**Things to know about the free plan**
+
+- New accounts confirm their email address by default, and Supabase's built-in mail service is
+  only for trying things out: it delivers to the project's own team members and nobody else, and
+  sends about two messages an hour. That is fine for your own account. Before inviting other
+  people, connect a mail service under **Authentication → Emails → SMTP Settings** — or have them
+  sign in with Google, which needs no email at all.
+- A project with no activity for a week is paused until you resume it from the dashboard. Nothing
+  is lost, and the app keeps working from the device in the meantime.
+
+**Working on it locally.** The [Supabase CLI](https://supabase.com/docs/guides/local-development)
+runs the whole backend on your machine (it needs Docker):
+
+```bash
+npx supabase start        # database, sign-in and storage, with the migration applied
+npm run dev:cloud         # the app, pointed at the local stack
+npm run test:cloud        # sync against a real database: privacy rules, conflicts, photos
+npm run test:e2e:cloud    # two "devices" sharing an account, in a real browser
+```
+
+Emails the local stack "sends" (confirmations, password resets) are caught in an inbox at
+`http://127.0.0.1:54324`.
+
 ## How it's built
 
 | Concern           | Choice                                                                                                                                      |
@@ -205,6 +279,7 @@ To serve from a sub-folder, build with `BASE_PATH=/your/path/ npm run build`.
 | Offline / install | [vite-plugin-pwa](https://vite-pwa-org.netlify.app) (Workbox)                                                                               |
 | Photos            | [Compressor.js](https://github.com/fengyuanchen/compressorjs) shrinks camera photos before saving                                           |
 | Photo cut-outs    | [MediaPipe Tasks Vision](https://www.npmjs.com/package/@mediapipe/tasks-vision) — on-device segmentation in a web worker                    |
+| Accounts and sync | [Supabase](https://supabase.com) — sign-in, Postgres with row-level security, private file storage (optional)                               |
 | Backups           | [fflate](https://github.com/101arrowz/fflate) zips, validated on the way back in with [Zod](https://zod.dev)                                |
 | Map               | [us-atlas](https://github.com/topojson/us-atlas) shapes drawn with [d3-geo](https://d3js.org/d3-geo)                                        |
 | Street map        | [MapLibre GL JS](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org) tiles                                                    |
@@ -236,7 +311,9 @@ src/
     cutout/         finds the cookie in a photo and sets it on a tabletop
     cookie-art/     draws a cookie from its type and review
     db/             IndexedDB schema, cookie repository, backup format
+    cloud/          accounts and the sync engine
     …               formatting, statistics, photo processing, settings
+supabase/           the database migration and local-development config
 e2e/                end-to-end tests
 ```
 
@@ -254,17 +331,23 @@ A few decisions worth knowing about:
   common forms of color blindness and are never the only cue — every score has a label beside it.
 - **Updates wait to be asked.** A new version is offered with an "Update" prompt rather than
   swapped in mid-rating.
+- **The device is the source of truth; the account is a copy.** Sync is a small engine of its own
+  ([`src/lib/cloud/sync.ts`](src/lib/cloud/sync.ts)) rather than a framework: an outbox of changes
+  to send, a cursor for changes to fetch, and "the newer edit wins" enforced by the database
+  itself, so a slow device can never overwrite a newer edit. It talks to the server through a
+  five-method interface, which is how the tests run it against both an in-memory stand-in and a
+  real Supabase.
+- **Privacy is enforced by the database, not the app.** Row-level security limits every query and
+  every stored photo to its owner, so the key shipped in the app can't read anyone else's journal.
+  The tests sign in as two people and check that one can't see or change the other's.
 
 ## Where it could go next
 
-- **Accounts and sync.** Today there is no sign-in: the journal lives on one device and a backup
-  file moves it to another. Signing in (email, Google, Apple) so that a cookie rated on your phone
-  shows up on the website needs a small hosted backend. [Supabase](https://supabase.com) fits
-  well — it bundles sign-in, a database and photo storage, with rules so each person can only read
-  their own journal. The data layer already uses stable ids and edit timestamps, which is what
-  sync needs.
 - **Public pages.** With accounts in place, a shareable public page per cookie or per reviewer
   becomes a small step.
+- **Deleting an account from inside the app.** Today "Delete everything" empties the journal on
+  every device and in the account, but the sign-in itself is removed from the Supabase dashboard.
+  An in-app button needs a small server-side function — and the App Store requires one.
 - **App Store and Google Play.** The same code can be wrapped with
   [Capacitor](https://capacitorjs.com) to ship through the stores, which needs Apple and Google
   developer accounts.

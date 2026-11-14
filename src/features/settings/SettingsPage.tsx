@@ -14,7 +14,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
+import { AccountCard } from './AccountCard'
 import { Segmented } from '@/components/Field'
+import { useSession } from '@/lib/cloud/session'
 import { Card, Page, SectionTitle } from '@/components/Page'
 import { Confirm } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
@@ -30,10 +32,12 @@ const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeS
 
 export function SettingsPage() {
   const settings = useSettings()
+  const signedIn = useSession().status === 'signed-in'
 
   return (
     <Page title="Settings" className="max-w-2xl">
       <div className="space-y-5">
+        <AccountCard />
         <Card>
           <SectionTitle>Overall score</SectionTitle>
           <p className="mt-1 text-sm text-ink-soft">
@@ -163,7 +167,10 @@ export function SettingsPage() {
         <InstallCard />
 
         <p className="px-2 text-center text-xs leading-relaxed text-ink-faint">
-          Crumbs Up {__APP_VERSION__} · Your journal lives on this device and is never uploaded.
+          Crumbs Up {__APP_VERSION__} ·{' '}
+          {signedIn
+            ? 'Your journal lives on this device and in your account.'
+            : 'Your journal lives on this device and is never uploaded.'}
         </p>
       </div>
     </Page>
@@ -226,6 +233,7 @@ function Row({
 
 function DataCard() {
   const settings = useSettings()
+  const signedIn = useSession().status === 'signed-in'
   const counts = useLiveQuery(async () => {
     const all = await db.cookies.toArray()
     return { total: all.length, samples: all.filter((c) => c.sample).length }
@@ -321,8 +329,10 @@ function DataCard() {
       <SectionTitle>Your journal</SectionTitle>
       <p className="mt-1 text-sm text-ink-soft">
         {plural(mine, 'cookie')} saved on this device
-        {samples > 0 && ` (plus ${plural(samples, 'sample')})`}. Nothing is sent anywhere, so a
-        backup is the only other copy.
+        {samples > 0 && ` (plus ${plural(samples, 'sample')})`}.{' '}
+        {signedIn
+          ? 'It is also kept in your account, and a backup file is a third copy that is yours to keep.'
+          : 'Nothing is sent anywhere, so a backup is the only other copy.'}
       </p>
 
       <div
@@ -420,7 +430,14 @@ function DataCard() {
         description={
           <>
             All {plural(total, 'cookie')}, every photo and any unfinished rating will be erased from
-            this device. This can’t be undone — make a backup first if you might want them back.
+            this device
+            {signedIn && (
+              <strong className="font-semibold text-ink">
+                {' '}
+                and from your account, on every device signed in to it
+              </strong>
+            )}
+            . This can’t be undone — make a backup first if you might want them back.
           </>
         }
         confirmLabel="Delete everything"

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { CATEGORIES, overallScore, type OverallPrecision, type Weights } from '@/lib/rubric'
 import { todayIso } from '@/lib/format'
 import { stateName } from '@/lib/states'
+import { noteChange } from './cookies'
 import { db, type CrumbsDb } from './db'
 import { cookieSchema, type CookieRecord, type StoredImage } from './schema'
 
@@ -211,7 +212,13 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
 
   const result: ImportResult = { added: 0, updated: 0, unchanged: 0, skipped: 0 }
 
-  const tables = [database.cookies, database.photos, database.thumbs, database.originals]
+  const tables = [
+    database.cookies,
+    database.photos,
+    database.thumbs,
+    database.originals,
+    database.outbox,
+  ]
   await database.transaction('rw', tables, async () => {
     for (const raw of manifest.cookies) {
       const parsed = cookieSchema.safeParse(raw)
@@ -268,6 +275,8 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
           database.originals.delete(cookie.id),
         ])
       }
+      // A restored cookie is a change like any other: it should reach the cloud copy.
+      if (!cookie.sample) await noteChange(database, cookie.id, 'put', cookie.updatedAt, true)
       if (existing) result.updated += 1
       else result.added += 1
     }

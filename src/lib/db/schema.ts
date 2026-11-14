@@ -42,6 +42,10 @@ export const cookieSchema = z.object({
   scores: scoresSchema,
   rubricVersion: z.number().int().nonnegative(),
   hasPhoto: z.boolean().default(false),
+  /** When the photo was last replaced or removed; lets another device tell it needs the new one. */
+  photoUpdatedAt: z.number().optional(),
+  /** True when the picture is a cut-out, i.e. the untouched photo is stored as well. */
+  cutout: z.boolean().optional(),
   /** Marks bundled demo cookies so they can be removed in one go. */
   sample: z.boolean().optional(),
 })
@@ -108,4 +112,21 @@ export interface DraftRecord {
    * `none` = no photo, otherwise the freshly picked photo.
    */
   photo: ProcessedPhoto | 'keep' | 'none'
+}
+
+/** A change made on this device that the cloud copy doesn't have yet. */
+export interface OutboxRecord {
+  /** Cookie id. */
+  id: string
+  op: 'put' | 'delete'
+  /** The edit time this entry was recorded for; newer edits replace the entry. */
+  editedAt: number
+  /** Whether the photo changed too, so it needs uploading (or removing). */
+  photo: boolean
+}
+
+/** Small facts about this device's copy of the journal. */
+export interface MetaRecord {
+  key: 'owner' | 'cursor' | 'syncedAt'
+  value: string
 }

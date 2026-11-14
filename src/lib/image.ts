@@ -88,3 +88,17 @@ export async function withThumbnail(photo: PhotoImages): Promise<PhotoImages> {
     thumbHeight: size.height,
   }
 }
+
+/** Rebuild a stored photo from just its bytes (as downloaded from the cloud copy). */
+export async function photoFromBytes(full: ArrayBuffer): Promise<PhotoImages> {
+  const size = await measure(new Blob([full], { type: MIME }))
+  return withThumbnail({
+    mime: MIME,
+    full,
+    width: size.width,
+    height: size.height,
+    thumb: full,
+    thumbWidth: size.width,
+    thumbHeight: size.height,
+  })
+}

@@ -2,7 +2,7 @@
   "name": "crumbs-up",
   "private": true,
   "version": "0.1.0",
-  "description": "Crumbs Up — a guided cookie rating journal for web and phone.",
+  "description": "Crumbs Up \u2014 a guided cookie rating journal for web and phone.",
   "type": "module",
   "engines": {
     "node": ">=20.19"
@@ -18,12 +18,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "icons": "pwa-assets-generator"
+    "icons": "pwa-assets-generator",
+    "test:cloud": "node scripts/with-local-supabase.mjs vitest run src/lib/cloud",
+    "dev:cloud": "node scripts/with-local-supabase.mjs vite",
+    "test:e2e:cloud": "node scripts/with-local-supabase.mjs playwright test e2e/cloud.spec.ts"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@mediapipe/tasks-vision": "^1.2.3",
+    "@supabase/supabase-js": "^2.119.0",
     "clsx": "^2.1.1",
     "compressorjs": "^1.4.0",
     "d3-geo": "^3.1.2",
@@ -60,6 +64,7 @@
     "oxlint": "^1.93.0",
     "prettier": "^3.10.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "supabase": "^3.1.0",
     "tailwindcss": "^4.3.5",
     "typescript": "~7.0.2",
     "vite": "^8.3.8",
