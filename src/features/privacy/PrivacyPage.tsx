@@ -5,7 +5,7 @@ import { Card, Page, SectionTitle } from '@/components/Page'
 import { cloudConfigured } from '@/lib/cloud/client'
 
 const UPDATED = 'November 14, 2026'
-const CONTACT = 'https://github.com/saulpingerman/crumbs-up/issues'
+const CONTACT = 'help@crumbs-up.com'
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -158,14 +158,12 @@ export function PrivacyPage() {
           <p>Crumbs Up is not meant for children under 13.</p>
           <p>If this page changes, the date here changes with it. Last updated {UPDATED}.</p>
           <p>
-            Questions, or want something removed?{' '}
+            Questions, or want something removed? Write to{' '}
             <a
-              href={CONTACT}
-              target="_blank"
-              rel="noreferrer"
+              href={`mailto:${CONTACT}`}
               className="font-semibold text-crust underline underline-offset-4"
             >
-              Get in touch
+              {CONTACT}
             </a>
             .
           </p>
