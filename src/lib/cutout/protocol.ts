@@ -1,23 +1,27 @@
 /** Messages between the page and the cookie-finder worker. */
+import type { RefinedMask } from './mask'
 
 export type Stage =
-  /** Fetching the model for the first time. */
+  /** Fetching the models for the first time. */
   | 'downloading'
-  /** Starting the model up. */
+  /** Starting the models up. */
   | 'starting'
   /** Looking at the photo. */
   | 'looking'
 
-export interface SegmentRequest {
-  type: 'segment'
+export interface CutoutRequest {
+  type: 'cutout'
   id: number
-  /** Identifies the photo, so repeat taps on it skip the slow first pass. */
-  imageKey: string
   image: ImageBitmap
-  point: { x: number; y: number }
+  /**
+   * Where the person tapped to say "the cookie is here". Without it the
+   * worker looks for the cookie itself.
+   */
+  point?: { x: number; y: number }
 }
 
 export type WorkerMessage =
   | { type: 'progress'; id: number; stage: Stage; loaded?: number; total?: number }
-  | { type: 'result'; id: number; mask: Float32Array; width: number; height: number }
+  /** `mask` is null when nothing cookie-like was found. */
+  | { type: 'result'; id: number; mask: RefinedMask | null }
   | { type: 'error'; id: number; message: string }

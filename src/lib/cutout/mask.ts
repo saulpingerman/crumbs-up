@@ -30,6 +30,22 @@ export interface RefinedMask {
   box: Box
   /** Share of the image the shape covers, 0–1. */
   coverage: number
+  /**
+   * How much of the shape's convex outline it fills, 0–1. A cookie is close
+   * to 1; a floor showing around furniture, or a person, is well below.
+   */
+  solidity: number
+  /**
+   * How much of the shape's outline runs along the edge of the photo, 0–1.
+   * A cookie sits inside the frame; floors and tabletops run out of it.
+   */
+  onEdge: number
+  /**
+   * The biggest gap left inside the shape, if any: its size as a share of
+   * the shape, and its middle. A wrapper or plate with a cookie-sized gap in
+   * it means the cookie is in the gap.
+   */
+  gap: { share: number; center: Point } | null
 }
 
 const THRESHOLD = 0.5
@@ -133,6 +149,10 @@ export function refineMask(
   const outside = flood(off, width, height, border)
   const maxHole = blobSize * MAX_HOLE
   const members = new Int32Array(total)
+  let gapsTotal = 0
+  let biggestGap = 0
+  let gapX = 0
+  let gapY = 0
   for (let i = 0; i < total; i++) {
     if (!off[i] || outside[i]) continue
     // An enclosed gap we haven't measured yet: walk it, clearing as we go.
@@ -150,16 +170,37 @@ export function refineMask(
         }
       }
     }
-    // Big gaps join the outside.
-    if (tail > maxHole) for (let k = 0; k < tail; k++) outside[members[k]!] = 1
+    if (tail <= maxHole) continue
+    // Big gaps join the outside; remember the biggest.
+    let sumX = 0
+    let sumY = 0
+    for (let k = 0; k < tail; k++) {
+      const j = members[k]!
+      outside[j] = 1
+      sumX += j % width
+      sumY += (j - (j % width)) / width
+    }
+    gapsTotal += tail
+    if (tail > biggestGap) {
+      biggestGap = tail
+      gapX = sumX / tail
+      gapY = sumY / tail
+    }
   }
 
   const alpha = new Uint8ClampedArray(total)
   let count = 0
+  /** Pixels of the shape with the outside (or the frame) next to them… */
+  let outline = 0
+  /** …and how many of those are up against the frame. */
+  let framed = 0
   let minX = width
   let minY = height
   let maxX = -1
   let maxY = -1
+  // The left and right ends of the shape on each row, for its outline.
+  const rowMin = new Int32Array(height).fill(width)
+  const rowMax = new Int32Array(height).fill(-1)
   for (let i = 0; i < total; i++) {
     if (outside[i]) continue
     count++
@@ -173,6 +214,14 @@ export function refineMask(
     if (x > maxX) maxX = x
     if (y < minY) minY = y
     if (y > maxY) maxY = y
+    if (x < rowMin[y]!) rowMin[y] = x
+    if (x > rowMax[y]!) rowMax[y] = x
+    if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+      outline++
+      framed++
+    } else if (outside[i - 1] || outside[i + 1] || outside[i - width] || outside[i + width]) {
+      outline++
+    }
   }
 
   const coverage = count / total
@@ -182,5 +231,59 @@ export function refineMask(
   // A shape spanning the whole frame in both directions is the background.
   if (box.width >= width * 0.98 && box.height >= height * 0.98) return null
 
-  return { width, height, alpha, box, coverage }
+  // Measured with the gaps counted in: this is about the outline.
+  const outlined = count + gapsTotal
+  const solidity = Math.min(1, outlined / Math.max(1, hullArea(rowMin, rowMax)))
+  const gap =
+    biggestGap > 0
+      ? {
+          share: biggestGap / outlined,
+          center: { x: gapX / Math.max(1, width - 1), y: gapY / Math.max(1, height - 1) },
+        }
+      : null
+
+  const onEdge = framed / Math.max(1, outline)
+
+  return { width, height, alpha, box, coverage, solidity, onEdge, gap }
+}
+
+/**
+ * Area of the convex hull of a shape given the first and last filled pixel
+ * of each row. Pixels are treated as unit squares, so a filled rectangle
+ * comes out as exactly its own area.
+ */
+function hullArea(rowMin: Int32Array, rowMax: Int32Array): number {
+  // Corner points, already sorted top to bottom; the hull is built per side.
+  const left: [number, number][] = []
+  const right: [number, number][] = []
+  for (let y = 0; y < rowMin.length; y++) {
+    if (rowMax[y]! < 0) continue
+    left.push([rowMin[y]!, y], [rowMin[y]!, y + 1])
+    right.push([rowMax[y]! + 1, y], [rowMax[y]! + 1, y + 1])
+  }
+  if (left.length === 0) return 0
+  // Walking down the rows, the left side may only ever turn one way and the
+  // right side the other; drop any corner that would dent the outline.
+  const chain = (points: [number, number][], sign: 1 | -1) => {
+    const kept: [number, number][] = []
+    for (const p of points) {
+      while (kept.length >= 2) {
+        const a = kept[kept.length - 2]!
+        const b = kept[kept.length - 1]!
+        const cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+        if (cross * sign >= 0) kept.pop()
+        else break
+      }
+      kept.push(p)
+    }
+    return kept
+  }
+  const outline = [...chain(left, 1), ...chain(right, -1).reverse()]
+  let twice = 0
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]!
+    const b = outline[(i + 1) % outline.length]!
+    twice += a[0] * b[1] - b[0] * a[1]
+  }
+  return Math.abs(twice) / 2
 }

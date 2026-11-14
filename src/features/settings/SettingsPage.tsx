@@ -138,8 +138,8 @@ export function SettingsPage() {
           </Row>
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">
             This runs entirely on your device — photos are never uploaded. The first time, it
-            downloads a cookie-finding model (about 35 MB) from Google; after that it works offline.
-            Cookies without a photo get an illustration drawn from your review.
+            downloads its cookie-finding models (about 42 MB) from Google; after that it works
+            offline. Cookies without a photo get an illustration drawn from your review.
           </p>
         </Card>
 
