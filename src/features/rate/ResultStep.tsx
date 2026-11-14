@@ -30,15 +30,17 @@ export function ResultStep({ category, answers, nudge, onNudge, nextLabel, onCon
   const meta = CATEGORY_META[category]
   const assessed = assessCategory(category, answers)
   const final = Math.min(MAX_SCORE, Math.max(MIN_SCORE, assessed.score + nudge))
+  // What the nudge actually amounts to once the score is kept within 1–10.
+  const moved = final - assessed.score
   const shown = useCountUp(final, 800, 1)
   const display = Math.round(shown * 2) / 2
   const tier = tierFor(final)
 
   return (
     <div className="flex flex-1 flex-col">
-      <p className={cn('text-xs font-bold tracking-[0.14em] uppercase', categoryText[category])}>
+      <h1 className={cn('text-xs font-bold tracking-[0.14em] uppercase', categoryText[category])}>
         {meta.label} score
-      </p>
+      </h1>
 
       <div className="mt-2 flex items-end gap-3">
         <span
@@ -97,11 +99,11 @@ export function ResultStep({ category, answers, nudge, onNudge, nextLabel, onCon
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-bold">Your call</h2>
           <p className="text-[13px] leading-snug text-ink-soft">
-            {nudge === 0
+            {moved === 0
               ? 'Gut says different? Nudge it by half points.'
-              : `Suggested ${formatScore(assessed.score)} · you moved it ${nudge > 0 ? '+' : '−'}${formatScore(Math.abs(nudge))}.`}
+              : `Suggested ${formatScore(assessed.score)} · you moved it ${moved > 0 ? '+' : '−'}${formatScore(Math.abs(moved))}.`}
           </p>
-          {nudge !== 0 && (
+          {moved !== 0 && (
             <button
               type="button"
               onClick={() => onNudge(0)}

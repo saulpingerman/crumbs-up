@@ -1,6 +1,7 @@
 import { strFromU8, strToU8, unzip, zip, type Unzipped, type Zippable } from 'fflate'
 import { z } from 'zod'
 import { CATEGORIES, overallScore, type OverallPrecision, type Weights } from '@/lib/rubric'
+import { todayIso } from '@/lib/format'
 import { stateName } from '@/lib/states'
 import { db, type CrumbsDb } from './db'
 import { cookieSchema, type CookieRecord, type StoredImage } from './schema'
@@ -9,8 +10,9 @@ import { cookieSchema, type CookieRecord, type StoredImage } from './schema'
  * A backup is a plain .zip:
  *
  *   crumbs-up.json            every cookie and its answers
- *   photos/<id>.jpg           full-size photo
- *   thumbs/<id>.jpg           thumbnail
+ *   photos/<id>.jpg           the picture shown for the cookie
+ *   thumbs/<id>.jpg           its thumbnail
+ *   originals/<id>.jpg        the untouched photo, when the picture is a cut-out
  *   cookies.csv               the scores as a spreadsheet, for humans
  */
 export const BACKUP_FORMAT = 'crumbs-up-backup'
@@ -30,6 +32,7 @@ const manifestSchema = z.object({
         height: z.number(),
         thumbWidth: z.number(),
         thumbHeight: z.number(),
+        original: z.object({ mime: z.string(), width: z.number(), height: z.number() }).optional(),
       }),
     )
     .default({}),
@@ -108,9 +111,10 @@ export async function exportBackup(
     a.eatenOn.localeCompare(b.eatenOn),
   )
   const ids = cookies.map((c) => c.id)
-  const [photos, thumbs] = await Promise.all([
+  const [photos, thumbs, originals] = await Promise.all([
     database.photos.bulkGet(ids),
     database.thumbs.bulkGet(ids),
+    database.originals.bulkGet(ids),
   ])
 
   const files: Zippable = {}
@@ -119,14 +123,19 @@ export async function exportBackup(
     const photo = photos[i]
     const thumb = thumbs[i]
     if (!photo || !thumb) return
+    const original = originals[i]
     files[`photos/${id}.jpg`] = new Uint8Array(photo.data)
     files[`thumbs/${id}.jpg`] = new Uint8Array(thumb.data)
+    if (original) files[`originals/${id}.jpg`] = new Uint8Array(original.data)
     images[id] = {
       mime: photo.mime,
       width: photo.width,
       height: photo.height,
       thumbWidth: thumb.width,
       thumbHeight: thumb.height,
+      ...(original
+        ? { original: { mime: original.mime, width: original.width, height: original.height } }
+        : {}),
     }
   })
 
@@ -144,7 +153,7 @@ export async function exportBackup(
   const zipped = await zipAsync(files)
   return {
     blob: new Blob([zipped as BlobPart], { type: 'application/zip' }),
-    filename: `crumbs-up-backup-${exportedAt.slice(0, 10)}.zip`,
+    filename: `crumbs-up-backup-${todayIso()}.zip`,
     count: cookies.length,
   }
 }
@@ -175,8 +184,18 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
   } catch {
     throw new BackupError('That file isn’t a Crumbs Up backup (.zip).')
   }
-  const manifestFile = files['crumbs-up.json']
-  if (!manifestFile) throw new BackupError('That zip doesn’t contain a Crumbs Up backup.')
+  // A backup that was unzipped and zipped again (Safari on a Mac expands
+  // downloads by itself) ends up one folder deep, so look for the manifest
+  // wherever it is and read everything else relative to it.
+  const manifestPath = Object.keys(files)
+    .filter((path) => !path.startsWith('__MACOSX/'))
+    .sort((a, b) => a.length - b.length)
+    .find((path) => path === 'crumbs-up.json' || path.endsWith('/crumbs-up.json'))
+  const manifestFile = manifestPath ? files[manifestPath] : undefined
+  if (!manifestPath || !manifestFile) {
+    throw new BackupError('That zip doesn’t contain a Crumbs Up backup.')
+  }
+  const root = manifestPath.slice(0, -'crumbs-up.json'.length)
 
   let manifest: Manifest
   try {
@@ -192,7 +211,8 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
 
   const result: ImportResult = { added: 0, updated: 0, unchanged: 0, skipped: 0 }
 
-  await database.transaction('rw', database.cookies, database.photos, database.thumbs, async () => {
+  const tables = [database.cookies, database.photos, database.thumbs, database.originals]
+  await database.transaction('rw', tables, async () => {
     for (const raw of manifest.cookies) {
       const parsed = cookieSchema.safeParse(raw)
       if (!parsed.success) {
@@ -207,8 +227,8 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
       }
 
       const meta = manifest.images[cookie.id]
-      const photo = files[`photos/${cookie.id}.jpg`]
-      const thumb = files[`thumbs/${cookie.id}.jpg`]
+      const photo = files[`${root}photos/${cookie.id}.jpg`]
+      const thumb = files[`${root}thumbs/${cookie.id}.jpg`]
       const hasPhoto = Boolean(meta && photo && thumb)
 
       await database.cookies.put({ ...cookie, hasPhoto })
@@ -227,9 +247,26 @@ export async function importBackup(file: Blob, database: CrumbsDb = db): Promise
           width: meta.thumbWidth,
           height: meta.thumbHeight,
         }
-        await Promise.all([database.photos.put(full), database.thumbs.put(small)])
+        const original = files[`${root}originals/${cookie.id}.jpg`]
+        await Promise.all([
+          database.photos.put(full),
+          database.thumbs.put(small),
+          meta.original && original
+            ? database.originals.put({
+                cookieId: cookie.id,
+                mime: meta.original.mime,
+                data: toArrayBuffer(original),
+                width: meta.original.width,
+                height: meta.original.height,
+              })
+            : database.originals.delete(cookie.id),
+        ])
       } else {
-        await Promise.all([database.photos.delete(cookie.id), database.thumbs.delete(cookie.id)])
+        await Promise.all([
+          database.photos.delete(cookie.id),
+          database.thumbs.delete(cookie.id),
+          database.originals.delete(cookie.id),
+        ])
       }
       if (existing) result.updated += 1
       else result.added += 1

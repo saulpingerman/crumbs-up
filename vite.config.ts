@@ -64,6 +64,9 @@ export default defineConfig({
   build: {
     target: 'es2022',
   },
+  // The cookie finder runs in a module worker that loads its WebAssembly
+  // runtime with a dynamic import.
+  worker: { format: 'es' },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

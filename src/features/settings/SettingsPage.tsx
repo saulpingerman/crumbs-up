@@ -119,6 +119,40 @@ export function SettingsPage() {
           </Row>
         </Card>
 
+        <Card>
+          <SectionTitle>Photos</SectionTitle>
+          <Row
+            label="Cut cookies out of their photos"
+            hint="Finds the cookie in each new photo and sets it on a clean tabletop. The original is always kept."
+            className="mt-3 flex-nowrap items-start"
+          >
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings.autoCutout}
+              aria-label="Cut cookies out of their photos"
+              onClick={() => updateSettings({ autoCutout: !settings.autoCutout })}
+              className={cn(
+                'relative mt-0.5 h-8 w-14 shrink-0 rounded-full transition-colors',
+                settings.autoCutout ? 'bg-crust' : 'bg-line',
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  'absolute top-1 left-1 size-6 rounded-full bg-white shadow-card transition-transform',
+                  settings.autoCutout && 'translate-x-6',
+                )}
+              />
+            </button>
+          </Row>
+          <p className="mt-3 text-xs leading-relaxed text-ink-faint">
+            This runs entirely on your device — photos are never uploaded. The first time, it
+            downloads a cookie-finding model (about 35 MB) from Google; after that it works offline.
+            Cookies without a photo get an illustration drawn from your review.
+          </p>
+        </Card>
+
         <DataCard />
         <InstallCard />
 

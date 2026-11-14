@@ -81,6 +81,18 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
         e.preventDefault()
         submit(onContinue)
       }}
+      onKeyDown={(e) => {
+        // The phone keyboard's "next" key is Enter. In a text field it should
+        // move on to the next field, not submit a half-filled form.
+        if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return
+        e.preventDefault()
+        const fields = [
+          ...e.currentTarget.querySelectorAll<HTMLElement>('input:not([type=file]), select'),
+        ]
+        const next = fields[fields.indexOf(e.target) + 1]
+        if (next) next.focus()
+        else e.target.blur()
+      }}
       className="flex flex-1 flex-col"
     >
       <p className="text-xs font-bold tracking-[0.14em] text-crust uppercase">
@@ -91,23 +103,27 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
       </h1>
 
       {api.resumed && onResume && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-texture-soft px-4 py-3 text-sm">
-          <History className="size-4 shrink-0 text-texture-ink" />
-          <span className="min-w-0 flex-1 font-medium">You have an unfinished rating.</span>
-          <button
-            type="button"
-            onClick={onResume}
-            className="font-bold underline underline-offset-2"
-          >
-            Pick up where I left off
-          </button>
-          <button
-            type="button"
-            onClick={api.startOver}
-            className="font-semibold text-ink-soft underline underline-offset-2"
-          >
-            Start over
-          </button>
+        <div className="mt-4 rounded-2xl bg-texture-soft px-4 py-3 text-sm">
+          <p className="flex items-center gap-2 font-medium">
+            <History className="size-4 shrink-0 text-texture-ink" />
+            You have an unfinished rating.
+          </p>
+          <div className="mt-1.5 flex gap-4 pl-6">
+            <button
+              type="button"
+              onClick={onResume}
+              className="font-bold underline underline-offset-2"
+            >
+              Pick up where I left off
+            </button>
+            <button
+              type="button"
+              onClick={api.startOver}
+              className="font-semibold text-ink-soft underline underline-offset-2"
+            >
+              Start over
+            </button>
+          </div>
         </div>
       )}
 

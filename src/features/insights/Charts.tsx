@@ -38,7 +38,11 @@ export function DistributionChart({ data }: DistributionProps) {
   }))
   return (
     <>
-      <div className="h-52" aria-hidden>
+      <div
+        className="h-52"
+        role="figure"
+        aria-label="Bar chart: number of cookies by overall score"
+      >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={rows}
@@ -118,7 +122,11 @@ export function TrendChart({ cookies, precision }: TrendProps) {
   }))
   return (
     <>
-      <div className="h-52" aria-hidden>
+      <div
+        className="h-52"
+        role="figure"
+        aria-label="Line chart: overall score of each cookie over time"
+      >
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: -24 }}>
             <CartesianGrid vertical={false} stroke="var(--line)" />

@@ -109,7 +109,7 @@ export function JournalPage() {
               aria-label="Filter by state"
               value={state}
               onChange={(e) => setState(e.target.value)}
-              className="h-11 rounded-full text-[15px]"
+              className="h-11 rounded-full"
             >
               <option value="">All states</option>
               {states.map((code) => (

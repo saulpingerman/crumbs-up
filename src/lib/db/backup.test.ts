@@ -1,3 +1,4 @@
+import { unzipSync, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { WEIGHT_PRESETS } from '@/lib/rubric'
 import { exportBackup, importBackup, toCsv } from './backup'
@@ -61,6 +62,14 @@ describe('backup', () => {
       width: 2,
       height: 1,
     })
+    // 'a' is a cut-out, so the untouched photo travels with it.
+    await source.originals.put({
+      cookieId: 'a',
+      mime: 'image/jpeg',
+      data: bytes(7, 7),
+      width: 8,
+      height: 6,
+    })
 
     const { blob, count, filename } = await exportBackup({ weights, precision: 'half' }, source)
     expect(count).toBe(2)
@@ -75,6 +84,10 @@ describe('backup', () => {
     expect([...new Uint8Array(photo!.data)]).toEqual([1, 2, 3])
     expect(photo).toMatchObject({ width: 4, height: 3, mime: 'image/jpeg' })
     expect([...new Uint8Array((await target.thumbs.get('a'))!.data)]).toEqual([9])
+    const original = await target.originals.get('a')
+    expect([...new Uint8Array(original!.data)]).toEqual([7, 7])
+    expect(original).toMatchObject({ width: 8, height: 6 })
+    expect(await target.originals.get('b')).toBeUndefined()
   })
 
   it('keeps whichever copy was edited most recently', async () => {
@@ -107,6 +120,34 @@ describe('backup', () => {
     await source.cookies.bulkPut([cookie(), cookie({ id: 's', sample: true })])
     const { count } = await exportBackup({ weights, precision: 'half', skipSamples: true }, source)
     expect(count).toBe(1)
+  })
+
+  it('reads a backup that was unzipped and zipped again inside a folder', async () => {
+    await source.cookies.put(cookie({ hasPhoto: true }))
+    await source.photos.put({
+      cookieId: 'a',
+      mime: 'image/jpeg',
+      data: bytes(1),
+      width: 1,
+      height: 1,
+    })
+    await source.thumbs.put({
+      cookieId: 'a',
+      mime: 'image/jpeg',
+      data: bytes(2),
+      width: 1,
+      height: 1,
+    })
+    const { blob } = await exportBackup({ weights, precision: 'half' }, source)
+
+    const original = unzipSync(new Uint8Array(await blob.arrayBuffer()))
+    const nested: Record<string, Uint8Array> = { '__MACOSX/._junk': new Uint8Array([0]) }
+    for (const [path, data] of Object.entries(original)) nested[`crumbs-up-backup/${path}`] = data
+    const rezipped = new Blob([zipSync(nested) as BlobPart])
+
+    expect(await importBackup(rezipped, target)).toMatchObject({ added: 1 })
+    expect((await target.cookies.get('a'))?.hasPhoto).toBe(true)
+    expect([...new Uint8Array((await target.photos.get('a'))!.data)]).toEqual([1])
   })
 
   it('rejects files that are not backups', async () => {

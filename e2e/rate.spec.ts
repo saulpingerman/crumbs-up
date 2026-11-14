@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { answer, categoryScore, fillDetails } from './helpers'
+import { answer, categoryScore, fillDetails, withoutCutout } from './helpers'
 
 test('rates a cookie from photo to journal', async ({ page }) => {
+  await withoutCutout(page)
   await page.goto('/')
   await page.getByRole('link', { name: 'Rate your first cookie' }).click()
 
@@ -57,6 +58,12 @@ test('rates a cookie from photo to journal', async ({ page }) => {
   // (8 + 8 + 7.5) / 3 = 7.83 → 8
   await expect(page.getByRole('img', { name: 'Overall score 8 out of 10' })).toBeVisible()
   await expect(page.getByText('Outstanding')).toBeVisible()
+
+  // A score can be revisited from the verdict without redoing the questions.
+  await page.getByRole('button', { name: /^Texture 8 — adjust/ }).click()
+  await page.getByRole('button', { name: 'Raise texture by half a point' }).click()
+  await page.getByRole('button', { name: 'Back to the verdict' }).click()
+  await expect(page.getByRole('button', { name: /^Texture 8.5 — adjust/ })).toBeVisible()
   await page.getByLabel('Tasting notes').fill('Toffee edges and a soft middle.')
   await page.getByRole('button', { name: 'Save to journal' }).click()
 
@@ -109,6 +116,10 @@ test('the back gesture steps through the questions', async ({ page }) => {
     page.getByRole('heading', { name: 'How did it look sitting in the case?' }),
   ).toBeVisible()
   await expect(page.getByRole('radio', { name: 'Inviting' })).toBeChecked()
+  // A revisited question can be passed without re-answering it.
+  await page.getByRole('button', { name: 'Keep this answer' }).click()
+  await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
+  await page.goBack()
   await page.goBack()
   await expect(page.getByRole('heading', { name: 'What are we rating?' })).toBeVisible()
   await page.goBack()
@@ -134,4 +145,59 @@ test('logs a cookie that was already scored, then edits it', async ({ page }) =>
   await page.getByRole('button', { name: 'Raise Texture' }).click()
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByRole('meter', { name: 'Texture' })).toHaveAttribute('aria-valuenow', '5.5')
+})
+
+test('resuming a draft never skips a flaw check that was not seen', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Half Batch', state: 'OH' })
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await answer(page, 'How did it look sitting in the case?', 'Inviting')
+  await answer(page, 'How’s the color of the bake?', 'Evenly baked')
+  await answer(page, 'What about its shape and size?', 'Well formed')
+  await answer(page, 'Look closely at the surface.', 'Nice texture')
+  await answer(page, 'How do the mix-ins or toppings look?', 'Plain by design')
+  await expect(
+    page.getByRole('heading', { name: 'Anything off about how it looks?' }),
+  ).toBeVisible()
+
+  await page.goto('/rate')
+  await page.getByRole('button', { name: 'Pick up where I left off' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Anything off about how it looks?' }),
+  ).toBeVisible()
+})
+
+test('abandoned edits are not brought back later', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Second Thoughts', state: 'NY' })
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+  await expect(page.getByRole('meter', { name: 'Taste' })).toHaveAttribute('aria-valuenow', '5')
+
+  // Start an edit, change something, then walk away with the back gesture.
+  await page.getByRole('link', { name: 'Edit' }).click()
+  await page.getByRole('button', { name: 'Raise Taste' }).click()
+  await expect(page.getByLabel('Taste score')).toHaveText('5.5')
+  await page.goBack()
+  await expect(page.getByRole('meter', { name: 'Taste' })).toHaveAttribute('aria-valuenow', '5')
+
+  // Editing again starts from the saved cookie, not the abandoned change.
+  await page.getByRole('link', { name: 'Edit' }).click()
+  await expect(page.getByLabel('Taste score')).toHaveText('5')
+})
+
+test('typed-in scores survive a detour through the questions', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Either Way', state: 'NY' })
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Raise Taste' }).click()
+  await expect(page.getByLabel('Taste score')).toHaveText('8')
+
+  await page.getByRole('button', { name: 'Let the questions score it instead' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'How did it look sitting in the case?' }),
+  ).toBeVisible()
+  await page.goBack()
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+  await expect(page.getByLabel('Taste score')).toHaveText('8')
 })

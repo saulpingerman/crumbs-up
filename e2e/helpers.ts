@@ -40,3 +40,15 @@ export function categoryScore(
 ) {
   return page.getByLabel(`${category}: ${score} out of 10`)
 }
+
+/**
+ * Turn the automatic photo cut-out off for a test that isn't about it, so it
+ * doesn't download the model or change the picture halfway through.
+ */
+export async function withoutCutout(page: Page) {
+  await page.addInitScript(() => {
+    const key = 'crumbs-up:settings'
+    const settings = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>
+    localStorage.setItem(key, JSON.stringify({ ...settings, autoCutout: false }))
+  })
+}

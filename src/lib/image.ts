@@ -1,5 +1,5 @@
 import Compressor from 'compressorjs'
-import type { ProcessedPhoto } from '@/lib/db/schema'
+import type { PhotoImages, ProcessedPhoto } from '@/lib/db/schema'
 
 const FULL_EDGE = 1600
 const THUMB_EDGE = 480
@@ -71,5 +71,20 @@ export async function processPhoto(file: Blob): Promise<ProcessedPhoto> {
     throw new PhotoError(
       'This browser couldn’t open that photo. Try a JPEG or PNG, or take a new one.',
     )
+  }
+}
+
+/** Make a fresh thumbnail for a photo whose full-size bytes are kept as they are. */
+export async function withThumbnail(photo: PhotoImages): Promise<PhotoImages> {
+  const thumb = await compress(new Blob([photo.full], { type: photo.mime }), THUMB_EDGE, 0.78)
+  const size = await measure(thumb)
+  return {
+    mime: photo.mime,
+    full: photo.full,
+    width: photo.width,
+    height: photo.height,
+    thumb: await thumb.arrayBuffer(),
+    thumbWidth: size.width,
+    thumbHeight: size.height,
   }
 }

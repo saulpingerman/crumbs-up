@@ -15,6 +15,7 @@ import {
   TEXTURE_STYLE_QUESTION_ID,
   getQuestion,
   type Category,
+  type Scores,
 } from '@/lib/rubric'
 import { getSettings, updateSettings } from '@/lib/settings'
 import { forgetPhoto } from '@/lib/use-photo'
@@ -49,7 +50,10 @@ export function RatePage() {
   // in on. Each step is its own history entry, so the phone's back gesture
   // walks back through the questions like it would in a native app.
   const location = useLocation()
-  const depth = (location.state as { depth?: number } | null)?.depth ?? 0
+  const wizardState = location.state as { depth?: number; fromVerdict?: boolean } | null
+  const depth = wizardState?.depth ?? 0
+  /** This result screen was opened from the verdict to adjust one score. */
+  const fromVerdict = wizardState?.fromVerdict === true
 
   const [shown, setShown] = useState(index)
   const [direction, setDirection] = useState(1)
@@ -63,6 +67,8 @@ export function RatePage() {
   /** Where to land once the wizard's own history entries have been unwound. */
   const [exitTo, setExitTo] = useState<string | null>(null)
   const advance = useRef<ReturnType<typeof setTimeout>>(undefined)
+  /** Scores typed in quick entry, kept in case the user comes back to it. */
+  const typedScores = useRef<Scores | null>(null)
 
   const searchFor = useCallback(
     (next: number) => {
@@ -89,15 +95,20 @@ export function RatePage() {
     window.scrollTo(0, 0)
   }, [index])
 
-  useEffect(() => () => clearTimeout(advance.current), [])
+  // A pending auto-advance belongs to the screen it was started on. If the
+  // location changes first (Back, Close, the phone's back gesture), drop it,
+  // or it would push a step with a stale idea of where it is in history.
+  useEffect(() => () => clearTimeout(advance.current), [location.key])
 
   const back = () => {
+    clearTimeout(advance.current)
     if (depth > 0) void navigate(-1)
     else go(index - 1, 'replace')
   }
 
   /** Leave the wizard for wherever it was opened from. */
   const leave = useCallback(() => {
+    clearTimeout(advance.current)
     const historyIndex = (window.history.state as { idx?: number } | null)?.idx ?? 0
     if (historyIndex > depth) void navigate(-(depth + 1))
     else void navigate(editId ? `/cookie/${editId}` : '/', { replace: true })
@@ -121,7 +132,9 @@ export function RatePage() {
         id: editId ?? undefined,
         details: draft.details,
         notes: draft.notes,
-        answers: draft.manual ? {} : draft.answers,
+        // Kept even for a hand-scored cookie, so switching back to the
+        // questions later picks up where they were left.
+        answers: draft.answers,
         suggested,
         scores,
         photo: draft.photo,
@@ -161,6 +174,11 @@ export function RatePage() {
     )
   }
   if (status === 'loading') return <div className="min-h-dvh" aria-busy />
+  // Reached by going Forward into a wizard that has already been saved: the
+  // entry remembers a depth that no longer means anything. Start it at zero.
+  if (!editId && depth > 0 && index === 0 && !hasContent(draft)) {
+    return <Navigate to={{ search: searchFor(0) }} replace state={{ depth: 0 }} />
+  }
   // Keep the URL honest if it asked for a step that isn't reachable yet.
   if (requested !== String(index)) {
     return <Navigate to={{ search: searchFor(index) }} replace state={{ depth }} />
@@ -177,12 +195,12 @@ export function RatePage() {
             label="Back"
             onClick={back}
             className={cn(index === 0 && 'invisible')}
-            disabled={index === 0}
+            disabled={index === 0 || saving}
           >
             <ArrowLeft className="size-5" />
           </IconButton>
           <Progress step={step} manual={Boolean(draft.manual)} answers={draft.answers} />
-          <IconButton label="Close" onClick={close}>
+          <IconButton label="Close" onClick={close} disabled={saving}>
             <X className="size-5" />
           </IconButton>
         </div>
@@ -208,14 +226,24 @@ export function RatePage() {
             advance.current = setTimeout(() => go(index + 1), ADVANCE_DELAY)
           }}
           onResume={() => go(furthest)}
-          onAdjust={(category) => go(resultIndex(category))}
+          fromVerdict={fromVerdict}
+          onBackToVerdict={back}
+          onAdjust={(category) =>
+            void navigate(
+              { search: searchFor(resultIndex(category)) },
+              { state: { depth: depth + 1, fromVerdict: true } },
+            )
+          }
           onManual={() => {
-            api.setManual(draftScores(draft).scores)
+            api.setManual(typedScores.current ?? draftScores(draft).scores)
             go(1)
           }}
           onGuided={() => {
+            typedScores.current = draft.manual
             api.setManual(null)
-            go(1)
+            // Replace, so "back" doesn't land on a quick-entry screen that no
+            // longer exists.
+            go(1, 'replace')
           }}
           onSave={() => void save()}
         />
@@ -244,6 +272,8 @@ interface StepViewProps {
   onNext: () => void
   onAutoNext: () => void
   onResume: () => void
+  fromVerdict: boolean
+  onBackToVerdict: () => void
   onAdjust: (category: Category) => void
   onManual: () => void
   onGuided: () => void
@@ -259,6 +289,8 @@ function StepView({
   onNext,
   onAutoNext,
   onResume,
+  fromVerdict,
+  onBackToVerdict,
   onAdjust,
   onManual,
   onGuided,
@@ -270,6 +302,7 @@ function StepView({
     case 'details':
       return (
         <DetailsStep
+          key={api.generation}
           api={api}
           editId={editId}
           onContinue={onNext}
@@ -289,7 +322,11 @@ function StepView({
             count={step.count}
             value={Array.isArray(value) ? value : []}
             onChange={(ids) => api.setAnswer(question.id, ids)}
-            onContinue={onNext}
+            onContinue={() => {
+              // "No flaws" is recorded too, so this step counts as seen.
+              if (!Array.isArray(value)) api.setAnswer(question.id, [])
+              onNext()
+            }}
           />
         )
       }
@@ -305,6 +342,7 @@ function StepView({
             api.setAnswer(question.id, optionId)
             onAutoNext()
           }}
+          onNext={onNext}
         />
       )
     }
@@ -318,11 +356,13 @@ function StepView({
           nudge={draft.nudges[step.category]}
           onNudge={(value) => api.setNudge(step.category, value)}
           nextLabel={
-            isLastCategory(step.category) || !next
-              ? 'See the verdict'
-              : `Next: ${CATEGORY_META[next].label.toLowerCase()}`
+            fromVerdict
+              ? 'Back to the verdict'
+              : isLastCategory(step.category) || !next
+                ? 'See the verdict'
+                : `Next: ${CATEGORY_META[next].label.toLowerCase()}`
           }
-          onContinue={onNext}
+          onContinue={fromVerdict ? onBackToVerdict : onNext}
         />
       )
     }

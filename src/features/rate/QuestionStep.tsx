@@ -1,5 +1,5 @@
-import { Check } from 'lucide-react'
-import { useEffect } from 'react'
+import { ArrowRight, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/Button'
 import { categoryBg, categorySoft, categoryText } from '@/components/category-styles'
 import { cn } from '@/lib/cn'
@@ -48,10 +48,23 @@ interface ChoiceProps {
   /** Text that replaces `{style}` in the prompt (the chosen texture style). */
   styleName?: string
   onChoose: (optionId: string) => void
+  /** Move on without changing the answer (only offered on a revisit). */
+  onNext: () => void
 }
 
 /** One single-answer question: a column of big, fully-worded choices. */
-export function ChoiceStep({ question, index, count, value, styleName, onChoose }: ChoiceProps) {
+export function ChoiceStep({
+  question,
+  index,
+  count,
+  value,
+  styleName,
+  onChoose,
+  onNext,
+}: ChoiceProps) {
+  // Answering moves on by itself. Coming back to a question that already has
+  // an answer needs an explicit way forward that doesn't involve re-tapping.
+  const [revisit] = useState(value !== undefined)
   const scored = question.options.filter((o) => o.score !== null)
   const notApplicable = question.options.filter(
     (o) => o.score === null && question.kind === 'scale',
@@ -73,7 +86,7 @@ export function ChoiceStep({ question, index, count, value, styleName, onChoose 
   const prompt = styleName ? question.prompt.replace('that style', styleName) : question.prompt
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col">
       <QuestionHeading
         category={question.category}
         index={index}
@@ -82,6 +95,24 @@ export function ChoiceStep({ question, index, count, value, styleName, onChoose 
         hint={question.hint}
       />
       <div role="radiogroup" aria-label={question.title} className="space-y-2">
+        {/* "Doesn't apply" sits first so it is never hidden below the fold. */}
+        {notApplicable.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={value === option.id}
+            onClick={() => onChoose(option.id)}
+            className={cn(
+              'mb-1 w-full rounded-2xl border border-dashed px-4 py-2.5 text-left text-sm transition active:scale-[0.99]',
+              value === option.id
+                ? cn(categoryBorder[question.category], categorySoft[question.category])
+                : 'border-ink-faint/60 text-ink-soft hover:border-ink-faint',
+            )}
+          >
+            <span className="font-semibold text-ink">{option.label}</span> — {option.detail}
+          </button>
+        ))}
         {list.map((option, i) => (
           <ChoiceButton
             key={option.id}
@@ -93,23 +124,14 @@ export function ChoiceStep({ question, index, count, value, styleName, onChoose 
           />
         ))}
       </div>
-      {notApplicable.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          role="radio"
-          aria-checked={value === option.id}
-          onClick={() => onChoose(option.id)}
-          className={cn(
-            'mt-4 w-full rounded-2xl border border-dashed px-4 py-3 text-left text-sm transition active:scale-[0.99]',
-            value === option.id
-              ? cn(categoryBorder[question.category], categorySoft[question.category])
-              : 'border-line text-ink-soft hover:border-ink-faint',
-          )}
-        >
-          <span className="font-semibold text-ink">{option.label}</span> — {option.detail}
-        </button>
-      ))}
+      {revisit && value !== undefined && (
+        <div className="mt-auto pt-6">
+          <Button variant="soft" size="lg" className="w-full" onClick={onNext}>
+            Keep this answer
+            <ArrowRight className="size-5" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addSamples, fillDetails } from './helpers'
+import { addSamples, fillDetails, withoutCutout } from './helpers'
 
 test('browses, searches and ranks the journal', async ({ page }) => {
   await addSamples(page)
@@ -66,6 +66,7 @@ test('changing the weighting re-scores the journal', async ({ page }) => {
 })
 
 test('backs up, wipes and restores the journal', async ({ page }) => {
+  await withoutCutout(page)
   await page.goto('/rate')
   await fillDetails(page, { type: 'Sugar', bakery: 'Round Trip Bakery', state: 'NY', photo: true })
   await page.getByRole('button', { name: /Already scored it/ }).click()
@@ -103,4 +104,18 @@ test('works with no connection once it has been opened', async ({ page, context 
   await expect(page.getByRole('heading', { name: 'Hall of fame' })).toBeVisible()
   await page.goto('/map')
   await expect(page.getByRole('heading', { name: 'State standings' })).toBeVisible()
+})
+
+test('coming back from a cookie returns to the same place in the journal', async ({ page }) => {
+  await addSamples(page)
+  const last = page.locator('main ul a[href*="/cookie/"]').last()
+  await last.scrollIntoViewIfNeeded()
+  const before = await page.evaluate(() => window.scrollY)
+  expect(before).toBeGreaterThan(200)
+
+  await last.click()
+  await expect(page.getByRole('heading', { name: 'How it earned its scores' })).toBeVisible()
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before - 60)
 })

@@ -31,7 +31,7 @@ export async function saveCookie(input: SaveCookieInput): Promise<CookieRecord> 
   const now = Date.now()
   const id = input.id ?? newId()
 
-  return db.transaction('rw', db.cookies, db.photos, db.thumbs, async () => {
+  return db.transaction('rw', db.cookies, db.photos, db.thumbs, db.originals, async () => {
     const existing = input.id ? await db.cookies.get(input.id) : undefined
     const hasPhoto = input.photo === 'keep' ? (existing?.hasPhoto ?? false) : input.photo !== 'none'
 
@@ -57,7 +57,7 @@ export async function saveCookie(input: SaveCookieInput): Promise<CookieRecord> 
     await db.cookies.put(record)
 
     if (input.photo === 'none') {
-      await Promise.all([db.photos.delete(id), db.thumbs.delete(id)])
+      await Promise.all([db.photos.delete(id), db.thumbs.delete(id), db.originals.delete(id)])
     } else if (input.photo !== 'keep') {
       await putPhoto(id, input.photo)
     }
@@ -80,36 +80,100 @@ export async function putPhoto(cookieId: string, photo: ProcessedPhoto): Promise
     width: photo.thumbWidth,
     height: photo.thumbHeight,
   }
-  await Promise.all([db.photos.put(full), db.thumbs.put(thumb)])
+  await Promise.all([
+    db.photos.put(full),
+    db.thumbs.put(thumb),
+    photo.original
+      ? db.originals.put({
+          cookieId,
+          mime: photo.original.mime,
+          data: photo.original.full,
+          width: photo.original.width,
+          height: photo.original.height,
+        })
+      : db.originals.delete(cookieId),
+  ])
+}
+
+/**
+ * Rebuild the in-memory form of a saved photo — including the original
+ * behind a cut-out — for the photo editor.
+ */
+export async function loadPhoto(cookieId: string): Promise<ProcessedPhoto | null> {
+  const [full, thumb, original] = await Promise.all([
+    db.photos.get(cookieId),
+    db.thumbs.get(cookieId),
+    db.originals.get(cookieId),
+  ])
+  if (!full || !thumb) return null
+  return {
+    mime: full.mime,
+    full: full.data,
+    thumb: thumb.data,
+    width: full.width,
+    height: full.height,
+    thumbWidth: thumb.width,
+    thumbHeight: thumb.height,
+    ...(original
+      ? {
+          original: {
+            mime: original.mime,
+            full: original.data,
+            // Not stored; nothing reads an original's thumbnail before it is re-made.
+            thumb: thumb.data,
+            width: original.width,
+            height: original.height,
+            thumbWidth: thumb.width,
+            thumbHeight: thumb.height,
+          },
+        }
+      : {}),
+  }
 }
 
 export async function deleteCookie(id: string): Promise<void> {
-  await db.transaction('rw', db.cookies, db.photos, db.thumbs, db.drafts, async () => {
-    await Promise.all([
-      db.cookies.delete(id),
-      db.photos.delete(id),
-      db.thumbs.delete(id),
-      db.drafts.delete(`edit:${id}`),
-    ])
-  })
+  await db.transaction(
+    'rw',
+    [db.cookies, db.photos, db.thumbs, db.originals, db.drafts],
+    async () => {
+      await Promise.all([
+        db.cookies.delete(id),
+        db.photos.delete(id),
+        db.thumbs.delete(id),
+        db.originals.delete(id),
+        db.drafts.delete(`edit:${id}`),
+      ])
+    },
+  )
 }
 
 export async function deleteSampleCookies(): Promise<number> {
   const samples = await db.cookies.filter((c) => c.sample === true).primaryKeys()
-  await db.transaction('rw', db.cookies, db.photos, db.thumbs, async () => {
+  await db.transaction('rw', db.cookies, db.photos, db.thumbs, db.originals, async () => {
     await Promise.all([
       db.cookies.bulkDelete(samples),
       db.photos.bulkDelete(samples),
       db.thumbs.bulkDelete(samples),
+      db.originals.bulkDelete(samples),
     ])
   })
   return samples.length
 }
 
 export async function deleteEverything(): Promise<void> {
-  await db.transaction('rw', db.cookies, db.photos, db.thumbs, db.drafts, async () => {
-    await Promise.all([db.cookies.clear(), db.photos.clear(), db.thumbs.clear(), db.drafts.clear()])
-  })
+  await db.transaction(
+    'rw',
+    [db.cookies, db.photos, db.thumbs, db.originals, db.drafts],
+    async () => {
+      await Promise.all([
+        db.cookies.clear(),
+        db.photos.clear(),
+        db.thumbs.clear(),
+        db.originals.clear(),
+        db.drafts.clear(),
+      ])
+    },
+  )
 }
 
 /* -------------------------------- Drafts -------------------------------- */

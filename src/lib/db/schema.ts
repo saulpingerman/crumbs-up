@@ -62,7 +62,7 @@ export interface StoredImage {
   height: number
 }
 
-export interface ProcessedPhoto {
+export interface PhotoImages {
   mime: string
   full: ArrayBuffer
   thumb: ArrayBuffer
@@ -70,6 +70,14 @@ export interface ProcessedPhoto {
   height: number
   thumbWidth: number
   thumbHeight: number
+}
+
+export interface ProcessedPhoto extends PhotoImages {
+  /**
+   * Set when these images are a cut-out: the photo exactly as it was taken,
+   * kept so the cut-out can be undone or redone later.
+   */
+  original?: PhotoImages
 }
 
 export interface DraftRecord {

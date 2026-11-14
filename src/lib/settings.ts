@@ -18,6 +18,8 @@ export interface Settings {
   /** Cookies saved or changed since the last backup. */
   changesSinceBackup: number
   installHintDismissed: boolean
+  /** Lift the cookie out of each new photo and set it on a clean tabletop. */
+  autoCutout: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lastBackupAt: null,
   changesSinceBackup: 0,
   installHintDismissed: false,
+  autoCutout: true,
 }
 
 const KEY = 'crumbs-up:settings'

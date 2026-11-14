@@ -1,5 +1,5 @@
 import { BarChart3, BookOpen, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
-import { NavLink, Outlet, ScrollRestoration } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { Wordmark } from '@/components/Logo'
 import { cn } from '@/lib/cn'
@@ -85,8 +85,6 @@ export function AppShell() {
           <Tab {...TABS[3]} />
         </div>
       </nav>
-
-      <ScrollRestoration />
     </div>
   )
 }

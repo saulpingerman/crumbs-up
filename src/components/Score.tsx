@@ -109,7 +109,7 @@ export function ScoreBar({ category, score, className, bare }: ScoreBarProps) {
     <div className={className}>
       {!bare && (
         <div className="mb-1.5 flex items-baseline justify-between">
-          <span className="text-sm font-semibold text-ink">{meta.label}</span>
+          <span className="text-sm font-semibold text-ink">{meta.label}</span>{' '}
           <span className={cn('numerals text-xl font-semibold', categoryText[category])}>
             {formatScore(score)}
           </span>

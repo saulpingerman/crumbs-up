@@ -40,7 +40,7 @@ import { stateName } from '@/lib/states'
 import { bakeryKey, byScoreDesc, type RatedCookie } from '@/lib/stats'
 import { useCookie, useCookies } from '@/lib/use-cookies'
 import { useCountUp } from '@/lib/use-count-up'
-import { forgetPhoto, usePhotoUrl } from '@/lib/use-photo'
+import { forgetPhoto, useCookieImage } from '@/lib/use-photo'
 import { useTitle } from '@/lib/use-title'
 import { Rungs } from '../rate/ResultStep'
 import { ShareCard, SHARE_HEIGHT, SHARE_WIDTH } from './ShareCard'
@@ -81,7 +81,7 @@ export function CookiePage() {
   }
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-5xl md:px-6 md:py-8">
+    <main className="mx-auto min-h-dvh w-full max-w-5xl md:px-6 md:py-8">
       <div className="md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-10">
         <div className="relative md:sticky md:top-8">
           <CookiePhoto
@@ -93,9 +93,9 @@ export function CookiePage() {
             <IconButton label="Back" tone="glass" onClick={back}>
               <ArrowLeft className="size-5" />
             </IconButton>
-            {cookie.sample && (
+            {(cookie.sample || !cookie.hasPhoto) && (
               <span className="rounded-full bg-black/45 px-3 py-1.5 text-xs font-bold tracking-wider text-white uppercase backdrop-blur-md">
-                Sample
+                {cookie.sample ? 'Sample' : 'Illustration'}
               </span>
             )}
           </div>
@@ -159,7 +159,7 @@ export function CookiePage() {
         destructive
         onConfirm={() => void remove()}
       />
-    </div>
+    </main>
   )
 }
 
@@ -262,7 +262,8 @@ function Standing({ cookie }: { cookie: RatedCookie }) {
 
 /** The answers behind each score. */
 function Breakdown({ cookie }: { cookie: RatedCookie }) {
-  const hasAnswers = Object.keys(cookie.answers).length > 0
+  // Only a fully answered questionnaire explains the scores.
+  const hasAnswers = CATEGORIES.every((c) => assessCategory(c, cookie.answers).complete)
   const styleQuestion = getQuestion(TEXTURE_STYLE_QUESTION_ID)
   const styleAnswer = cookie.answers[TEXTURE_STYLE_QUESTION_ID]
   const style =
@@ -359,8 +360,8 @@ function ShareButton({ cookie }: { cookie: RatedCookie }) {
   const [busy, setBusy] = useState(false)
   const card = useRef<HTMLDivElement>(null)
   // The card only exists while an image is being made.
-  const photoUrl = usePhotoUrl(cookie.id, 'full', cookie.updatedAt, busy && cookie.hasPhoto)
-  const ready = busy && (!cookie.hasPhoto || photoUrl !== null)
+  const { url: photoUrl } = useCookieImage(cookie, 'full', busy)
+  const ready = busy && photoUrl !== null
 
   useEffect(() => {
     if (!ready) return

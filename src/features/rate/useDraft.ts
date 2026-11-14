@@ -3,7 +3,7 @@ import { clearDraft, draftKey, loadDraft, saveDraft } from '@/lib/db/cookies'
 import { db } from '@/lib/db/db'
 import type { CookieDetails, CookieRecord, DraftRecord, ProcessedPhoto } from '@/lib/db/schema'
 import { todayIso } from '@/lib/format'
-import { CATEGORIES, assessAll, type Category, type Scores } from '@/lib/rubric'
+import { assessAll, CATEGORIES, getQuestion, type Category, type Scores } from '@/lib/rubric'
 import { getSettings } from '@/lib/settings'
 
 export function blankDraft(key: string): DraftRecord {
@@ -74,6 +74,8 @@ export interface DraftApi {
   resumed: boolean
   /** True once anything has been changed during this visit. */
   touched: boolean
+  /** Changes whenever the draft is replaced wholesale (loaded or started over). */
+  generation: number
   setDetails: (patch: Partial<CookieDetails>) => void
   setAnswer: (questionId: string, value: string | string[]) => void
   setNudge: (category: Category, value: number) => void
@@ -96,6 +98,7 @@ export function useDraft(editId: string | null): DraftApi {
   const [draft, setDraft] = useState<DraftRecord>(() => blankDraft(key))
   const [resumed, setResumed] = useState(false)
   const [touched, setTouched] = useState(false)
+  const [generation, setGeneration] = useState(0)
   const finished = useRef(false)
   const dirty = useRef(false)
   const latest = useRef(draft)
@@ -117,14 +120,22 @@ export function useDraft(editId: string | null): DraftApi {
         setLoaded({ key, status: 'missing' })
         return
       }
-      if (stored && hasContent(stored)) {
+      if (cookie) {
+        // Edits are never restored from an earlier visit: quietly re-applying
+        // half-forgotten changes to a saved cookie would be worse than
+        // losing them. They live in memory until Save.
+        setDraft(draftFromCookie(cookie))
+        setResumed(false)
+        if (stored) void clearDraft(key)
+      } else if (stored && hasContent(stored)) {
         setDraft({ ...blankDraft(key), ...stored })
-        setResumed(!editId)
+        setResumed(true)
       } else {
-        setDraft(cookie ? draftFromCookie(cookie) : blankDraft(key))
+        setDraft(blankDraft(key))
         setResumed(false)
       }
       setTouched(false)
+      setGeneration((g) => g + 1)
       setLoaded({ key, status: 'ready' })
     })()
     return () => {
@@ -132,21 +143,22 @@ export function useDraft(editId: string | null): DraftApi {
     }
   }, [key, editId])
 
-  // Autosave, lightly debounced so rapid taps make one write.
+  // Autosave new ratings, lightly debounced so rapid taps make one write.
   useEffect(() => {
-    if (status !== 'ready' || !dirty.current || finished.current) return
+    if (editId || status !== 'ready' || !dirty.current || finished.current) return
     const timer = setTimeout(() => {
       if (!finished.current) void saveDraft(latest.current)
     }, 250)
     return () => clearTimeout(timer)
-  }, [draft, status])
+  }, [draft, status, editId])
 
   // Flush a pending write if the wizard is closed inside the debounce window.
+  const persist = !editId
   useEffect(
     () => () => {
-      if (dirty.current && !finished.current) void saveDraft(latest.current)
+      if (persist && dirty.current && !finished.current) void saveDraft(latest.current)
     },
-    [],
+    [persist],
   )
 
   const update = useCallback((fn: (d: DraftRecord) => DraftRecord) => {
@@ -160,13 +172,23 @@ export function useDraft(editId: string | null): DraftApi {
     draft,
     resumed,
     touched,
+    generation,
     setDetails: useCallback(
       (patch) => update((d) => ({ ...d, details: { ...d.details, ...patch } })),
       [update],
     ),
     setAnswer: useCallback(
       (questionId, value) =>
-        update((d) => ({ ...d, answers: { ...d.answers, [questionId]: value } })),
+        update((d) => {
+          const answers = { ...d.answers, [questionId]: value }
+          const category = getQuestion(questionId)?.category
+          const changed = JSON.stringify(d.answers[questionId] ?? null) !== JSON.stringify(value)
+          // A nudge was a judgement on the old suggestion. Once an answer
+          // changes, the suggestion is new, so the nudge starts over.
+          return category && changed && d.nudges[category] !== 0
+            ? { ...d, answers, nudges: { ...d.nudges, [category]: 0 } }
+            : { ...d, answers }
+        }),
       [update],
     ),
     setNudge: useCallback(
@@ -181,6 +203,7 @@ export function useDraft(editId: string | null): DraftApi {
       setTouched(false)
       dirty.current = false
       setDraft(blankDraft(key))
+      setGeneration((g) => g + 1)
       void clearDraft(key)
     }, [key]),
     finish: useCallback(async () => {

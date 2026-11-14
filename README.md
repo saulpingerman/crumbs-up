@@ -20,6 +20,14 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
   the reasoning behind it, and a nudge control if your gut disagrees.
 - **Every cookie on record.** Type of cookie, bakery, city, state, date, price, photo and tasting
   notes. Past bakeries and cookie types are offered as one-tap suggestions.
+- **Photos that look like a collection.** Take a snapshot and the app finds the cookie, lifts it
+  off whatever it was sitting on, and sets it on a clean tabletop — so every cookie in the journal
+  is framed the same way. If it grabs the wrong thing, tap the cookie yourself. The original photo
+  is always kept and is one tap away.
+- **No photo? It draws one.** A cookie without a photo gets an illustration built from its review:
+  the type decides the recipe (chips, oats, cinnamon sugar, dark dough…), and your answers decide
+  the specimen — how generous the mix-ins are, how even the bake, whether it spread, burned or
+  broke.
 - **Journal.** A photo grid you can search, filter by state, and flip between _recent_ and
   _ranked_. The best cookie you've had sits at the top as the reigning champion.
 - **Cookie map.** The U.S. shaded by how good each state's cookies have been, with a count of how
@@ -35,6 +43,8 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
   (photos included, plus a spreadsheet-friendly CSV); another restores it on any device.
 
 <p>
+  <img src="docs/cutout.png" width="24%" alt="A cookie cut out of its photo" />
+  <img src="docs/cookie.png" width="24%" alt="A cookie's page" />
   <img src="docs/map.png" width="24%" alt="The cookie map" />
   <img src="docs/share-card.png" width="24%" alt="A shareable scorecard" />
 </p>
@@ -66,6 +76,26 @@ evaluation practice (fully-worded scales, anchoring to a reference sample, judgi
 one. The rubric lives in [`src/lib/rubric/questions.ts`](src/lib/rubric/questions.ts) and is meant
 to be edited: change a prompt, a weight or a penalty there and the wizard, the guide and the tests
 all follow.
+
+## How the photo cut-out works
+
+The cut-out runs **entirely on the device** — photos are never uploaded anywhere.
+
+- It uses Google's open-source
+  [MediaPipe Interactive Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/interactive_segmenter):
+  given a photo and a point on an object, it returns that object's outline. The app starts with
+  the middle of the photo and lets you tap the cookie if that guess is wrong.
+- The outline is cleaned up (one shape only, chocolate-chip-sized holes filled, obviously wrong
+  results rejected), then the cookie is placed on a tabletop with a soft shadow.
+- The first use downloads the model and its runtime (about 35 MB in total) and stores them in the
+  browser's cache; after that it works offline. The work happens in a background worker, so the
+  form stays responsive while it thinks.
+- If the download fails, nothing can be found, or the browser can't run it, the photo is simply
+  used as it is. The feature can be switched off in Settings, and it does not start by itself for
+  people who have asked their browser to save data.
+
+By default the model file is fetched from Google's public model bucket. To host it yourself, set
+`VITE_COOKIE_FINDER_MODEL_URL` at build time to wherever you put `interactive_segmentation.task`.
 
 ## Use it on your phone
 
@@ -128,6 +158,7 @@ To serve from a sub-folder, build with `BASE_PATH=/your/path/ npm run build`.
 | Storage           | IndexedDB through [Dexie](https://dexie.org); live queries keep every screen in sync                                                        |
 | Offline / install | [vite-plugin-pwa](https://vite-pwa-org.netlify.app) (Workbox)                                                                               |
 | Photos            | [Compressor.js](https://github.com/fengyuanchen/compressorjs) shrinks camera photos before saving                                           |
+| Photo cut-outs    | [MediaPipe Tasks Vision](https://www.npmjs.com/package/@mediapipe/tasks-vision) — on-device segmentation in a web worker                    |
 | Backups           | [fflate](https://github.com/101arrowz/fflate) zips, validated on the way back in with [Zod](https://zod.dev)                                |
 | Map               | [us-atlas](https://github.com/topojson/us-atlas) shapes drawn with [d3-geo](https://d3js.org/d3-geo)                                        |
 | Charts            | [Recharts](https://recharts.org)                                                                                                            |
@@ -149,6 +180,8 @@ src/
     guide/          "how the scoring works", generated from the rubric
   lib/
     rubric/         questions, weights, the scoring engine and its tests
+    cutout/         finds the cookie in a photo and sets it on a tabletop
+    cookie-art/     draws a cookie from its type and review
     db/             IndexedDB schema, cookie repository, backup format
     …               formatting, statistics, photo processing, settings
 e2e/                end-to-end tests
@@ -160,7 +193,10 @@ A few decisions worth knowing about:
   and the recorded score, along with the rubric version that produced them. The overall score is
   computed on the fly from the current weighting.
 - **Photos are stored as raw bytes** in their own tables (a small thumbnail and a ~1600px
-  original), so lists never load full-size images.
+  picture), so lists never load full-size images. When the picture is a cut-out, the untouched
+  photo is stored alongside it and travels in backups too.
+- **Illustrations are drawn on demand, never stored.** They are a pure function of the cookie's
+  type, answers and id, so they stay in step with the review and cost nothing in a backup.
 - **Colors were checked, not eyeballed.** The three category colors are distinguishable under the
   common forms of color blindness and are never the only cue — every score has a label beside it.
 - **Updates wait to be asked.** A new version is offered with an "Update" prompt rather than
@@ -168,10 +204,14 @@ A few decisions worth knowing about:
 
 ## Where it could go next
 
-- **Sync across devices and public sharing.** Today a backup file moves the journal between
-  devices. Real sync (rate on your phone, see it on the website instantly, share a public page)
-  needs a small backend and accounts — [Supabase](https://supabase.com) fits well. The data layer
-  already uses stable ids and edit timestamps, which is what sync needs.
+- **Accounts and sync.** Today there is no sign-in: the journal lives on one device and a backup
+  file moves it to another. Signing in (email, Google, Apple) so that a cookie rated on your phone
+  shows up on the website needs a small hosted backend. [Supabase](https://supabase.com) fits
+  well — it bundles sign-in, a database and photo storage, with rules so each person can only read
+  their own journal. The data layer already uses stable ids and edit timestamps, which is what
+  sync needs.
+- **Public pages.** With accounts in place, a shareable public page per cookie or per reviewer
+  becomes a small step.
 - **App Store and Google Play.** The same code can be wrapped with
   [Capacitor](https://capacitorjs.com) to ship through the stores, which needs Apple and Google
   developer accounts.

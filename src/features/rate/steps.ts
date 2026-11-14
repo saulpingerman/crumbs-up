@@ -58,31 +58,41 @@ export function validateDetails(details: CookieDetails): DetailErrors {
 }
 
 export function isAnswered(question: Question, answers: Answers): boolean {
-  if (question.kind === 'flaws') return true
   const answer = answers[question.id]
+  // "No flaws" is an answer too: it is recorded as an empty list.
+  if (question.kind === 'flaws') return Array.isArray(answer)
   return typeof answer === 'string' && question.options.some((o) => o.id === answer)
 }
 
-function isPassed(step: Step, draft: DraftRecord): boolean {
-  switch (step.kind) {
-    case 'details':
-      return Object.keys(validateDetails(draft.details)).length === 0
-    case 'question':
-      return isAnswered(step.question, draft.answers)
-    default:
-      return true
-  }
-}
-
-/** The furthest step that may be shown: the first one not yet completed. */
+/**
+ * The furthest step that may be shown: the first one not yet completed.
+ * A flaw check counts as done once it has an answer, or once anything after
+ * it has been answered — so resuming a draft never skips one unseen.
+ */
 export function furthestStep(steps: Step[], draft: DraftRecord): number {
-  const blocked = steps.findIndex((step) => !isPassed(step, draft))
+  let lastAnswered = -1
+  steps.forEach((step, i) => {
+    if (step.kind === 'question' && isAnswered(step.question, draft.answers)) lastAnswered = i
+  })
+  const blocked = steps.findIndex((step, i) => {
+    switch (step.kind) {
+      case 'details':
+        return Object.keys(validateDetails(draft.details)).length > 0
+      case 'question':
+        return (
+          !isAnswered(step.question, draft.answers) &&
+          !(step.question.kind === 'flaws' && i < lastAnswered)
+        )
+      default:
+        return false
+    }
+  })
   return blocked === -1 ? steps.length - 1 : blocked
 }
 
 /** Answered / total scored questions in a category, for the progress bar. */
 export function categoryProgress(category: Category, answers: Answers): number {
-  const questions = QUESTIONS[category].filter((q) => q.kind !== 'flaws')
+  const questions = QUESTIONS[category]
   const done = questions.filter((q) => isAnswered(q, answers)).length
   return questions.length ? done / questions.length : 0
 }

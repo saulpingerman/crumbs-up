@@ -10,6 +10,8 @@ export class CrumbsDb extends Dexie {
   cookies!: EntityTable<CookieRecord, 'id'>
   photos!: Table<StoredImage, string>
   thumbs!: Table<StoredImage, string>
+  /** The untouched photo behind a cut-out, so it can be undone or redone. */
+  originals!: Table<StoredImage, string>
   drafts!: EntityTable<DraftRecord, 'key'>
 
   constructor(name = 'crumbs-up') {
@@ -20,6 +22,7 @@ export class CrumbsDb extends Dexie {
       thumbs: 'cookieId',
       drafts: 'key',
     })
+    this.version(2).stores({ originals: 'cookieId' })
   }
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createBrowserRouter, RouterProvider } from 'react-router'
+import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router'
 import { Toaster } from 'sonner'
 import { JournalPage } from '@/features/journal/JournalPage'
 import { db } from '@/lib/db/db'
@@ -11,6 +11,7 @@ import { UpdatePrompt } from './UpdatePrompt'
 const router = createBrowserRouter(
   [
     {
+      element: <Root />,
       errorElement: <RouteError />,
       children: [
         {
@@ -57,6 +58,19 @@ const router = createBrowserRouter(
   ],
   { basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/' },
 )
+
+/**
+ * Wraps every route so scroll positions are remembered across all of them —
+ * opening a cookie and coming back returns to the same spot in the journal.
+ */
+function Root() {
+  return (
+    <>
+      <Outlet />
+      <ScrollRestoration />
+    </>
+  )
+}
 
 export function App() {
   const { theme } = useSettings()

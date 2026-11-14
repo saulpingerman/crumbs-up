@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ILLUSTRATION_SIZE, illustrationUrl, type ArtSource } from '@/lib/cookie-art'
 import { db } from '@/lib/db/db'
 import { toObjectUrl } from '@/lib/object-url'
 
@@ -65,10 +66,50 @@ export function usePhotoUrl(
     })
     return () => {
       cancelled = true
-      if (created && kind === 'full') URL.revokeObjectURL(created)
+      if (created && kind === 'full') {
+        const revoked = created
+        URL.revokeObjectURL(revoked)
+        // Forget it too, or a later render could hand out the dead URL.
+        setLoaded((current) => (current?.url === revoked ? null : current))
+      }
     }
   }, [cookieId, kind, key, enabled, cached])
 
   if (!enabled) return null
   return cached ?? (loaded?.key === key ? loaded.url : null)
+}
+
+export type ImageSource = ArtSource & { hasPhoto: boolean; updatedAt: number }
+
+/**
+ * What to show for a cookie: its photo when it has one, otherwise an
+ * illustration drawn from its type and review. `url` is null while loading.
+ */
+export function useCookieImage(
+  cookie: ImageSource,
+  kind: Kind,
+  enabled = true,
+): { url: string | null; illustrated: boolean } {
+  const photo = usePhotoUrl(cookie.id, kind, cookie.updatedAt, enabled && cookie.hasPhoto)
+  const wantArt = enabled && !cookie.hasPhoto
+  const key = `${cookie.id}:${cookie.updatedAt}:${kind}`
+  const [art, setArt] = useState<{ key: string; url: string } | null>(null)
+
+  useEffect(() => {
+    if (!wantArt) return
+    let cancelled = false
+    illustrationUrl(cookie, cookie.updatedAt, ILLUSTRATION_SIZE[kind])
+      .then((url) => {
+        if (!cancelled) setArt({ key, url })
+      })
+      .catch((error: unknown) => console.warn('Could not draw the cookie', error))
+    return () => {
+      cancelled = true
+    }
+    // The drawing depends only on what `key` already captures.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantArt, key])
+
+  if (cookie.hasPhoto) return { url: photo, illustrated: false }
+  return { url: wantArt && art?.key === key ? art.url : null, illustrated: true }
 }

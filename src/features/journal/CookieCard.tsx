@@ -37,7 +37,7 @@ export function CookieCard({ cookie, precision, rank }: Props) {
         />
       </div>
       <div className="min-w-0 px-2 pt-2.5 pb-2">
-        <h3 className="line-clamp-2 font-display text-[17px] leading-[1.2] font-semibold">
+        <h3 className="line-clamp-2 font-display text-[17px] leading-[1.2] font-semibold break-words">
           {cookie.cookieType}
         </h3>
         <p className="mt-0.5 truncate text-[13px] text-ink-soft">{cookie.bakery}</p>

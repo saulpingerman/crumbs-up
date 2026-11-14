@@ -1,43 +1,37 @@
-import { useState } from 'react'
-import type { CookieRecord } from '@/lib/db/schema'
 import { cn } from '@/lib/cn'
-import { usePhotoUrl } from '@/lib/use-photo'
+import { useCookieImage, type ImageSource } from '@/lib/use-photo'
 import { LogoMark } from './Logo'
 
 interface Props {
-  cookie: Pick<CookieRecord, 'id' | 'hasPhoto' | 'updatedAt' | 'cookieType' | 'bakery'>
+  cookie: ImageSource & { bakery: string }
   kind?: 'thumb' | 'full'
   className?: string
   imgClassName?: string
 }
 
-/** A cookie's photo, or a quiet placeholder when there isn't one. */
+/**
+ * A cookie's picture: its photo if it has one, otherwise an illustration
+ * drawn from its type and review.
+ */
 export function CookiePhoto({ cookie, kind = 'thumb', className, imgClassName }: Props) {
-  const url = usePhotoUrl(cookie.id, kind, cookie.updatedAt, cookie.hasPhoto)
-  // While the original loads, show the thumbnail so the page never flashes empty.
-  const preview = usePhotoUrl(
-    cookie.id,
-    'thumb',
-    cookie.updatedAt,
-    cookie.hasPhoto && kind === 'full',
-  )
-  const [loaded, setLoaded] = useState<string | null>(null)
-  const src = url ?? preview
+  const wanted = useCookieImage(cookie, kind)
+  // While a full-size image loads, show the thumbnail so nothing flashes empty.
+  const preview = useCookieImage(cookie, 'thumb', kind === 'full')
+  const src = wanted.url ?? preview.url
 
   return (
     <div className={cn('relative overflow-hidden bg-oat', className)}>
-      {cookie.hasPhoto && src ? (
+      {src ? (
         <img
           src={src}
-          alt={`${cookie.cookieType} cookie from ${cookie.bakery}`}
+          alt={
+            wanted.illustrated
+              ? `Illustration of a ${cookie.cookieType} cookie`
+              : `${cookie.cookieType} cookie from ${cookie.bakery}`
+          }
           decoding="async"
           draggable={false}
-          onLoad={() => setLoaded(src)}
-          className={cn(
-            'size-full object-cover transition-opacity duration-300',
-            loaded === src || src === preview ? 'opacity-100' : 'opacity-0',
-            imgClassName,
-          )}
+          className={cn('size-full animate-fade object-cover', imgClassName)}
         />
       ) : (
         <PhotoPlaceholder />
