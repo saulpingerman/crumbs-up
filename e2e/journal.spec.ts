@@ -126,3 +126,14 @@ test('coming back from a cookie returns to the same place in the journal', async
   await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before - 60)
 })
+
+test('the privacy page says what is kept and where', async ({ page }) => {
+  // Reached directly, as the link given to Google and Apple is…
+  await page.goto('/privacy')
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy' })).toBeVisible()
+  await expect(page.getByText('There are no ads, no tracking')).toBeVisible()
+  // …and from inside the app.
+  await page.goto('/settings')
+  await page.getByRole('link', { name: 'Privacy' }).click()
+  await expect(page.getByRole('heading', { name: 'What is kept, and where' })).toBeVisible()
+})

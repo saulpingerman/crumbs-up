@@ -53,6 +53,12 @@ const router = createBrowserRouter(
                 Component: (await import('@/features/guide/GuidePage')).GuidePage,
               }),
             },
+            {
+              path: 'privacy',
+              lazy: async () => ({
+                Component: (await import('@/features/privacy/PrivacyPage')).PrivacyPage,
+              }),
+            },
             { path: '*', element: <NotFound /> },
           ],
         },
