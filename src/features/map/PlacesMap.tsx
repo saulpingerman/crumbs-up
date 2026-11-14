@@ -11,7 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/cn'
-import { distanceKm, type LatLng } from '@/lib/geo'
+import { distanceKm, type Bounds, type LatLng } from '@/lib/geo'
 
 // The bundler moves MapLibre's worker file, so tell the library where it went.
 setWorkerUrl(workerUrl)
@@ -36,6 +36,8 @@ export interface MapPin extends LatLng {
 
 export interface MapView {
   center: LatLng
+  /** The rectangle of map on screen. */
+  bounds: Bounds
   /** Roughly how far the visible map reaches from its center. */
   radiusKm: number
 }
@@ -100,8 +102,9 @@ export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className 
       return
     }
     // The map's credits start out folded behind their "i" button rather than
-    // spread across the corner of a small map. The line under the map carries
-    // the credit in plain sight, and a tap on the "i" shows the rest. The map
+    // spread across the corner of a small map. A small label in the other
+    // corner carries the credit in plain sight, and a tap on the "i" shows
+    // the rest. The map
     // library unfolds them by itself once it knows what to credit, so that
     // first unfolding is what gets undone; after that the button is theirs.
     const credits = container.current.querySelector('.maplibregl-ctrl-attrib')
@@ -265,9 +268,16 @@ export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className 
 
     instance.on('moveend', () => {
       const center = instance.getCenter()
-      const corner = instance.getBounds().getNorthEast()
+      const bounds = instance.getBounds()
+      const corner = bounds.getNorthEast()
       latest.current.onView?.({
         center: { lat: center.lat, lng: center.lng },
+        bounds: {
+          south: bounds.getSouth(),
+          west: bounds.getWest(),
+          north: bounds.getNorth(),
+          east: bounds.getEast(),
+        },
         radiusKm: distanceKm(
           { lat: center.lat, lng: center.lng },
           { lat: corner.lat, lng: corner.lng },

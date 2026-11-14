@@ -1,33 +1,38 @@
-import { distanceKm, type LatLng } from '@/lib/geo'
+import { areaOf, covers, padded, type Bounds } from '@/lib/geo'
 
 /** A stretch of map that has been searched for bakeries. */
 export interface SearchedArea {
-  center: LatLng
+  bounds: Bounds
+  /** False if the search service had more to give than it listed. */
+  complete: boolean
+}
+
+/** What the search needs to know about what the map is showing. */
+export interface Viewed {
+  bounds: Bounds
+  /** Roughly how far the visible map reaches from its middle. */
   radiusKm: number
 }
 
-/** The search service looks at most this far from the middle of the map. */
-export const MAX_SEARCH_KM = 15
 /** Beyond this the view covers too much ground for "nearby" to mean anything. */
-export const TOO_WIDE_KM = 80
+export const TOO_WIDE_KM = 40
 /** How long the map has to sit still before it is searched. */
 export const SETTLE_MS = 800
+/** A search takes in a margin round the view, so a small nudge needs no new one. */
+const MARGIN = 0.1
 
-/** The ground a search of this view would cover. */
-export function searchArea(view: SearchedArea): SearchedArea {
-  return { center: view.center, radiusKm: Math.min(MAX_SEARCH_KM, view.radiusKm) }
+/** The ground a search of this view covers: all of it, and a little more. */
+export function searchBounds(view: Viewed): Bounds {
+  return padded(view.bounds, MARGIN)
 }
 
 /**
- * Is this view different enough from the last one searched to be worth
- * asking again? A nudge of the map, or a small zoom, shows much the same
- * bakeries — and the search service is a shared, free one.
+ * Is there anything to gain from searching this view? Not if it lies inside
+ * ground already searched — unless that search was cut short and this is a
+ * much closer look, which may turn up what was left out.
  */
-export function worthSearching(last: SearchedArea | null, next: SearchedArea): boolean {
-  if (next.radiusKm > TOO_WIDE_KM) return false
-  if (!last) return true
-  const area = searchArea(next)
-  const moved = distanceKm(last.center, area.center)
-  const resized = Math.abs(area.radiusKm - last.radiusKm) / last.radiusKm
-  return moved > area.radiusKm * 0.3 || resized > 0.3
+export function worthSearching(last: SearchedArea | null, view: Viewed): boolean {
+  if (view.radiusKm > TOO_WIDE_KM) return false
+  if (!last || !covers(last.bounds, view.bounds)) return true
+  return !last.complete && areaOf(view.bounds) < areaOf(last.bounds) / 2
 }
