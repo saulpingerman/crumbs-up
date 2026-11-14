@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Crumbs Up — Cookie Ratings</title>
+    <meta
+      name="description"
+      content="A guided cookie-rating journal. Answer a few questions about taste, texture and appearance and get a fair, consistent score for every cookie."
+    />
+    <meta name="theme-color" content="#faf4e8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#17100c" media="(prefers-color-scheme: dark)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Crumbs Up" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="icon" href="%BASE_URL%favicon.ico" sizes="48x48" />
+    <link rel="icon" href="%BASE_URL%favicon.svg" sizes="any" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon-180x180.png" />
+    <script>
+      // Apply the saved theme before first paint so there is no flash.
+      try {
+        var s = JSON.parse(localStorage.getItem('crumbs-up:settings') || '{}')
+        var dark =
+          s.theme === 'dark' ||
+          (s.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Crumbs Up needs JavaScript to run.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

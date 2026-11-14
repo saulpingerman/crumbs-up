@@ -1,0 +1,137 @@
+import { expect, test } from '@playwright/test'
+import { answer, categoryScore, fillDetails } from './helpers'
+
+test('rates a cookie from photo to journal', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Rate your first cookie' }).click()
+
+  // The form won't let an unnamed cookie through.
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await expect(page.getByText('What kind of cookie is it?')).toBeVisible()
+
+  await fillDetails(page, {
+    type: 'Brown Butter Chocolate Chip',
+    bakery: 'Flour & Flame',
+    state: 'PA',
+    city: 'State College',
+    photo: true,
+  })
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+
+  // Look
+  await answer(page, 'How did it look sitting in the case?', 'Gorgeous')
+  await answer(page, 'How’s the color of the bake?', 'Beautifully browned')
+  await answer(page, 'What about its shape and size?', 'Well formed')
+  await answer(page, 'Look closely at the surface.', 'Really attractive')
+  await answer(page, 'How do the mix-ins or toppings look?', 'Loaded and artful')
+  await page.getByRole('button', { name: 'Greasy sheen' }).click()
+  await page.getByRole('button', { name: 'Continue with 1 flagged' }).click()
+
+  // (3·8 + 2·8 + 2·6.5 + 2·8 + 2·8) / 11 = 7.73, minus 0.5 for the flaw = 7.23 → 7
+  await expect(categoryScore(page, 'Appearance', '7')).toBeVisible()
+  await page.getByRole('button', { name: 'Raise appearance by half a point' }).click()
+  await expect(categoryScore(page, 'Appearance', '7.5')).toBeVisible()
+  await page.getByRole('button', { name: 'Next: texture' }).click()
+
+  // Bite
+  await answer(page, 'What style is this cookie going for?', 'Crisp edge, soft center')
+  await answer(page, 'How well does it nail “crisp edge, soft center”?', 'Nails it')
+  await answer(page, 'How’s the bake all the way through?', 'Spot on')
+  await answer(page, 'Does the texture keep things interesting?', 'Lots going on')
+  await answer(page, 'How does it feel as you chew?', 'Luxurious')
+  await answer(page, 'How fresh does it eat?', 'Very fresh')
+  await page.getByRole('button', { name: 'No flaws — carry on' }).click()
+  await expect(categoryScore(page, 'Texture', '8')).toBeVisible()
+  await page.getByRole('button', { name: 'Next: taste' }).click()
+
+  // Savor
+  await answer(page, 'How deep does the flavor go?', 'Layered')
+  await answer(page, 'How well balanced is it?', 'Beautifully balanced')
+  await answer(page, 'What do the ingredients taste like?', 'Premium')
+  await answer(page, 'Does it deliver on what it promised?', 'Bold and true')
+  await answer(page, 'When it was gone, how did you feel?', 'Still thinking about it')
+  await page.getByRole('button', { name: 'No flaws — carry on' }).click()
+  await expect(categoryScore(page, 'Taste', '8')).toBeVisible()
+  await page.getByRole('button', { name: 'See the verdict' }).click()
+
+  // (8 + 8 + 7.5) / 3 = 7.83 → 8
+  await expect(page.getByRole('img', { name: 'Overall score 8 out of 10' })).toBeVisible()
+  await expect(page.getByText('Outstanding')).toBeVisible()
+  await page.getByLabel('Tasting notes').fill('Toffee edges and a soft middle.')
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+
+  // Saved: the cookie's page shows the scores, the photo and the reasoning.
+  await expect(page).toHaveURL(/\/cookie\//)
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Brown Butter Chocolate Chip' }),
+  ).toBeVisible()
+  await expect(page.getByRole('meter', { name: 'Appearance' })).toHaveAttribute(
+    'aria-valuenow',
+    '7.5',
+  )
+  await expect(
+    page.getByAltText('Brown Butter Chocolate Chip cookie from Flour & Flame'),
+  ).toBeVisible()
+  await page.getByText('Appearance', { exact: true }).last().click()
+  await expect(page.getByText('The questions suggested 7; you moved it up to 7.5.')).toBeVisible()
+
+  // Back lands on the journal, not somewhere inside the finished wizard.
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Brown Butter Chocolate Chip/ })).toHaveCount(1)
+})
+
+test('keeps an unfinished rating as a draft', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Snickerdoodle', bakery: 'Half Batch', state: 'OH' })
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await answer(page, 'How did it look sitting in the case?', 'Inviting')
+  await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
+
+  await page.reload()
+  await page.goto('/rate')
+  await expect(page.getByText('You have an unfinished rating.')).toBeVisible()
+  await expect(page.getByLabel('Type of cookie')).toHaveValue('Snickerdoodle')
+  await page.getByRole('button', { name: 'Pick up where I left off' }).click()
+  await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
+})
+
+test('the back gesture steps through the questions', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Rate your first cookie' }).click()
+  await fillDetails(page, { type: 'Sugar', bakery: 'Test Kitchen', state: 'NY' })
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await answer(page, 'How did it look sitting in the case?', 'Inviting')
+  await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
+
+  await page.goBack()
+  await expect(
+    page.getByRole('heading', { name: 'How did it look sitting in the case?' }),
+  ).toBeVisible()
+  await expect(page.getByRole('radio', { name: 'Inviting' })).toBeChecked()
+  await page.goBack()
+  await expect(page.getByRole('heading', { name: 'What are we rating?' })).toBeVisible()
+  await page.goBack()
+  await expect(
+    page.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
+  ).toBeVisible()
+})
+
+test('logs a cookie that was already scored, then edits it', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Oatmeal Raisin', bakery: 'Old Notebook Bakery', state: 'VT' })
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+
+  await expect(page.getByText('Your scores')).toBeVisible()
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Raise Taste' }).click()
+  await page.getByRole('button', { name: 'Lower Appearance' }).click()
+  // (7 + 5 + 4.5) / 3 = 5.5
+  await expect(page.getByRole('img', { name: 'Overall score 5.5 out of 10' })).toBeVisible()
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+  await expect(page.getByText('These scores were entered by hand')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Edit' }).click()
+  await page.getByRole('button', { name: 'Raise Texture' }).click()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page.getByRole('meter', { name: 'Texture' })).toHaveAttribute('aria-valuenow', '5.5')
+})
