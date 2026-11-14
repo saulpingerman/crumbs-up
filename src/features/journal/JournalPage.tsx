@@ -15,6 +15,7 @@ import { ELSEWHERE, stateName } from '@/lib/states'
 import { byNewest, byScoreDesc, summarize, type RatedCookie } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { useTitle } from '@/lib/use-title'
+import { BiteableCookie } from './BiteableCookie'
 import { CookieCard } from './CookieCard'
 import { BackupNudge, InstallHint } from './InstallHint'
 
@@ -221,7 +222,9 @@ function FirstRun() {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col items-center px-6 pt-10 pb-16 text-center md:pt-20">
-      <LogoMark className="size-28 animate-rise" />
+      <div className="animate-rise">
+        <BiteableCookie className="size-28" />
+      </div>
       <p className="mt-6 text-xs font-bold tracking-[0.16em] text-crust uppercase">
         Welcome to Crumbs Up
       </p>

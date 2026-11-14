@@ -137,3 +137,23 @@ test('the privacy page says what is kept and where', async ({ page }) => {
   await page.getByRole('link', { name: 'Privacy' }).click()
   await expect(page.getByRole('heading', { name: 'What is kept, and where' })).toBeVisible()
 })
+
+test('the welcome cookie can be nibbled, and the + button asks to be pressed', async ({ page }) => {
+  await page.goto('/')
+  const cookie = page.locator('[data-bites]')
+  await expect(cookie).toHaveAttribute('data-bites', '0')
+  // It never stops bobbing, so don't wait for it to hold still.
+  await cookie.click({ force: true })
+  await expect(cookie).toHaveAttribute('data-bites', '1')
+  await expect(page.getByTestId('crumbs')).toBeAttached()
+  for (let i = 0; i < 3; i++) await cookie.click({ force: true })
+  // Eaten down to a stub, the next tap bakes a fresh one.
+  await expect(cookie).toHaveAttribute('data-bites', '0')
+
+  // The pulse behind the + button is there to get a first cookie rated, and
+  // goes once there is one.
+  await expect(page.getByTestId('beckon')).toBeAttached()
+  await page.getByRole('button', { name: 'Look around with sample cookies' }).click()
+  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(page.getByTestId('beckon')).toHaveCount(0)
+})

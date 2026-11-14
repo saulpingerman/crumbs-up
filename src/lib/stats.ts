@@ -29,6 +29,19 @@ export function rate(
   }))
 }
 
+/**
+ * Would a cookie scoring `exact` outrank every other cookie in the journal?
+ * It has to beat them outright, and there have to be enough of them for
+ * coming first to mean something.
+ */
+export function topsTheJournal(
+  exact: number,
+  others: Pick<RatedCookie, 'overallExact'>[],
+  atLeast = 3,
+): boolean {
+  return others.length >= atLeast && others.every((other) => exact > other.overallExact)
+}
+
 /** Best first. Ties fall back to taste, then to the more recent cookie. */
 export function byScoreDesc(a: RatedCookie, b: RatedCookie): number {
   return (

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { answer, categoryScore, fillDetails, withoutCutout } from './helpers'
+import { addSamples, answer, categoryScore, fillDetails, withoutCutout } from './helpers'
 
 test('rates a cookie from photo to journal', async ({ page }) => {
   await withoutCutout(page)
@@ -58,6 +58,10 @@ test('rates a cookie from photo to journal', async ({ page }) => {
   // (8 + 8 + 7.5) / 3 = 7.83 → 8
   await expect(page.getByRole('img', { name: 'Overall score 8 out of 10' })).toBeVisible()
   await expect(page.getByText('Outstanding')).toBeVisible()
+  // A cookie this good gets a few crumbs thrown for it — but no crown, with
+  // nothing in the journal yet for it to beat.
+  await expect(page.getByTestId('crumbs')).toBeAttached()
+  await expect(page.getByTestId('crown')).toHaveCount(0)
 
   // A score can be revisited from the verdict without redoing the questions.
   await page.getByRole('button', { name: /^Texture 8 — adjust/ }).click()
@@ -200,4 +204,26 @@ test('typed-in scores survive a detour through the questions', async ({ page }) 
   await page.goBack()
   await page.getByRole('button', { name: /Already scored it/ }).click()
   await expect(page.getByLabel('Taste score')).toHaveText('8')
+})
+
+test('a cookie that beats the whole journal gets the crown', async ({ page }) => {
+  await addSamples(page)
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sea Salt Caramel', bakery: 'Top Shelf', state: 'NY' })
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+
+  // Level with the standard, it is nobody's favourite.
+  await expect(page.getByRole('img', { name: 'Overall score 5 out of 10' })).toBeVisible()
+  await expect(page.getByTestId('crown')).toHaveCount(0)
+
+  for (const category of ['Taste', 'Texture', 'Appearance']) {
+    for (let i = 0; i < 10; i++) {
+      await page.getByRole('button', { name: `Raise ${category}` }).click()
+    }
+  }
+  await expect(page.getByRole('img', { name: 'Overall score 10 out of 10' })).toBeVisible()
+  await expect(page.getByTestId('crown')).toBeVisible()
+  await expect(page.getByText('Your new number one')).toBeVisible()
+  // Crumbs are for a verdict as it lands, not for a number being typed in.
+  await expect(page.getByTestId('crumbs')).toHaveCount(0)
 })
