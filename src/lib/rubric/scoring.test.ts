@@ -6,12 +6,18 @@ import {
   MAX_FLAW_PENALTY,
   QUESTIONS,
   STANDARD_OPTION_INDEX,
+  QUICK_QUESTION_LIST,
+  QUICK_QUESTIONS,
   WEIGHT_PRESETS,
+  answersFor,
   assessAll,
   assessCategory,
   formatScore,
+  getQuestion,
+  isQuickReview,
   overallExact,
   overallScore,
+  quickScores,
   roundToHalf,
   tierFor,
   type Answers,
@@ -220,5 +226,60 @@ describe('helpers', () => {
     expect(tierFor(4.5).name).toBe('Below standard')
     expect(tierFor(10).name).toBe('Perfect')
     expect(tierFor(1).name).toBe('Skip it')
+  })
+})
+
+describe('quick review', () => {
+  const quick: Answers = {
+    'quick.look': 'quick.look.4',
+    'quick.bite': 'quick.bite.5',
+    'quick.taste': 'quick.taste.6',
+  }
+
+  it('asks one question per category, on the same rungs as the full tasting', () => {
+    expect(QUICK_QUESTION_LIST.map((q) => q.category)).toEqual(['appearance', 'texture', 'taste'])
+    for (const category of CATEGORIES) {
+      const question = QUICK_QUESTIONS[category]
+      expect(question.category).toBe(category)
+      expect(question.options.map((o) => o.score)).toEqual([...ANCHORS])
+      expect(getQuestion(question.id)).toBe(question)
+    }
+  })
+
+  it('takes each answer at face value', () => {
+    expect(quickScores(quick)).toEqual({ appearance: 6.5, texture: 8, taste: 10 })
+  })
+
+  it('leaves a category nobody has answered at the standard', () => {
+    expect(quickScores({ 'quick.taste': 'quick.taste.5' })).toEqual({
+      appearance: 5,
+      texture: 5,
+      taste: 8,
+    })
+    expect(quickScores({ 'quick.taste': 'not an option' }).taste).toBe(5)
+  })
+
+  it('counts as a quick review only once all three are answered', () => {
+    expect(isQuickReview(quick)).toBe(true)
+    expect(isQuickReview({ 'quick.look': 'quick.look.4', 'quick.bite': 'quick.bite.5' })).toBe(
+      false,
+    )
+    expect(isQuickReview({})).toBe(false)
+  })
+
+  it('does not count towards the full tasting', () => {
+    for (const category of CATEGORIES) {
+      const assessed = assessCategory(category, quick)
+      expect(assessed.answered).toBe(0)
+      expect(assessed.complete).toBe(false)
+    }
+    expect(ALL_QUESTIONS.some((q) => q.id.startsWith('quick.'))).toBe(false)
+  })
+
+  it('keeps the two sets of answers apart', () => {
+    const full = answerAll('taste', 4)
+    const both = { ...full, ...quick }
+    expect(answersFor(both, 'quick')).toEqual(quick)
+    expect(answersFor(both, 'full')).toEqual(full)
   })
 })

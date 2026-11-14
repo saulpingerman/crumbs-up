@@ -7,6 +7,8 @@ import {
 } from '@/lib/rubric'
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
+/** Three overall questions, or the full tasting. */
+export type ReviewStyle = 'quick' | 'full'
 
 export interface Settings {
   theme: ThemeChoice
@@ -22,6 +24,8 @@ export interface Settings {
   autoCutout: boolean
   /** Allow looking bakeries up in OpenStreetMap (sends a name or map area, never ratings). */
   onlinePlaces: boolean
+  /** How the last cookie was rated, so the next one starts the same way. */
+  reviewStyle: ReviewStyle
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -34,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   installHintDismissed: false,
   autoCutout: true,
   onlinePlaces: true,
+  reviewStyle: 'full',
 }
 
 const KEY = 'crumbs-up:settings'
@@ -47,6 +52,7 @@ function read(): Settings {
     const parsed = raw ? (JSON.parse(raw) as Partial<Settings>) : {}
     cache = { ...DEFAULT_SETTINGS, ...parsed }
     if (!(cache.weightPreset in WEIGHT_PRESETS)) cache.weightPreset = DEFAULT_SETTINGS.weightPreset
+    if (cache.reviewStyle !== 'quick') cache.reviewStyle = 'full'
   } catch {
     cache = { ...DEFAULT_SETTINGS }
   }

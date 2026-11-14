@@ -1,5 +1,13 @@
 import type { CookieDetails, DraftRecord } from '@/lib/db/schema'
-import { QUESTIONS, TASTING_ORDER, type Answers, type Category, type Question } from '@/lib/rubric'
+import {
+  QUESTIONS,
+  QUICK_QUESTION_LIST,
+  QUICK_QUESTIONS,
+  TASTING_ORDER,
+  type Answers,
+  type Category,
+  type Question,
+} from '@/lib/rubric'
 import { isKnownStateCode } from '@/lib/states'
 
 export type Step =
@@ -33,10 +41,29 @@ const GUIDED_STEPS: Step[] = [
   { kind: 'summary' },
 ]
 
+/** The quick review: straight from one overall question per category to the verdict. */
+const QUICK_STEPS: Step[] = [
+  { kind: 'details' },
+  ...QUICK_QUESTION_LIST.map((question, i): Step => ({
+    kind: 'question',
+    category: question.category,
+    question,
+    index: i + 1,
+    count: QUICK_QUESTION_LIST.length,
+  })),
+  { kind: 'summary' },
+]
+
 const MANUAL_STEPS: Step[] = [{ kind: 'details' }, { kind: 'summary' }]
 
-export function stepsFor(draft: Pick<DraftRecord, 'manual'>): Step[] {
-  return draft.manual ? MANUAL_STEPS : GUIDED_STEPS
+export function stepsFor(draft: Pick<DraftRecord, 'manual' | 'quick'>): Step[] {
+  return draft.manual ? MANUAL_STEPS : draft.quick ? QUICK_STEPS : GUIDED_STEPS
+}
+
+/** How many questions each way of rating asks, for telling them apart up front. */
+export const QUESTION_COUNT = {
+  quick: QUICK_STEPS.filter((step) => step.kind === 'question').length,
+  full: GUIDED_STEPS.filter((step) => step.kind === 'question').length,
 }
 
 export interface DetailErrors {
@@ -90,9 +117,9 @@ export function furthestStep(steps: Step[], draft: DraftRecord): number {
   return blocked === -1 ? steps.length - 1 : blocked
 }
 
-/** Answered / total scored questions in a category, for the progress bar. */
-export function categoryProgress(category: Category, answers: Answers): number {
-  const questions = QUESTIONS[category]
+/** Answered / total questions in a category, for the progress bar. */
+export function categoryProgress(category: Category, answers: Answers, quick = false): number {
+  const questions = quick ? [QUICK_QUESTIONS[category]] : QUESTIONS[category]
   const done = questions.filter((q) => isAnswered(q, answers)).length
   return questions.length ? done / questions.length : 0
 }

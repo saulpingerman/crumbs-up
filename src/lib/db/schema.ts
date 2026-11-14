@@ -108,6 +108,11 @@ export interface DraftRecord {
    */
   manual: { taste: number; texture: number; appearance: number } | null
   /**
+   * The short way round: one question per category instead of the full
+   * tasting. Ignored while `manual` is set.
+   */
+  quick: boolean
+  /**
    * `keep` = the cookie being edited keeps its saved photo,
    * `none` = no photo, otherwise the freshly picked photo.
    */

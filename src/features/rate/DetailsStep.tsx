@@ -1,18 +1,28 @@
-import { ArrowRight, History, LoaderCircle, LocateFixed, MapPin, PencilLine } from 'lucide-react'
+import {
+  ArrowRight,
+  History,
+  ListChecks,
+  LoaderCircle,
+  LocateFixed,
+  MapPin,
+  PencilLine,
+  Zap,
+} from 'lucide-react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { Field, Select, TextInput } from '@/components/Field'
+import { cn } from '@/lib/cn'
 import { COMMON_COOKIE_TYPES } from '@/lib/cookie-types'
 import { todayIso } from '@/lib/format'
 import { findBakery, type OsmPlace } from '@/lib/osm'
 import { loadPlaces, normalizePlace, type PlaceIndex } from '@/lib/places'
-import { useSettings } from '@/lib/settings'
+import { updateSettings, useSettings, type ReviewStyle } from '@/lib/settings'
 import { ELSEWHERE, US_STATES } from '@/lib/states'
 import { byNewest } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { PhotoPicker } from './PhotoPicker'
-import { validateDetails, type DetailErrors } from './steps'
+import { QUESTION_COUNT, validateDetails, type DetailErrors } from './steps'
 import type { DraftApi } from './useDraft'
 
 interface Props {
@@ -164,6 +174,13 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
     } finally {
       setLocating(false)
     }
+  }
+
+  function pickStyle(style: ReviewStyle) {
+    api.setQuick(style === 'quick')
+    // The next new cookie starts the same way. Re-rating an old one says
+    // nothing about how the next should go.
+    if (!editId) updateSettings({ reviewStyle: style })
   }
 
   function submit(next: () => void) {
@@ -439,6 +456,33 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
       </div>
 
       <div className="mt-auto pt-8">
+        {!draft.manual && (
+          <div className="mb-4">
+            <p id={`${id}-style`} className="mb-2 text-sm font-semibold">
+              How do you want to rate it?
+            </p>
+            <div
+              role="radiogroup"
+              aria-labelledby={`${id}-style`}
+              className="grid grid-cols-2 gap-2"
+            >
+              <StyleChoice
+                checked={draft.quick}
+                onPick={() => pickStyle('quick')}
+                icon={<Zap className="size-4" />}
+                title="Quick"
+                detail={`${QUESTION_COUNT.quick} questions`}
+              />
+              <StyleChoice
+                checked={!draft.quick}
+                onPick={() => pickStyle('full')}
+                icon={<ListChecks className="size-4" />}
+                title="Full tasting"
+                detail={`${QUESTION_COUNT.full} questions, more detail`}
+              />
+            </div>
+          </div>
+        )}
         <Button type="submit" size="lg" className="w-full">
           {draft.manual ? 'Continue' : editId ? 'Review the questions' : 'Start tasting'}
           <ArrowRight className="size-5" />
@@ -455,6 +499,42 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
         )}
       </div>
     </form>
+  )
+}
+
+/** One of the two ways to rate: a big, fully-worded radio button. */
+function StyleChoice({
+  checked,
+  onPick,
+  icon,
+  title,
+  detail,
+}: {
+  checked: boolean
+  onPick: () => void
+  icon: React.ReactNode
+  title: string
+  detail: string
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      onClick={onPick}
+      className={cn(
+        'rounded-2xl border px-3.5 py-3 text-left transition active:scale-[0.98]',
+        checked
+          ? 'border-crust bg-paper shadow-card ring-2 ring-crust/25'
+          : 'border-line text-ink-soft hover:border-ink-faint',
+      )}
+    >
+      <span className="flex items-center gap-1.5 font-semibold text-ink">
+        <span className={checked ? 'text-crust' : 'text-ink-faint'}>{icon}</span>
+        {title}
+      </span>
+      <span className="mt-0.5 block text-[13px] leading-snug">{detail}</span>
+    </button>
   )
 }
 

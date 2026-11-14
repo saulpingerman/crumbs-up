@@ -201,3 +201,68 @@ test('typed-in scores survive a detour through the questions', async ({ page }) 
   await page.getByRole('button', { name: /Already scored it/ }).click()
   await expect(page.getByLabel('Taste score')).toHaveText('8')
 })
+
+test('a quick review gets from three questions to a saved cookie', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Peanut Butter', bakery: 'Corner Market', state: 'PA' })
+  // The full tasting is the default until someone picks otherwise.
+  await expect(page.getByRole('radio', { name: /^Full tasting/ })).toBeChecked()
+  await page.getByRole('radio', { name: /^Quick/ }).click()
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+
+  await answer(page, 'How did it look?', 'Inviting')
+  await answer(page, 'How was the texture?', 'Great')
+  await answer(page, 'How did it taste?', 'Delicious')
+
+  // (6.5 + 8 + 8) / 3 = 7.5
+  await expect(page.getByRole('img', { name: 'Overall score 7.5 out of 10' })).toBeVisible()
+  // One answer only gets close; the steppers land the exact half point.
+  await page.getByRole('button', { name: 'Raise Taste' }).click()
+  await expect(page.getByLabel('Taste score')).toHaveText('8.5')
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+
+  await expect(page).toHaveURL(/\/cookie\//)
+  await expect(page.getByText(/A quick review: one overall answer behind each score/)).toBeVisible()
+  await expect(page.getByRole('meter', { name: 'Taste' })).toHaveAttribute('aria-valuenow', '8.5')
+  await page.getByText('Taste', { exact: true }).last().click()
+  await expect(page.getByText('Your answer suggested 8; you moved it up to 8.5.')).toBeVisible()
+
+  // Editing brings it back as a quick review, fine-tuning and all.
+  await page.getByRole('link', { name: 'Edit' }).click()
+  await expect(page.getByLabel('Taste score')).toHaveText('8.5')
+  await page.getByRole('button', { name: 'Lower Taste' }).click()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  // Wait for the save to land back on the cookie's page: the verdict has a
+  // Taste bar of its own, which would satisfy the next check too early.
+  await expect(page.getByText('Changes saved')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How it earned its scores' })).toBeVisible()
+  await expect(page.getByRole('meter', { name: 'Taste' })).toHaveAttribute('aria-valuenow', '8')
+
+  // And the next cookie starts the same way.
+  await page.goto('/rate')
+  await expect(page.getByRole('radio', { name: /^Quick/ })).toBeChecked()
+})
+
+test('a quick review can be traded for the full tasting', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Ginger Molasses', bakery: 'Second Thoughts', state: 'OR' })
+  await page.getByRole('radio', { name: /^Quick/ }).click()
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await answer(page, 'How did it look?', 'Gorgeous')
+  await answer(page, 'How was the texture?', 'Great')
+  await answer(page, 'How did it taste?', 'Delicious')
+  await expect(page.getByRole('img', { name: 'Overall score 8 out of 10' })).toBeVisible()
+
+  await page.getByRole('button', { name: /Do the full tasting/ }).click()
+  await expect(
+    page.getByRole('heading', { name: 'How did it look sitting in the case?' }),
+  ).toBeVisible()
+
+  // Back on the details, the choice shows what is now in force, and going
+  // back to quick finds the three answers where they were left.
+  await page.getByRole('button', { name: 'Back' }).click()
+  await expect(page.getByRole('radio', { name: /^Full tasting/ })).toBeChecked()
+  await page.getByRole('radio', { name: /^Quick/ }).click()
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await expect(page.getByRole('radio', { name: /Gorgeous/ })).toBeChecked()
+})
