@@ -242,3 +242,107 @@ test('a forgotten password is reset from the emailed link, in whichever browser 
   })
   expect(later.url()).not.toContain('error')
 })
+
+test('Apple and Google buttons appear when the project has them switched on', async ({
+  browser,
+}) => {
+  const page = await openDevice(browser)
+  // The local stack has no providers, so stand in for a project that does.
+  await page.route('**/auth/v1/settings', async (route) => {
+    const response = await route.fetch()
+    const settings = (await response.json()) as { external: Record<string, boolean> }
+    await route.fulfill({
+      response,
+      json: { ...settings, external: { ...settings.external, apple: true, google: true } },
+    })
+  })
+  await page.goto('/settings')
+  const buttons = page.getByRole('button', { name: /^Continue with/ })
+  await expect(buttons).toHaveText(['Continue with Apple', 'Continue with Google'])
+
+  // Tapping one hands over to that provider, by way of the project, and asks
+  // to be sent back to the app afterwards.
+  await page.route('**/auth/v1/authorize**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: 'Provider sign-in page' }),
+  )
+  const handover = page.waitForRequest('**/auth/v1/authorize**')
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  const url = new URL((await handover).url())
+  expect(url.origin).toBe(new URL(process.env.VITE_SUPABASE_URL!).origin)
+  expect(url.searchParams.get('provider')).toBe('google')
+  expect(url.searchParams.get('redirect_to')).toBe('http://localhost:4173/')
+
+  // The buttons are remembered, so they are there at once next time — even offline.
+  await page.unroute('**/auth/v1/settings')
+  await page.route('**/auth/v1/settings', (route) => route.abort())
+  await page.goto('/settings')
+  await expect(buttons).toHaveCount(2)
+})
+
+test('coming back from a sign-in provider signs the device in', async ({ browser }) => {
+  const email = `provider-${crypto.randomUUID()}@example.com`
+  const first = await openDevice(browser)
+  await rateByHand(first, 'Gingersnap', 'Provider Bakery')
+  await signIn(first, email, 'Create account')
+
+  // A provider sign-in ends with the project sending the browser back to the
+  // app with a session in the address. Get a real session for that account
+  // the plain way, and arrive with it exactly as that redirect would.
+  const granted = await first.request.post(
+    `${process.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      headers: { apikey: process.env.VITE_SUPABASE_PUBLISHABLE_KEY! },
+      data: { email, password },
+    },
+  )
+  const session = (await granted.json()) as { access_token: string; refresh_token: string }
+  const arrival = new URLSearchParams({
+    access_token: session.access_token,
+    expires_in: '3600',
+    refresh_token: session.refresh_token,
+    token_type: 'bearer',
+    provider_token: 'from-the-provider',
+  })
+
+  const second = await openDevice(browser)
+  await second.goto(`/#${arrival}`)
+  await expect(second.getByText('Signed in', { exact: true })).toBeVisible({ timeout: 20_000 })
+  expect(second.url()).toBe('http://localhost:4173/')
+  await expect(second.getByText('Provider Bakery')).toBeVisible({ timeout: 30_000 })
+  await second.goto('/settings')
+  await expect(second.getByText(email)).toBeVisible()
+})
+
+test('a device is not cleared while it holds cookies the account has not received', async ({
+  browser,
+}) => {
+  const device = await openDevice(browser)
+  await signIn(device, `offline-${crypto.randomUUID()}@example.com`, 'Create account')
+
+  // Rated with no connection, so it exists only on this device. (Wait for the
+  // app to finish caching itself first, so it can be used offline.)
+  await device.evaluate(() => navigator.serviceWorker.ready)
+  await expect
+    .poll(() => device.evaluate(async () => (await caches.keys()).length), { timeout: 20_000 })
+    .toBeGreaterThan(0)
+  await device.waitForTimeout(1500)
+  await device.context().setOffline(true)
+  await rateByHand(device, 'Macaroon', 'Offline Bakery')
+  await device.goto('/settings')
+  await device.getByRole('button', { name: 'Sign out' }).click()
+  await device.getByRole('button', { name: 'Remove it from this device' }).click()
+  await expect(device.getByText('Some cookies haven’t reached your account yet')).toBeVisible()
+  await device.goto('/')
+  await expect(device.getByText('Offline Bakery')).toBeVisible()
+
+  // Back online it is sent first, and then the device can be cleared.
+  await device.context().setOffline(false)
+  await device.goto('/settings')
+  await device.getByRole('button', { name: 'Sign out' }).click()
+  await device.getByRole('button', { name: 'Remove it from this device' }).click()
+  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await device.goto('/')
+  await expect(
+    device.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
+  ).toBeVisible()
+})

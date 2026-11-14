@@ -1,12 +1,12 @@
 import { Cloud, CloudOff, LoaderCircle, LogOut, RefreshCw, TriangleAlert } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { Field, TextInput } from '@/components/Field'
 import { Card, SectionTitle } from '@/components/Page'
 import { Sheet } from '@/components/Sheet'
-import { requestSync, useSyncStatus } from '@/lib/cloud/auto'
-import { providers, type Provider } from '@/lib/cloud/client'
+import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
+import { useProviders, type Provider } from '@/lib/cloud/providers'
 import {
   AuthError,
   sendPasswordReset,
@@ -20,9 +20,51 @@ import {
 } from '@/lib/cloud/session'
 import { forgetAccount } from '@/lib/cloud/sync'
 import { db } from '@/lib/db/db'
+import { cn } from '@/lib/cn'
 import { plural } from '@/lib/format'
 
-const PROVIDER_NAME: Record<Provider, string> = { google: 'Google', apple: 'Apple' }
+/**
+ * Each company's sign-in button, drawn the way its guidelines ask: Apple's
+ * black (white on a dark screen) with its logo, Google's white with a grey
+ * outline (near-black on a dark screen) and the four-color G.
+ */
+const PROVIDER_BUTTON: Record<Provider, { name: string; className: string; mark: ReactNode }> = {
+  apple: {
+    name: 'Apple',
+    className:
+      'bg-black text-white hover:bg-black/85 dark:bg-white dark:text-black dark:hover:bg-white/90',
+    mark: (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="-mt-0.5 size-[18px]">
+        <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+      </svg>
+    ),
+  },
+  google: {
+    name: 'Google',
+    className:
+      'border border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f2f2f2] dark:border-[#8e918f] dark:bg-[#131314] dark:text-[#e3e3e3] dark:hover:bg-[#1f1f20]',
+    mark: (
+      <svg viewBox="0 0 48 48" aria-hidden className="size-[18px]">
+        <path
+          fill="#EA4335"
+          d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+        />
+        <path
+          fill="#4285F4"
+          d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+        />
+        <path
+          fill="#34A853"
+          d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+        />
+      </svg>
+    ),
+  },
+}
 const MIN_PASSWORD = 8
 
 const time = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -50,6 +92,7 @@ export function AccountCard() {
 
 function SignIn() {
   const id = useId()
+  const providers = useProviders()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState<'in' | 'up' | 'reset' | Provider | null>(null)
@@ -111,18 +154,25 @@ function SignIn() {
 
       {providers.length > 0 && (
         <div className="mt-4 grid gap-2">
-          {providers.map((provider) => (
-            <Button
-              key={provider}
-              variant="secondary"
-              disabled={busy !== null}
-              onClick={() => void attempt(provider, () => signInWith(provider))}
-            >
-              {busy === provider && <LoaderCircle className="size-4 animate-spin" />}
-              Continue with {PROVIDER_NAME[provider]}
-            </Button>
-          ))}
-          <p className="mt-1 text-center text-xs font-semibold tracking-wider text-ink-faint uppercase">
+          {providers.map((provider) => {
+            const { name, className, mark } = PROVIDER_BUTTON[provider]
+            return (
+              <button
+                key={provider}
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void attempt(provider, () => signInWith(provider))}
+                className={cn(
+                  'inline-flex h-11 items-center justify-center gap-2.5 rounded-full px-5 text-[15px] font-semibold whitespace-nowrap transition-[transform,background-color,opacity] duration-150 select-none active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45',
+                  className,
+                )}
+              >
+                {busy === provider ? <LoaderCircle className="size-[18px] animate-spin" /> : mark}
+                Continue with {name}
+              </button>
+            )
+          })}
+          <p className="mt-2 flex items-center gap-3 text-xs font-semibold tracking-wider text-ink-faint uppercase before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
             or with email
           </p>
         </div>
@@ -237,12 +287,25 @@ function SignedIn({ email }: { email: string }) {
   async function leave(removeJournal: boolean) {
     setBusy(true)
     try {
-      // Send anything unsent first, so removing the device copy loses nothing.
-      if (removeJournal && status.pending > 0) await requestSync()
-      await signOut()
-      // A journal kept on the device stays linked to its account, so that a
-      // different person signing in here is asked before anything is mixed.
-      if (removeJournal) await forgetAccount(db, true)
+      // The device may hold changes the account doesn't have yet. Send them
+      // first, and if that can't be done, don't remove what may be the only copy.
+      if (removeJournal && !(await syncEverything())) {
+        toast.error('Some cookies haven’t reached your account yet', {
+          description: 'Check your connection and try again, or keep the journal on this device.',
+          duration: 10_000,
+        })
+        return
+      }
+      await withoutSyncing(async () => {
+        // Clear first, sign out second. If this is cut short — the app is
+        // closed, the connection drops — the device is still signed in and
+        // the journal simply comes back, rather than a journal being left
+        // on a device that was meant to be cleared.
+        // (A journal that is kept stays linked to its account, so a different
+        // person signing in here is asked before anything is mixed.)
+        if (removeJournal) await forgetAccount(db, true)
+        await signOut()
+      })
       toast(removeJournal ? 'Signed out and removed from this device' : 'Signed out')
       setLeaving(false)
     } catch (error) {
@@ -288,6 +351,12 @@ function SignedIn({ email }: { email: string }) {
             sign out and leave things as they are. The other account’s journal stays safe in the
             cloud whichever you choose.
           </p>
+          {status.pending > 0 && (
+            <p className="mt-2 font-medium text-ink">
+              {plural(status.pending, 'change')} on this device never reached that account.
+              Replacing the journal discards {status.pending === 1 ? 'it' : 'them'}.
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               size="sm"

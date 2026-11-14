@@ -10,6 +10,4 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
   /** Supabase publishable key (`sb_publishable_…`). Public by design. */
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string
-  /** Extra sign-in buttons to show, comma-separated: `google`, `apple`. */
-  readonly VITE_AUTH_PROVIDERS?: string
 }
