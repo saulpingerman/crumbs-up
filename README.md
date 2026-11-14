@@ -267,6 +267,8 @@ npm run test:e2e:cloud    # two "devices" sharing an account, in a real browser
 Emails the local stack "sends" (confirmations, password resets) are caught in an inbox at
 `http://127.0.0.1:54324`.
 
+CI runs the same two suites on every pull request, in a job of their own.
+
 ## How it's built
 
 | Concern           | Choice                                                                                                                                      |
