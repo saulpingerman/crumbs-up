@@ -170,7 +170,10 @@ export function SettingsPage() {
           Crumbs Up {__APP_VERSION__} ·{' '}
           {signedIn
             ? 'Your journal lives on this device and in your account.'
-            : 'Your journal lives on this device and is never uploaded.'}
+            : 'Your journal lives on this device and is never uploaded.'}{' '}
+          <Link to="/privacy" className="font-semibold underline underline-offset-2">
+            Privacy
+          </Link>
         </p>
       </div>
     </Page>
