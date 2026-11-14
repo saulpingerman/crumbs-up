@@ -36,6 +36,8 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? '',
       VITE_SUPABASE_PUBLISHABLE_KEY: process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '',
+      // Lets a test fill the journal with the sample cookies (see main.tsx).
+      VITE_E2E: '1',
       // Likewise Google's sign-in box: only where a run asks for it.
       VITE_GOOGLE_CLIENT_ID: process.env.VITE_GOOGLE_CLIENT_ID ?? '',
     },

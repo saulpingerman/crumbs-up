@@ -199,7 +199,6 @@ test('the welcome cookie can be nibbled, and the + button asks to be pressed', a
   // The pulse behind the + button is there to get a first cookie rated, and
   // goes once there is one.
   await expect(page.getByTestId('beckon')).toBeAttached()
-  await page.getByRole('button', { name: 'Look around with sample cookies' }).click()
-  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await addSamples(page)
   await expect(page.getByTestId('beckon')).toHaveCount(0)
 })

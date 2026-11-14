@@ -25,10 +25,17 @@ export async function answer(page: Page, prompt: string | RegExp, choice: string
   await page.getByRole('radio', { name: choice }).click()
 }
 
+/**
+ * Fill the journal with the ten sample cookies. The app has no button for
+ * this; test builds leave a hook on the page for it (see src/main.tsx).
+ */
 export async function addSamples(page: Page) {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Look around with sample cookies' }).click()
-  await expect(page.getByText('Added 10 sample cookies')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('Welcome to Crumbs Up')).toBeVisible()
+  const added = await page.evaluate(() =>
+    (window as unknown as { crumbsUpSamples: () => Promise<number> }).crumbsUpSamples(),
+  )
+  expect(added).toBe(10)
   await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
 }
 

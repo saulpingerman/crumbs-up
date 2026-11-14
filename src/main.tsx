@@ -26,6 +26,14 @@ if (cloudConfigured) {
   )
 }
 
+// The sample journal is for trying things out, not for people's real
+// journals: there is no button for it. Tests and local development reach it
+// through this hook, which a normal build leaves out.
+if (import.meta.env.DEV || import.meta.env.VITE_E2E) {
+  ;(window as unknown as { crumbsUpSamples?: () => Promise<number> }).crumbsUpSamples = async () =>
+    (await import('./lib/samples')).addSampleCookies()
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

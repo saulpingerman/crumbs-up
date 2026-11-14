@@ -1,8 +1,7 @@
-import { Plus, Search, Sparkles, X } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { toast } from 'sonner'
-import { Button, ButtonLink } from '@/components/Button'
+import { ButtonLink } from '@/components/Button'
 import { CookiePhoto } from '@/components/CookiePhoto'
 import { Segmented, Select } from '@/components/Field'
 import { LogoMark } from '@/components/Logo'
@@ -217,23 +216,6 @@ function Champion({ cookie, precision }: { cookie: RatedCookie; precision: 'half
 
 function FirstRun() {
   useTitle(null)
-  const [loading, setLoading] = useState(false)
-
-  async function loadSamples() {
-    setLoading(true)
-    try {
-      const { addSampleCookies } = await import('@/lib/samples')
-      const count = await addSampleCookies()
-      toast.success(`Added ${count} sample cookies`, {
-        description: 'Remove them any time in Settings.',
-      })
-    } catch (error) {
-      console.error(error)
-      toast.error('Couldn’t load the samples')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     // On a short phone everything tightens up, so both buttons are on screen
@@ -262,10 +244,6 @@ function FirstRun() {
           <Plus className="size-5" strokeWidth={2.6} />
           Rate your first cookie
         </ButtonLink>
-        <Button variant="ghost" onClick={loadSamples} disabled={loading}>
-          <Sparkles className="size-4" />
-          {loading ? 'Baking samples…' : 'Look around with sample cookies'}
-        </Button>
       </div>
       <Link
         to="/guide"
