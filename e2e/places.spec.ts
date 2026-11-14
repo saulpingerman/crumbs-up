@@ -108,6 +108,14 @@ test('shows the journal’s bakeries on the map and finds new ones nearby', asyn
   await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
   await expect(map).toHaveAttribute('data-pins', '9')
 
+  // The map's credits stay folded behind their "i" button; the credit that
+  // must always be in sight is in the line under the map.
+  await expect(page.locator('.maplibregl-ctrl-attrib')).not.toHaveAttribute('open')
+  await expect(page.getByRole('link', { name: 'OpenStreetMap' })).toHaveAttribute(
+    'href',
+    'https://www.openstreetmap.org/copyright',
+  )
+
   // Picking one from the list shows its cookies and flies the map there.
   await page.getByRole('button', { name: /Butter & Ember/ }).click()
   await expect(page.getByRole('heading', { name: 'Butter & Ember' })).toBeVisible()

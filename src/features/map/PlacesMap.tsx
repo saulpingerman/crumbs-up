@@ -99,6 +99,19 @@ export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className 
       setFailed(true)
       return
     }
+    // The map's credits start out folded behind their "i" button rather than
+    // spread across the corner of a small map. The line under the map carries
+    // the credit in plain sight, and a tap on the "i" shows the rest. The map
+    // library unfolds them by itself once it knows what to credit, so that
+    // first unfolding is what gets undone; after that the button is theirs.
+    const credits = container.current.querySelector('.maplibregl-ctrl-attrib')
+    const fold = new MutationObserver(() => {
+      if (!credits?.classList.contains('maplibregl-compact-show')) return
+      fold.disconnect()
+      credits.classList.remove('maplibregl-compact-show')
+      credits.removeAttribute('open')
+    })
+    if (credits) fold.observe(credits, { attributes: true, attributeFilter: ['class'] })
     map.current = instance
     instance.touchZoomRotate.disableRotation()
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right')
@@ -271,6 +284,7 @@ export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className 
     })
 
     return () => {
+      fold.disconnect()
       map.current = null
       setReady(false)
       instance.remove()

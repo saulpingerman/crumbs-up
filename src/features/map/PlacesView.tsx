@@ -198,7 +198,18 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
           Gold pins are bakeries you’ve rated, with their average score.{' '}
           {settings.onlinePlaces
             ? 'Rings are bakeries from OpenStreetMap you haven’t tried; they appear as you move in close.'
-            : 'Online bakery search is turned off in Settings.'}
+            : 'Online bakery search is turned off in Settings.'}{' '}
+          {/* Always in sight, because the map's own credits start folded away. */}
+          Map ©{' '}
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            OpenStreetMap
+          </a>{' '}
+          contributors.
         </p>
       </div>
 
