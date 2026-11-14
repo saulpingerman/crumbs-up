@@ -42,12 +42,14 @@ export function useSyncStatus(): SyncStatus {
 
 let running: Promise<SyncResult | null> | null = null
 let again = false
+let paused = false
 
 /**
  * Sync now. If one is already under way, another follows straight after,
  * so a change made mid-sync is never left waiting.
  */
 export function requestSync(): Promise<SyncResult | null> {
+  if (paused) return Promise.resolve(null)
   if (running) {
     again = true
     return running
@@ -60,6 +62,33 @@ export function requestSync(): Promise<SyncResult | null> {
     }
   })
   return running
+}
+
+/**
+ * Sync until nothing on this device is waiting to be sent.
+ * @returns false if something still is — offline, say, or the server refused.
+ */
+export async function syncEverything(): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if ((await db.outbox.count()) === 0) return true
+    await requestSync()
+  }
+  return (await db.outbox.count()) === 0
+}
+
+/**
+ * Do something that a sync must not overlap, such as clearing the device on
+ * the way out. Waits for a sync already under way, and holds new ones off.
+ */
+export async function withoutSyncing<T>(action: () => Promise<T>): Promise<T> {
+  paused = true
+  again = false
+  try {
+    await running?.catch(() => null)
+    return await action()
+  } finally {
+    paused = false
+  }
 }
 
 async function runOnce(): Promise<SyncResult | null> {

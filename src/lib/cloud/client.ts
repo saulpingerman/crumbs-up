@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { refreshProviders } from './providers'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -10,13 +11,11 @@ const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
  */
 export const cloudConfigured = Boolean(url && key)
 
-export type Provider = 'google' | 'apple'
-
-/** Sign-in buttons to offer besides email, as configured for this deployment. */
-export const providers: Provider[] = (import.meta.env.VITE_AUTH_PROVIDERS ?? '')
-  .split(',')
-  .map((name) => name.trim().toLowerCase())
-  .filter((name): name is Provider => name === 'google' || name === 'apple')
+/** Look up which sign-in providers the project has switched on. */
+export function findProviders(): Promise<void> {
+  if (!url || !key) return Promise.resolve()
+  return refreshProviders(url, key)
+}
 
 let client: Promise<SupabaseClient> | null = null
 

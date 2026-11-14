@@ -217,8 +217,9 @@ without an account. Signing in adds a copy in your account and keeps the two in 
   Deleting a cookie deletes it everywhere.
 - Photos (the picture and, for a cut-out, the original behind it) go to private storage that only
   your account can read.
-- Signing out asks whether to keep the journal on the device or take it off. A device that holds
-  one account's journal won't quietly merge it into another: signing in as someone else asks first.
+- Signing out asks whether to keep the journal on the device or take it off. Taking it off is
+  refused while the device holds cookies the account hasn't received. A device that holds one
+  account's journal won't quietly merge it into another: signing in as someone else asks first.
 - Sample cookies never leave the device.
 
 **Setting it up**
@@ -241,8 +242,9 @@ database password must never go into the app or this repository.**
 
 **Sign in with Google or Apple.** Switch the provider on under **Authentication → Sign In /
 Providers** in Supabase (each needs credentials from Google's or Apple's developer console — the
-Supabase page for the provider lists the steps), then add it to `VITE_AUTH_PROVIDERS`, for example
-`VITE_AUTH_PROVIDERS=google,apple`. The buttons appear on the sign-in form.
+Supabase page for the provider lists the steps). That is all: the app asks the project which
+providers are on, so the "Continue with Apple" and "Continue with Google" buttons appear by
+themselves the next time it is opened, with no new build.
 
 **Things to know about the free plan**
 
