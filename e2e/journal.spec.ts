@@ -10,9 +10,14 @@ test('browses, searches and ranks the journal', async ({ page }) => {
   await expect(cards).toHaveCount(2)
   await page.getByRole('searchbox', { name: 'Search the journal' }).fill('')
 
-  await page.getByRole('combobox', { name: 'Filter by state' }).selectOption('VT')
+  // The journal is filtered by town, not by something as big as a state.
+  const town = page.getByRole('combobox', { name: 'Filter by town' })
+  await town.selectOption({ label: 'Burlington, VT' })
   await expect(cards).toHaveCount(1)
-  await page.getByRole('combobox', { name: 'Filter by state' }).selectOption('')
+  await town.selectOption({ label: 'Portland, OR' })
+  await expect(cards).toHaveCount(2)
+  await town.selectOption('')
+  await expect(cards).toHaveCount(10)
 
   await page.getByRole('radio', { name: 'Ranked' }).click()
   await expect(cards.first()).toContainText('#1')
@@ -43,7 +48,7 @@ test('every screen fits a phone without sideways scrolling', async ({ page }) =>
 test('the map opens a state and its cookies', async ({ page }) => {
   await addSamples(page)
   await page.goto('/map')
-  await expect(page.getByText('9 of 51')).toBeVisible()
+  await expect(page.getByText('9 towns')).toBeVisible()
   await page.getByRole('radio', { name: 'States' }).click()
   await page
     .getByRole('button', { name: /Oregon/ })

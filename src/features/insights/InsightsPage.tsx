@@ -16,7 +16,6 @@ import {
   tierFor,
 } from '@/lib/rubric'
 import { useSettings } from '@/lib/settings'
-import { PASSPORT_SIZE } from '@/lib/states'
 import {
   byAverageDesc,
   byNewest,
@@ -107,9 +106,9 @@ export function InsightsPage() {
         />
         <Tile label="Beat the standard" value={`${beat}%`} note="scored above a 5" />
         <Tile
-          label="States"
-          value={String(summary.states)}
-          note={`of ${PASSPORT_SIZE} with D.C.`}
+          label="Towns"
+          value={String(summary.towns)}
+          note={`in ${plural(summary.states, 'state')}`}
         />
       </dl>
 

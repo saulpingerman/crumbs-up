@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Segmented } from '@/components/Field'
 import { Page } from '@/components/Page'
-import { PASSPORT_SIZE } from '@/lib/states'
+import { plural } from '@/lib/format'
 import { summarize } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { PlacesView } from './PlacesView'
@@ -14,7 +14,7 @@ export function MapPage() {
   const [view, setView] = useState<View>('places')
   if (!cookies) return null
 
-  const visited = summarize(cookies).states
+  const summary = summarize(cookies)
 
   return (
     <Page
@@ -25,10 +25,8 @@ export function MapPage() {
         ) : (
           <>
             You’ve rated cookies in{' '}
-            <strong className="font-semibold text-ink">
-              {visited} of {PASSPORT_SIZE}
-            </strong>{' '}
-            — the fifty states plus D.C.
+            <strong className="font-semibold text-ink">{plural(summary.towns, 'town')}</strong>
+            {summary.states > 1 && ` across ${summary.states} states`}.
           </>
         )
       }
@@ -44,19 +42,6 @@ export function MapPage() {
         />
       }
     >
-      <div
-        role="meter"
-        aria-label="States visited"
-        aria-valuemin={0}
-        aria-valuemax={PASSPORT_SIZE}
-        aria-valuenow={visited}
-        className="mb-5 h-2 overflow-hidden rounded-full bg-oat"
-      >
-        <div
-          className="h-full rounded-full bg-crust transition-[width] duration-700 ease-out-soft"
-          style={{ width: `${(visited / PASSPORT_SIZE) * 100}%` }}
-        />
-      </div>
       {view === 'places' ? <PlacesView cookies={cookies} /> : <StatesView cookies={cookies} />}
     </Page>
   )

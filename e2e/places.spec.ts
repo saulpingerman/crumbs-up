@@ -167,6 +167,30 @@ test('the map asks for nothing when online lookups are turned off', async ({ pag
   await expect(map).toHaveAttribute('data-pins', '9')
 })
 
+test('new territory is towns nearby, and each opens the map there', async ({ page }) => {
+  await fakeTiles(page)
+  await fakePlaceSearch(page)
+  await addSamples(page)
+  await page.goto('/discover')
+  await expect(page.getByRole('heading', { name: 'New territory' })).toBeVisible()
+  await expect(
+    page.getByText('Towns near you where you haven’t logged a cookie yet.'),
+  ).toBeVisible()
+
+  // A town, how far it is, and from where — not a state that borders another.
+  const first = page.getByRole('link', { name: /, [A-Z]{2}.* mi from / }).first()
+  await expect(first).toBeVisible()
+  await expect(page.getByText(/^borders /)).toHaveCount(0)
+
+  // Following one opens the map on that town, close enough in to be searched
+  // straight away rather than asking for a zoom.
+  await first.click()
+  await expect(page).toHaveURL(/\/map\?lat=-?[\d.]+&lng=-?[\d.]+/)
+  const map = page.getByRole('application')
+  await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+  await expect(page.getByText(/to try here|No new bakeries here/)).toBeVisible({ timeout: 15_000 })
+})
+
 test('recommends what to try next from the journal', async ({ page }) => {
   await page.goto('/discover')
   await expect(page.getByRole('heading', { name: 'Start with the classics' })).toBeVisible()
