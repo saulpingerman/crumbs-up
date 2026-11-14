@@ -26,6 +26,14 @@ export const cookieSchema = z.object({
   /** USPS code, or `XX` for outside the U.S. */
   state: z.string().length(2),
   price: z.number().nonnegative().nullable().default(null),
+  /**
+   * The exact spot, when it was pinned from the phone's location. Without
+   * it, the map places the cookie at its city.
+   */
+  place: z
+    .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+    .nullable()
+    .default(null),
   notes: z.string().max(4000).default(''),
   answers: answersSchema.default({}),
   /** What the questionnaire recommended. */
@@ -48,6 +56,7 @@ export interface CookieDetails {
   city: string
   state: string
   price: number | null
+  place: { lat: number; lng: number } | null
 }
 
 export interface StoredImage {

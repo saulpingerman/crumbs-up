@@ -18,6 +18,7 @@ function cookie(patch: Partial<CookieRecord> = {}): CookieRecord {
     city: 'Portland',
     state: 'OR',
     price: 4.5,
+    place: null,
     notes: 'Crisp edges, "molten" middle',
     answers: { 'taste.depth': 'taste.depth.5', 'taste.flaws': ['taste.flaw.salty'] },
     suggested: { taste: 8, texture: 7, appearance: 6.5 },

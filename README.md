@@ -30,8 +30,17 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
   broke.
 - **Journal.** A photo grid you can search, filter by state, and flip between _recent_ and
   _ranked_. The best cookie you've had sits at the top as the reigning champion.
-- **Cookie map.** The U.S. shaded by how good each state's cookies have been, with a count of how
-  many of the 50 states + D.C. you've covered.
+- **Cookie map.** A street map with a pin for every bakery you've rated (each showing its average
+  score), and a second view shading the U.S. by how good each state's cookies have been, with a
+  count of how many of the 50 states + D.C. you've covered. Tap **Find bakeries here** to see
+  bakeries in that neighborhood you haven't tried yet.
+- **Discover.** Recommendations worked out from your own ratings: the app reads what your best and
+  worst cookies have in common ("caramel and toffee notes, a good chew — not so much sprinkles"),
+  then suggests kinds you haven't tried that play to that, kinds worth a second chance, bakeries
+  worth a return trip, and neighboring states you haven't logged a cookie in.
+- **Places without the typing.** One tap fills in the town from your phone's location and keeps the
+  exact spot for the map. Typing a bakery's name offers matching places to pin; typing a town
+  offers suggestions and sets the state.
 - **Insights.** Averages by category, score distribution, cookie-by-cookie trend, top bakeries and
   cookie types, and a hall of fame (_best tasting_, _ugly delicious_, _all show_…).
 - **Shareable scorecards.** One tap turns a cookie into a 4:5 image for Instagram or a group chat.
@@ -44,8 +53,8 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
 
 <p>
   <img src="docs/cutout.png" width="24%" alt="A cookie cut out of its photo" />
-  <img src="docs/cookie.png" width="24%" alt="A cookie's page" />
-  <img src="docs/map.png" width="24%" alt="The cookie map" />
+  <img src="docs/map.png" width="24%" alt="The cookie map, with bakeries nearby" />
+  <img src="docs/discover.png" width="24%" alt="Recommendations on the Discover page" />
   <img src="docs/share-card.png" width="24%" alt="A shareable scorecard" />
 </p>
 
@@ -96,6 +105,41 @@ The cut-out runs **entirely on the device** — photos are never uploaded anywhe
 
 By default the model file is fetched from Google's public model bucket. To host it yourself, set
 `VITE_COOKIE_FINDER_MODEL_URL` at build time to wherever you put `interactive_segmentation.task`.
+
+## Maps, places and recommendations
+
+**Recommendations are computed on the device** from your own journal — there is no account and
+nobody else's data. Each kind of cookie the app knows (about 35 of them) carries a few traits:
+chocolate, caramel, spice, citrus, chewy, crisp and so on. The app works out which traits score
+above and below your average, pulling small samples toward zero so one great cookie doesn't define
+your palate, and ranks untried kinds by how well they fit. If the questionnaire recorded how a
+cookie actually ate (chewy, crisp…), that beats what its kind usually eats like. The knowledge base
+is one file — [`src/lib/cookie-kinds.ts`](src/lib/cookie-kinds.ts) — and easy to extend.
+
+**Putting bakeries on the map works offline.** The app bundles about 16,000 U.S. cities and towns
+with coordinates, so city suggestions, "use my location" (which finds the nearest town) and
+placing a bakery by its town all work with no connection and without sending your whereabouts
+anywhere. A bakery pinned from your location or picked from the map sits at its exact spot; one
+known only by town sits near the town's center.
+
+**Three things do go online**, and none of them carries your ratings:
+
+| What                     | Service                                            | What is sent                       |
+| ------------------------ | -------------------------------------------------- | ---------------------------------- |
+| The street map's tiles   | [OpenFreeMap](https://openfreemap.org)             | The area of the map you're viewing |
+| Finding a bakery by name | [Photon](https://photon.komoot.io) (OpenStreetMap) | The name typed, and a nearby point |
+| "Find bakeries here"     | Photon                                             | The center of the map              |
+
+The two lookups can be switched off in Settings. The States view of the map never goes online.
+
+Both services are free, need no account and are run for the public good, which suits a personal
+app. If Crumbs Up grows a real audience, plan to host tiles and search yourself or move to a paid
+provider — the calls are isolated in [`src/lib/osm.ts`](src/lib/osm.ts) and
+[`src/features/map/PlacesMap.tsx`](src/features/map/PlacesMap.tsx).
+
+Credits: map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL);
+map tiles by OpenFreeMap / [OpenMapTiles](https://openmaptiles.org); town list from
+[GeoNames](https://www.geonames.org) (CC BY 4.0), rebuilt with `node scripts/build-places.mjs`.
 
 ## Use it on your phone
 
@@ -161,6 +205,8 @@ To serve from a sub-folder, build with `BASE_PATH=/your/path/ npm run build`.
 | Photo cut-outs    | [MediaPipe Tasks Vision](https://www.npmjs.com/package/@mediapipe/tasks-vision) — on-device segmentation in a web worker                    |
 | Backups           | [fflate](https://github.com/101arrowz/fflate) zips, validated on the way back in with [Zod](https://zod.dev)                                |
 | Map               | [us-atlas](https://github.com/topojson/us-atlas) shapes drawn with [d3-geo](https://d3js.org/d3-geo)                                        |
+| Street map        | [MapLibre GL JS](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org) tiles                                                    |
+| Place search      | [Photon](https://photon.komoot.io), built on OpenStreetMap                                                                                  |
 | Charts            | [Recharts](https://recharts.org)                                                                                                            |
 | Share images      | [modern-screenshot](https://github.com/qq15725/modern-screenshot)                                                                           |
 | UI primitives     | [Radix UI](https://www.radix-ui.com) dialogs, [Sonner](https://sonner.emilkowal.ski) toasts, [Lucide](https://lucide.dev) icons             |
@@ -174,12 +220,17 @@ src/
     journal/        the cookie grid, search, first-run welcome
     rate/           the rating wizard (details → questions → results → verdict)
     cookie/         a cookie's page and its shareable scorecard
-    map/            the state map
+    map/            street map of your bakeries, and the state map
+    discover/       recommendations
     insights/       statistics and charts
     settings/       weighting, theme, backup and restore
     guide/          "how the scoring works", generated from the rubric
   lib/
     rubric/         questions, weights, the scoring engine and its tests
+    cookie-kinds.ts what each kind of cookie tastes and eats like
+    recommend.ts    reads a palate from the journal and suggests what to try
+    places.ts       bundled U.S. towns: suggestions, nearest town, map positions
+    osm.ts          bakery lookups in OpenStreetMap
     cutout/         finds the cookie in a photo and sets it on a tabletop
     cookie-art/     draws a cookie from its type and review
     db/             IndexedDB schema, cookie repository, backup format

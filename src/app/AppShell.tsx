@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
+import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { Wordmark } from '@/components/Logo'
@@ -7,8 +7,8 @@ import { cn } from '@/lib/cn'
 const TABS = [
   { to: '/', label: 'Journal', icon: BookOpen, end: true },
   { to: '/map', label: 'Map', icon: MapIcon, end: false },
+  { to: '/discover', label: 'Discover', icon: Compass, end: false },
   { to: '/insights', label: 'Insights', icon: BarChart3, end: false },
-  { to: '/settings', label: 'Settings', icon: Settings2, end: false },
 ] as const
 
 export function AppShell() {
@@ -44,6 +44,7 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
+          <SettingsLink />
           <ButtonLink to="/rate">
             <Plus className="size-4" strokeWidth={2.6} />
             Rate a cookie
@@ -53,10 +54,11 @@ export function AppShell() {
 
       {/* Phone: brand strip */}
       <header className="pt-safe md:hidden">
-        <div className="flex h-14 items-center px-4">
+        <div className="flex h-14 items-center justify-between pr-2 pl-4">
           <NavLink to="/" aria-label="Crumbs Up home" className="rounded-lg">
             <Wordmark />
           </NavLink>
+          <SettingsLink />
         </div>
       </header>
 
@@ -86,6 +88,24 @@ export function AppShell() {
         </div>
       </nav>
     </div>
+  )
+}
+
+function SettingsLink() {
+  return (
+    <NavLink
+      to="/settings"
+      aria-label="Settings"
+      title="Settings"
+      className={({ isActive }) =>
+        cn(
+          'flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-oat hover:text-ink',
+          isActive ? 'bg-oat text-ink' : 'text-ink-soft',
+        )
+      }
+    >
+      <Settings2 className="size-[22px]" />
+    </NavLink>
   )
 }
 

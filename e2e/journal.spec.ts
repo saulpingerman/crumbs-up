@@ -23,7 +23,8 @@ test('every screen fits a phone without sideways scrolling', async ({ page }) =>
   await addSamples(page)
   for (const [path, landmark] of [
     ['/', 'Cookie journal'],
-    ['/map', 'State standings'],
+    ['/map', 'Your places'],
+    ['/discover', 'Your palate so far'],
     ['/insights', 'Hall of fame'],
     ['/settings', 'Your journal'],
     ['/guide', 'From answers to a score'],
@@ -41,6 +42,7 @@ test('the map opens a state and its cookies', async ({ page }) => {
   await addSamples(page)
   await page.goto('/map')
   await expect(page.getByText('9 of 51')).toBeVisible()
+  await page.getByRole('radio', { name: 'States' }).click()
   await page
     .getByRole('button', { name: /Oregon/ })
     .last()
@@ -102,8 +104,13 @@ test('works with no connection once it has been opened', async ({ page, context 
   await context.setOffline(true)
   await page.goto('/insights')
   await expect(page.getByRole('heading', { name: 'Hall of fame' })).toBeVisible()
+  // The street map needs a connection, but the page and the States view don't.
   await page.goto('/map')
+  await expect(page.getByRole('heading', { name: 'Your places' })).toBeVisible()
+  await page.getByRole('radio', { name: 'States' }).click()
   await expect(page.getByRole('heading', { name: 'State standings' })).toBeVisible()
+  await page.goto('/discover')
+  await expect(page.getByRole('heading', { name: 'Your palate so far' })).toBeVisible()
 })
 
 test('coming back from a cookie returns to the same place in the journal', async ({ page }) => {

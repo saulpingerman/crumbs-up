@@ -221,6 +221,7 @@ export async function addSampleCookies(): Promise<number> {
         city: sample.city,
         state: sample.state,
         price: sample.price,
+        place: null,
       },
       notes: sample.notes,
       answers,

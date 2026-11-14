@@ -45,6 +45,7 @@ export async function saveCookie(input: SaveCookieInput): Promise<CookieRecord> 
       city: input.details.city.trim(),
       state: input.details.state,
       price: input.details.price,
+      place: input.details.place,
       notes: input.notes.trim(),
       answers: input.answers,
       suggested: input.suggested,

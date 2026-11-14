@@ -126,30 +126,36 @@ export function SettingsPage() {
             hint="Finds the cookie in each new photo and sets it on a clean tabletop. The original is always kept."
             className="mt-3 flex-nowrap items-start"
           >
-            <button
-              type="button"
-              role="switch"
-              aria-checked={settings.autoCutout}
-              aria-label="Cut cookies out of their photos"
-              onClick={() => updateSettings({ autoCutout: !settings.autoCutout })}
-              className={cn(
-                'relative mt-0.5 h-8 w-14 shrink-0 rounded-full transition-colors',
-                settings.autoCutout ? 'bg-crust' : 'bg-line',
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  'absolute top-1 left-1 size-6 rounded-full bg-white shadow-card transition-transform',
-                  settings.autoCutout && 'translate-x-6',
-                )}
-              />
-            </button>
+            <Switch
+              label="Cut cookies out of their photos"
+              checked={settings.autoCutout}
+              onChange={(autoCutout) => updateSettings({ autoCutout })}
+            />
           </Row>
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">
             This runs entirely on your device — photos are never uploaded. The first time, it
             downloads a cookie-finding model (about 35 MB) from Google; after that it works offline.
             Cookies without a photo get an illustration drawn from your review.
+          </p>
+        </Card>
+
+        <Card>
+          <SectionTitle>Maps &amp; places</SectionTitle>
+          <Row
+            label="Look up bakeries online"
+            hint="Pin a bakery’s exact spot as you type its name, and search the map for bakeries you haven’t tried."
+            className="mt-3 flex-nowrap items-start"
+          >
+            <Switch
+              label="Look up bakeries online"
+              checked={settings.onlinePlaces}
+              onChange={(onlinePlaces) => updateSettings({ onlinePlaces })}
+            />
+          </Row>
+          <p className="mt-3 text-xs leading-relaxed text-ink-faint">
+            Lookups go to OpenStreetMap’s search service and carry only the name you typed or the
+            area on screen — never your ratings. The street map’s tiles load from OpenFreeMap. City
+            suggestions and the States view need no connection at all.
           </p>
         </Card>
 
@@ -161,6 +167,38 @@ export function SettingsPage() {
         </p>
       </div>
     </Page>
+  )
+}
+
+function Switch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative mt-0.5 h-8 w-14 shrink-0 rounded-full transition-colors',
+        checked ? 'bg-crust' : 'bg-line',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'absolute top-1 left-1 size-6 rounded-full bg-white shadow-card transition-transform',
+          checked && 'translate-x-6',
+        )}
+      />
+    </button>
   )
 }
 

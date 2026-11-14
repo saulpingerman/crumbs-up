@@ -17,6 +17,7 @@ export function blankDraft(key: string): DraftRecord {
       city: '',
       state: getSettings().lastState,
       price: null,
+      place: null,
     },
     notes: '',
     answers: {},
@@ -39,6 +40,7 @@ export function draftFromCookie(cookie: CookieRecord): DraftRecord {
       city: cookie.city,
       state: cookie.state,
       price: cookie.price,
+      place: cookie.place ?? null,
     },
     notes: cookie.notes,
     answers: cookie.answers,
@@ -91,7 +93,11 @@ export interface DraftApi {
  * The in-progress rating. It is mirrored to IndexedDB after every change,
  * so closing the app mid-cookie loses nothing.
  */
-export function useDraft(editId: string | null): DraftApi {
+/**
+ * @param prefill Details to start a brand-new rating with (e.g. a cookie
+ *   type picked from a recommendation). Ignored when resuming or editing.
+ */
+export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>): DraftApi {
   const key = draftKey(editId)
   const [loaded, setLoaded] = useState<{ key: string; status: Status } | null>(null)
   const status: Status = loaded?.key === key ? loaded.status : 'loading'
@@ -131,7 +137,8 @@ export function useDraft(editId: string | null): DraftApi {
         setDraft({ ...blankDraft(key), ...stored })
         setResumed(true)
       } else {
-        setDraft(blankDraft(key))
+        const blank = blankDraft(key)
+        setDraft(prefill ? { ...blank, details: { ...blank.details, ...prefill } } : blank)
         setResumed(false)
       }
       setTouched(false)
@@ -141,6 +148,8 @@ export function useDraft(editId: string | null): DraftApi {
     return () => {
       cancelled = true
     }
+    // `prefill` only seeds a new draft; it is read once, on load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, editId])
 
   // Autosave new ratings, lightly debounced so rapid taps make one write.

@@ -8,6 +8,7 @@ import { categoryBg, categoryText } from '@/components/category-styles'
 import { Confirm } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
 import { saveCookie } from '@/lib/db/cookies'
+import type { CookieDetails } from '@/lib/db/schema'
 import { requestPersistentStorage } from '@/lib/db/db'
 import {
   CATEGORY_META,
@@ -18,6 +19,7 @@ import {
   type Scores,
 } from '@/lib/rubric'
 import { getSettings, updateSettings } from '@/lib/settings'
+import { isKnownStateCode } from '@/lib/states'
 import { forgetPhoto } from '@/lib/use-photo'
 import { useTitle } from '@/lib/use-title'
 import { DetailsStep } from './DetailsStep'
@@ -33,7 +35,25 @@ export function RatePage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const editId = params.get('edit')
-  const api = useDraft(editId)
+  // "Rate one" links from Discover and the map carry what they already know.
+  const [prefill] = useState(() => {
+    const seed: Partial<CookieDetails> = {}
+    const type = params.get('type')
+    const bakery = params.get('bakery')
+    const city = params.get('city')
+    const state = params.get('state')
+    if (type) seed.cookieType = type.slice(0, 80)
+    if (bakery) seed.bakery = bakery.slice(0, 120)
+    if (city) seed.city = city.slice(0, 80)
+    if (state && isKnownStateCode(state)) seed.state = state
+    const lat = Number(params.get('lat'))
+    const lng = Number(params.get('lng'))
+    if (params.has('lat') && params.has('lng') && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      seed.place = { lat, lng }
+    }
+    return Object.keys(seed).length > 0 ? seed : undefined
+  })
+  const api = useDraft(editId, prefill)
   useTitle(editId ? 'Edit rating' : 'Rate a cookie')
   const { draft, status } = api
 
