@@ -232,6 +232,10 @@ test('a quick review gets from three questions to a saved cookie', async ({ page
   await expect(page.getByLabel('Taste score')).toHaveText('8.5')
   await page.getByRole('button', { name: 'Lower Taste' }).click()
   await page.getByRole('button', { name: 'Save changes' }).click()
+  // Wait for the save to land back on the cookie's page: the verdict has a
+  // Taste bar of its own, which would satisfy the next check too early.
+  await expect(page.getByText('Changes saved')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How it earned its scores' })).toBeVisible()
   await expect(page.getByRole('meter', { name: 'Taste' })).toHaveAttribute('aria-valuenow', '8')
 
   // And the next cookie starts the same way.
