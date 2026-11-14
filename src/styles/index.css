@@ -4,6 +4,9 @@
 @import '@fontsource-variable/figtree/index.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
+/* A phone with little height to spare: an older or smaller model, or any
+   phone once the browser's own bars have taken their share. */
+@custom-variant short (@media (max-height: 720px) and (max-width: 767px));
 
 /* -------------------------------------------------------------------------
    Design tokens
@@ -148,6 +151,7 @@
   --animate-pop: pop 0.3s var(--ease-out-soft) both;
   --animate-step-forward: step-forward 0.26s var(--ease-out-soft) both;
   --animate-step-back: step-back 0.26s var(--ease-out-soft) both;
+  --animate-sweep: sweep 1.1s ease-in-out infinite;
 
   @keyframes rise {
     from {
@@ -205,6 +209,14 @@
     to {
       opacity: 1;
       transform: none;
+    }
+  }
+  @keyframes sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(250%);
     }
   }
   @keyframes pop {

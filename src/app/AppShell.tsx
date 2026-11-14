@@ -1,5 +1,5 @@
 import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useNavigation } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { Wordmark } from '@/components/Logo'
 import { cn } from '@/lib/cn'
@@ -12,8 +12,20 @@ const TABS = [
 ] as const
 
 export function AppShell() {
+  // Each tab's code is fetched the first time it is opened. On a slow
+  // connection that takes a moment, and something should be seen to happen.
+  const loading = useNavigation().state === 'loading'
   return (
     <div className="flex min-h-dvh flex-col">
+      {loading && (
+        <div
+          role="progressbar"
+          aria-label="Loading"
+          className="fixed inset-x-0 top-0 z-50 h-[3px] animate-fade overflow-hidden bg-crust/15 [animation-delay:150ms]"
+        >
+          <div className="h-full w-2/5 animate-sweep rounded-full bg-crust" />
+        </div>
+      )}
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-full focus:bg-cocoa focus:px-4 focus:py-2 focus:text-on-cocoa"
@@ -114,22 +126,23 @@ function Tab({ to, label, icon: Icon, end }: (typeof TABS)[number]) {
     <NavLink
       to={to}
       end={end}
-      className={({ isActive }) =>
+      className={({ isActive, isPending }) =>
         cn(
           'flex flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition',
-          isActive ? 'text-ink' : 'text-ink-faint',
+          isActive || isPending ? 'text-ink' : 'text-ink-faint',
         )
       }
     >
-      {({ isActive }) => (
+      {/* A tab lights up the moment it is tapped, not when its page arrives. */}
+      {({ isActive, isPending }) => (
         <>
           <span
             className={cn(
               'flex h-7 w-12 items-center justify-center rounded-full transition',
-              isActive && 'bg-oat',
+              (isActive || isPending) && 'bg-oat',
             )}
           >
-            <Icon className="size-[22px]" strokeWidth={isActive ? 2.3 : 1.9} />
+            <Icon className="size-[22px]" strokeWidth={isActive || isPending ? 2.3 : 1.9} />
           </span>
           {label}
         </>

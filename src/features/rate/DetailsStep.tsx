@@ -12,6 +12,7 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { Field, Select, TextInput } from '@/components/Field'
+import { Confirm } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
 import { COMMON_COOKIE_TYPES } from '@/lib/cookie-types'
 import { todayIso } from '@/lib/format'
@@ -22,13 +23,18 @@ import { ELSEWHERE, US_STATES } from '@/lib/states'
 import { byNewest } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { PhotoPicker } from './PhotoPicker'
-import { QUESTION_COUNT, validateDetails, type DetailErrors } from './steps'
+import { QUESTION_COUNT, cleanPrice, validateDetails, type DetailErrors } from './steps'
 import type { DraftApi } from './useDraft'
 
 interface Props {
   api: DraftApi
   editId: string | null
   onContinue: () => void
+  /**
+   * Set when Continue goes straight back to the verdict; this is then the
+   * way into the questions instead.
+   */
+  onQuestions?: () => void
   onManual: () => void
   onResume?: () => void
 }
@@ -44,7 +50,7 @@ function distinct(values: string[]): string[] {
   })
 }
 
-export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Props) {
+export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, onResume }: Props) {
   const { draft, setDetails } = api
   const { details } = draft
   const id = useId()
@@ -52,7 +58,18 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
   const [showErrors, setShowErrors] = useState(false)
   const [priceText, setPriceText] = useState(details.price === null ? '' : String(details.price))
 
+  const [confirmStartOver, setConfirmStartOver] = useState(false)
+
   const errors: DetailErrors = showErrors ? validateDetails(details) : {}
+
+  // Name the draft that was picked up, so it is obvious when it isn't the
+  // cookie someone just asked to rate.
+  const unfinishedCookie = [details.cookieType.trim(), details.bakery.trim()]
+    .filter(Boolean)
+    .join(' from ')
+  const unfinished = unfinishedCookie
+    ? `You have an unfinished rating: ${unfinishedCookie}.`
+    : 'You have an unfinished rating.'
 
   const history = useMemo(() => [...(cookies ?? [])].sort(byNewest), [cookies])
 
@@ -224,28 +241,36 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
 
       {api.resumed && onResume && (
         <div className="mt-4 rounded-2xl bg-texture-soft px-4 py-3 text-sm">
-          <p className="flex items-center gap-2 font-medium">
-            <History className="size-4 shrink-0 text-texture-ink" />
-            You have an unfinished rating.
+          <p className="flex items-start gap-2 font-medium [overflow-wrap:anywhere]">
+            <History className="mt-0.5 size-4 shrink-0 text-texture-ink" />
+            {unfinished}
           </p>
-          <div className="mt-1.5 flex gap-4 pl-6">
-            <button
-              type="button"
-              onClick={onResume}
-              className="font-bold underline underline-offset-2"
-            >
+          <div className="mt-2.5 flex flex-wrap gap-2 pl-6">
+            <Button type="button" size="sm" className="h-11" onClick={onResume}>
               Pick up where I left off
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={api.startOver}
-              className="font-semibold text-ink-soft underline underline-offset-2"
+              size="sm"
+              variant="secondary"
+              className="h-11"
+              onClick={() => setConfirmStartOver(true)}
             >
               Start over
-            </button>
+            </Button>
           </div>
         </div>
       )}
+      <Confirm
+        open={confirmStartOver}
+        onOpenChange={setConfirmStartOver}
+        title="Start over?"
+        description="This clears the unfinished rating: its details, photo and answers."
+        confirmLabel="Start over"
+        cancelLabel="Keep it"
+        destructive
+        onConfirm={api.startOver}
+      />
 
       <div className="mt-5">
         <PhotoPicker photo={draft.photo} editId={editId} onChange={api.setPhoto} />
@@ -440,7 +465,7 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
                 inputMode="decimal"
                 value={priceText}
                 onChange={(e) => {
-                  const text = e.target.value.replace(/[^\d.]/g, '')
+                  const text = cleanPrice(e.target.value)
                   setPriceText(text)
                   const n = Number.parseFloat(text)
                   setDetails({ price: text === '' || Number.isNaN(n) ? null : n })
@@ -484,9 +509,25 @@ export function DetailsStep({ api, editId, onContinue, onManual, onResume }: Pro
           </div>
         )}
         <Button type="submit" size="lg" className="w-full">
-          {draft.manual ? 'Continue' : editId ? 'Review the questions' : 'Start tasting'}
+          {onQuestions
+            ? 'Back to the verdict'
+            : draft.manual
+              ? 'Continue'
+              : editId
+                ? 'Review the questions'
+                : 'Start tasting'}
           <ArrowRight className="size-5" />
         </Button>
+        {onQuestions && !draft.manual && (
+          <button
+            type="button"
+            onClick={() => submit(onQuestions)}
+            className="mx-auto mt-4 flex min-h-11 items-center gap-1.5 text-sm font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline"
+          >
+            <ListChecks className="size-4" />
+            Go through the questions again
+          </button>
+        )}
         {!draft.manual && (
           <button
             type="button"

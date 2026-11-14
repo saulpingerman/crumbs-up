@@ -161,9 +161,11 @@ export function InsightsPage() {
         {fame.length > 0 && (
           <Card className="lg:col-span-2">
             <SectionTitle>Hall of fame</SectionTitle>
-            <ul className="-mx-1.5 mt-3 grid gap-x-6 gap-y-1 md:grid-cols-2">
+            <ul className="-mx-1.5 mt-3 grid grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-2">
               {fame.map((entry) => (
-                <li key={entry.title}>
+                // Without a floor of zero a grid cell is as wide as its
+                // longest line, and a long name pushed the page sideways.
+                <li key={entry.title} className="min-w-0">
                   <CookieRow
                     cookie={entry.cookie}
                     precision={overallPrecision}

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { CookieRecord } from './db/schema'
 import { QUESTIONS, type Answers, type Scores } from './rubric'
-import { disagreement } from './stats'
+import { aScore } from './format'
+import { disagreement, groupByBakery, rate, summarize } from './stats'
 
 /** Every question answered with the "standard" rung, so each suggestion is 5. */
 function fullAnswers(): Answers {
@@ -62,5 +63,29 @@ describe('disagreement', () => {
   it('copes with nothing to compare', () => {
     expect(disagreement([]).count).toBe(0)
     expect(disagreement([]).byCategory.taste).toEqual({ average: 0, moved: 0 })
+  })
+})
+
+describe('averages', () => {
+  // (8 + 7 + 7) / 3 = 7.33, which is shown as 7.5.
+  const one = rate(
+    [cookie({ taste: 8, texture: 7, appearance: 7 })],
+    { taste: 1, texture: 1, appearance: 1 },
+    'half',
+  )
+
+  it('for a single cookie read the same as that cookie', () => {
+    expect(one[0]!.overall).toBe(7.5)
+    expect(groupByBakery(one)[0]!.average).toBe(7.5)
+    expect(summarize(one).average).toBe(7.5)
+  })
+})
+
+describe('a score in a sentence', () => {
+  it('takes "an" when it starts with an eight', () => {
+    expect(aScore('8')).toBe('an 8')
+    expect(aScore('8.5')).toBe('an 8.5')
+    expect(aScore('7.5')).toBe('a 7.5')
+    expect(aScore('10')).toBe('a 10')
   })
 })

@@ -138,9 +138,10 @@ export function SettingsPage() {
             />
           </Row>
           <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-            This runs entirely on your device — photos are never uploaded. The first time, it
-            downloads its cookie-finding models (about 42 MB) from Google; after that it works
-            offline. Cookies without a photo get an illustration drawn from your review.
+            The cut-out is done entirely on your device — a photo is never sent anywhere to be
+            processed. The first time, it downloads its cookie-finding models (about 42 MB) from
+            Google; after that it works offline. Cookies without a photo get an illustration drawn
+            from your review.
           </p>
         </Card>
 
@@ -335,7 +336,7 @@ function DataCard() {
         {plural(mine, 'cookie')} saved on this device
         {samples > 0 && ` (plus ${plural(samples, 'sample')})`}.{' '}
         {signedIn
-          ? 'It is also kept in your account, and a backup file is a third copy that is yours to keep.'
+          ? 'Your journal is also kept in your account, and a backup file is a third copy that is yours to keep.'
           : 'Nothing is sent anywhere, so a backup is the only other copy.'}
       </p>
 
@@ -354,7 +355,7 @@ function DataCard() {
           {mine === 0
             ? 'Rate a cookie and you’ll have something to back up.'
             : settings.changesSinceBackup > 0
-              ? `${plural(settings.changesSinceBackup, 'change')} since then. Back up after a good cookie run.`
+              ? `${plural(settings.changesSinceBackup, 'change')} ${settings.lastBackupAt ? 'since then' : 'so far'}. Back up after a good cookie run.`
               : 'Everything is backed up.'}
         </p>
       </div>

@@ -122,7 +122,7 @@ export function CookiePage() {
           {cookie.notes && (
             <section className="mt-6">
               <h2 className="text-sm font-bold">Tasting notes</h2>
-              <p className="mt-1.5 font-display text-[19px] leading-relaxed whitespace-pre-wrap text-ink">
+              <p className="mt-1.5 font-display text-[19px] leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-ink">
                 {cookie.notes}
               </p>
             </section>
@@ -175,7 +175,8 @@ function Headline({ cookie, animate }: { cookie: RatedCookie; animate: boolean }
 
   return (
     <header className="flex items-start gap-4">
-      <div className="min-w-0 flex-1">
+      {/* A pasted link or a long made-up word must wrap, not widen the page. */}
+      <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
         <p className="text-xs font-bold tracking-[0.14em] text-crust uppercase">{tier.name}</p>
         <h1 className="mt-1 font-display text-[34px] leading-[1.05] font-semibold md:text-5xl">
           {cookie.cookieType}

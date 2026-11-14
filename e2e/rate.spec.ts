@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { answer, categoryScore, fillDetails, withoutCutout } from './helpers'
+import { addSamples, answer, categoryScore, fillDetails, withoutCutout } from './helpers'
 
 test('rates a cookie from photo to journal', async ({ page }) => {
   await withoutCutout(page)
@@ -97,7 +97,7 @@ test('keeps an unfinished rating as a draft', async ({ page }) => {
 
   await page.reload()
   await page.goto('/rate')
-  await expect(page.getByText('You have an unfinished rating.')).toBeVisible()
+  await expect(page.getByText(/You have an unfinished rating: /)).toBeVisible()
   await expect(page.getByLabel('Type of cookie')).toHaveValue('Snickerdoodle')
   await page.getByRole('button', { name: 'Pick up where I left off' }).click()
   await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
@@ -265,4 +265,55 @@ test('a quick review can be traded for the full tasting', async ({ page }) => {
   await page.getByRole('radio', { name: /^Quick/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
   await expect(page.getByRole('radio', { name: /Gorgeous/ })).toBeChecked()
+})
+
+test('a second tap does not answer the next question unseen', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Twice Tapped', state: 'NY' })
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'How did it look sitting in the case?' }),
+  ).toBeVisible()
+
+  const option = page.getByRole('radio', { name: 'Gorgeous' })
+  const box = (await option.boundingBox())!
+  await option.click()
+  // An impatient second tap on the same spot, as the next question slides in.
+  await page.waitForTimeout(450)
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+
+  const next = page.getByRole('heading', { name: 'How’s the color of the bake?' })
+  await expect(next).toBeVisible()
+  await page.waitForTimeout(800)
+  await expect(next).toBeVisible()
+  await expect(page.getByRole('radio', { checked: true })).toHaveCount(0)
+})
+
+test('fixing a detail on a saved cookie does not mean redoing the questions', async ({ page }) => {
+  await addSamples(page)
+  await page.locator('main ul a[href*="/cookie/"]').first().click()
+  await page.getByRole('link', { name: 'Edit' }).click()
+
+  // Straight from the verdict to the details, and straight back.
+  await page.getByRole('button', { name: 'Edit details' }).click()
+  await expect(page.getByRole('heading', { name: 'Cookie details' })).toBeVisible()
+  await page.getByLabel('Bakery').fill('Renamed Bakery')
+  // A comma is a decimal point to half the world: three-fifty, not 350.
+  await page.getByLabel('Price').fill('3,50')
+  await expect(page.getByLabel('Price')).toHaveValue('3.50')
+  await page.getByRole('button', { name: 'Back to the verdict' }).click()
+  await page.getByRole('button', { name: 'Save changes' }).click()
+
+  await expect(page.getByText('Changes saved')).toBeVisible()
+  await expect(page.getByText('Renamed Bakery').first()).toBeVisible()
+  await expect(page.getByText('$3.50')).toBeVisible()
+})
+
+test('a cookie cannot be dated tomorrow', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Time Machine', state: 'NY' })
+  await page.getByLabel('Date').fill('2999-01-01')
+  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await expect(page.getByText('Pick a date up to today.')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What are we rating?' })).toBeVisible()
 })

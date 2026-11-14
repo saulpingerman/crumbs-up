@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { Segmented } from '@/components/Field'
 import { cn } from '@/lib/cn'
 import type { Pick, Point, Progress } from '@/lib/cutout'
+import { trackCutout } from '@/lib/cutout/pending'
 import { loadPhoto } from '@/lib/db/cookies'
 import { db } from '@/lib/db/db'
 import type { DraftRecord, ProcessedPhoto } from '@/lib/db/schema'
@@ -18,7 +19,7 @@ interface Props {
   photo: DraftRecord['photo']
   /** Cookie being edited, whose saved photo `keep` refers to. */
   editId: string | null
-  onChange: (photo: ProcessedPhoto | 'none') => void
+  onChange: (photo: ProcessedPhoto | 'keep' | 'none') => void
 }
 
 type View = 'cutout' | 'original'
@@ -58,6 +59,14 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
   /** The loop being drawn around the cookie, as spots on the picture box (0–1). */
   const [loop, setLoop] = useState<Point[] | null>(null)
   const drawing = useRef<{ x: number; y: number }[] | null>(null)
+  /**
+   * Whether the frame takes the photo's own shape. It does whenever someone
+   * may need to point at the cookie; it stays a steady 4:3 while the cookie is
+   * being found for a new photo, so the form below doesn't jump twice.
+   */
+  const [fitted, setFitted] = useState(true)
+  /** The cut-out that was on show before "Original" was chosen, to switch straight back to. */
+  const setAside = useRef<{ original: ProcessedPhoto; cutout: ProcessedPhoto } | null>(null)
 
   const saved = usePhotoUrl(editId ?? undefined, 'full', 0, photo === 'keep')
   const savedIsCutout = useLiveQuery(
@@ -93,9 +102,12 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
     setFinding('starting')
     try {
       const { cutOutCookie } = await import('@/lib/cutout')
-      const result = await cutOutCookie(source, pick, (progress) => {
-        if (run.current === token) setFinding(progress)
-      })
+      const result = await trackCutout(
+        source,
+        cutOutCookie(source, pick, (progress) => {
+          if (run.current === token) setFinding(progress)
+        }),
+      )
       if (run.current !== token) return
       if (result) onChange(result)
       else if (pick) {
@@ -116,7 +128,12 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
         })
       }
     } finally {
-      if (run.current === token) setFinding(null)
+      if (run.current === token) {
+        setFinding(null)
+        // Cut out or not, the next thing on show is settled: a 4:3 cut-out,
+        // or the whole photo for someone to point at.
+        setFitted(true)
+      }
     }
   }
 
@@ -127,8 +144,11 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
     setBusy(true)
     try {
       const processed = await processPhoto(file)
+      const search = autoCutout && !savingData()
+      setAside.current = null
+      setFitted(!search)
       onChange(processed)
-      if (autoCutout && !savingData()) void cutOut(processed, undefined, false)
+      if (search) void cutOut(processed, undefined, false)
     } catch (error) {
       toast.error(error instanceof PhotoError ? error.message : 'Couldn’t use that photo')
     } finally {
@@ -141,10 +161,16 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
     const source = await current()
     if (!source) return
     if (next === 'cutout') {
-      await cutOut(source, undefined, true)
+      // Coming back from a look at the original: the cut-out that was there,
+      // which may be one they pointed out themselves, not a fresh guess.
+      if (setAside.current?.original === source) onChange(setAside.current.cutout)
+      else await cutOut(source, undefined, true)
     } else if (source.original) {
       run.current++
-      onChange(await withThumbnail(source.original))
+      const original = await withThumbnail(source.original)
+      setAside.current = { original, cutout: source }
+      setFitted(true)
+      onChange(original)
     }
   }
 
@@ -248,7 +274,8 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
           // The original is shown whole, so a cookie at the edge of the photo
           // can still be pointed at; the cut-out is always a tidy 4:3.
           style={{
-            aspectRatio: view === 'original' && shape ? Math.min(1.6, Math.max(0.7, shape)) : 4 / 3,
+            aspectRatio:
+              view === 'original' && fitted && shape ? Math.min(1.6, Math.max(0.7, shape)) : 4 / 3,
           }}
         >
           {inputs}
@@ -353,7 +380,12 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
               onClick={() => {
                 run.current++
                 setFinding(null)
+                // One tap, right beside Replace: easy to hit by accident.
+                const removed = photo
                 onChange('none')
+                toast('Photo removed', {
+                  action: { label: 'Undo', onClick: () => onChange(removed) },
+                })
               }}
               disabled={busy}
             >

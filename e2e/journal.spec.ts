@@ -31,8 +31,10 @@ test('every screen fits a phone without sideways scrolling', async ({ page }) =>
   ] as const) {
     await page.goto(path)
     await expect(page.getByRole('heading', { name: landmark })).toBeVisible()
+    // Measured against the layout's own width: on a phone the window's
+    // width quietly grows to take in whatever overflows.
     const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     )
     expect(overflow, `${path} overflows`).toBeLessThanOrEqual(0)
   }
@@ -160,4 +162,21 @@ test('the scorecard stays out of sight while it is being shared', async ({ page 
   const box = await page.getByTestId('share-card').boundingBox()
   expect(box).not.toBeNull()
   expect(box!.x + box!.width).toBeLessThanOrEqual(0)
+})
+
+test('the journal is as it was left after a look at a cookie', async ({ page }) => {
+  await addSamples(page)
+  const cards = page.locator('main ul a[href*="/cookie/"]')
+  const search = page.getByRole('searchbox', { name: 'Search the journal' })
+  await search.fill('portland')
+  await page.getByRole('radio', { name: 'Ranked' }).click()
+  await expect(cards).toHaveCount(2)
+
+  await cards.first().click()
+  await expect(page).toHaveURL(/\/cookie\//)
+  await page.goBack()
+
+  await expect(search).toHaveValue('portland')
+  await expect(page.getByRole('radio', { name: 'Ranked' })).toBeChecked()
+  await expect(cards).toHaveCount(2)
 })
