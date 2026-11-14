@@ -390,3 +390,40 @@ test('a photo that arrives after its cookie replaces the stand-in drawing by its
     timeout: 30_000,
   })
 })
+
+test('an account can be deleted from inside the app', async ({ browser }) => {
+  const email = `leaving-${crypto.randomUUID()}@example.com`
+  const device = await openDevice(browser)
+  await rateByHand(device, 'Madeleine', 'Farewell Bakery', true)
+  await signIn(device, email, 'Create account')
+
+  // Deleting the account, but keeping what is on this device.
+  await device.getByRole('button', { name: 'Delete account…' }).click()
+  await expect(device.getByRole('dialog')).toContainText('deleted for good')
+  await device
+    .getByRole('button', { name: 'Delete account, keep the journal on this device' })
+    .click()
+  await expect(device.getByText('Account deleted')).toBeVisible({ timeout: 30_000 })
+  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await device.goto('/')
+  await expect(device.getByText('Farewell Bakery')).toBeVisible()
+
+  // The account itself is gone: its password opens nothing.
+  await device.goto('/settings')
+  await device.getByLabel('Email').fill(email)
+  await device.getByLabel('Password').fill(password)
+  await device.getByRole('button', { name: 'Sign in' }).click()
+  await expect(device.getByText('That email and password don’t match an account.')).toBeVisible()
+
+  // A fresh account takes the journal that was kept; deleting that one and
+  // erasing the device leaves nothing anywhere.
+  const second = `leaving-too-${crypto.randomUUID()}@example.com`
+  await signIn(device, second, 'Create account')
+  await device.getByRole('button', { name: 'Delete account…' }).click()
+  await device.getByRole('button', { name: 'Delete account and erase this device too' }).click()
+  await expect(device.getByText('Account deleted')).toBeVisible({ timeout: 30_000 })
+  await device.goto('/')
+  await expect(
+    device.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
+  ).toBeVisible()
+})

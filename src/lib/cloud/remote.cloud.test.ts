@@ -13,6 +13,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { noteChange } from '@/lib/db/cookies'
 import { CrumbsDb } from '@/lib/db/db'
 import type { CookieRecord, PhotoImages } from '@/lib/db/schema'
+import { deleteAccount } from './account'
 import { SupabaseRemote } from './remote'
 import { sync, type SyncTools } from './sync'
 
@@ -47,18 +48,25 @@ function cookie(id: string, updatedAt: number, patch: Partial<CookieRecord> = {}
   }
 }
 
-async function signUp(): Promise<{ client: SupabaseClient; remote: SupabaseRemote; id: string }> {
+const PASSWORD = 'correct horse battery staple'
+
+async function signUp(): Promise<{
+  client: SupabaseClient
+  remote: SupabaseRemote
+  id: string
+  email: string
+}> {
   const client = createClient(url!, key!, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const email = `test-${crypto.randomUUID()}@example.com`
   const { data, error } = await client.auth.signUp({
     email,
-    password: 'correct horse battery staple',
+    password: PASSWORD,
   })
   if (error || !data.session || !data.user)
     throw new Error(`sign-up failed: ${error?.message ?? 'no session'}`)
-  return { client, remote: new SupabaseRemote(client, data.user.id), id: data.user.id }
+  return { client, remote: new SupabaseRemote(client, data.user.id), id: data.user.id, email }
 }
 
 const tools: SyncTools = {
@@ -245,6 +253,63 @@ describe.skipIf(!url || !key)('cloud journal (real Supabase)', () => {
     await ana.remote.removePhotos(id)
     expect(await ana.remote.downloadPhoto(id, 'full')).toBeNull()
     expect(await ana.remote.downloadPhoto(id, 'original')).toBeNull()
+  })
+
+  it('deletes an account with its journal and photos, and nobody else’s', async () => {
+    const leaving = await signUp()
+    const staying = await signUp()
+    for (const person of [leaving, staying]) {
+      const ids = [crypto.randomUUID(), crypto.randomUUID()]
+      await person.remote.push(
+        ids.map((id, i) => ({ id, data: cookie(id, i + 1), edited_at: i + 1, deleted: false })),
+      )
+      await person.remote.uploadPhoto(ids[0]!, 'full', jpeg(1))
+      await person.remote.uploadPhoto(ids[0]!, 'original', jpeg(2))
+      await person.remote.uploadPhoto(ids[1]!, 'full', jpeg(3))
+    }
+    const kept = await staying.remote.pull(null)
+
+    await deleteAccount(leaving.client, leaving.id)
+
+    // The account is gone: its password no longer opens anything…
+    const visitor = createClient(url!, key!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const again = await visitor.auth.signInWithPassword({
+      email: leaving.email,
+      password: PASSWORD,
+    })
+    expect(again.error).not.toBeNull()
+    // …and nothing of it is left behind, rows or files.
+    expect(await leaving.remote.pull(null)).toEqual([])
+    expect((await leaving.client.storage.from('photos').list(leaving.id)).data).toEqual([])
+
+    // The other person never noticed.
+    expect(await staying.remote.pull(null)).toEqual(kept)
+    expect(read(await staying.remote.downloadPhoto(kept[0]!.id, 'full'))).not.toBeNull()
+    const stillThere = await visitor.auth.signInWithPassword({
+      email: staying.email,
+      password: PASSWORD,
+    })
+    expect(stillThere.error).toBeNull()
+  })
+
+  it('only checks, and deletes nothing, until told it is meant', async () => {
+    const person = await signUp()
+    const id = crypto.randomUUID()
+    await person.remote.push([{ id, data: cookie(id, 1), edited_at: 1, deleted: false }])
+    const { data, error } = await person.client.rpc('delete_my_account', { really: false })
+    expect(error).toBeNull()
+    expect(data).toBe(false)
+    expect((await person.remote.pull(null)).length).toBe(1)
+  })
+
+  it('will not delete an account for someone who is not signed in', async () => {
+    const visitor = createClient(url!, key!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { error } = await visitor.rpc('delete_my_account', { really: true })
+    expect(error).not.toBeNull()
   })
 
   it('syncs a journal between two devices through the real service', async () => {
