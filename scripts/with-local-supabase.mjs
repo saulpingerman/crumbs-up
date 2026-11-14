@@ -39,6 +39,9 @@ const child = spawn(command, args, {
     ...process.env,
     VITE_SUPABASE_URL: url,
     VITE_SUPABASE_PUBLISHABLE_KEY: key,
+    // A stand-in, so the tests can exercise Google's sign-in box against a
+    // fake of Google's library. No real client is involved.
+    VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
     // The local stack catches every email it "sends"; tests read them here.
     SUPABASE_MAIL_URL: read('MAILPIT_URL') ?? read('INBUCKET_URL') ?? '',
   },

@@ -111,8 +111,9 @@ export function PrivacyPage() {
             {cloudConfigured && (
               <li>
                 <strong>Signing in.</strong> Opening the sign-in form, or using the app while signed
-                in, contacts the account service (Supabase). Signing in with Google or Apple also
-                tells that company you signed in to Crumbs Up.
+                in, contacts the account service (Supabase). The sign-in form also loads Google’s
+                “Continue with Google” button from Google, which can see that the form was opened.
+                Signing in with Google or Apple tells that company you signed in to Crumbs Up.
               </li>
             )}
             <li>

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test'
 import { fillDetails, withoutCutout } from './helpers'
 
@@ -247,6 +248,10 @@ test('Apple and Google buttons appear when the project has them switched on', as
   browser,
 }) => {
   const page = await openDevice(browser)
+  // Google's own sign-in button can't be fetched here — as with a content
+  // blocker, or no route to Google — so the app's own button does the job,
+  // the long way round. (The test after next covers Google's button itself.)
+  await page.route('https://accounts.google.com/**', (route) => route.abort())
   // The local stack has no providers, so stand in for a project that does.
   await page.route('**/auth/v1/settings', async (route) => {
     const response = await route.fetch()
@@ -426,4 +431,64 @@ test('an account can be deleted from inside the app', async ({ browser }) => {
   await expect(
     device.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
   ).toBeVisible()
+})
+
+test('Google’s own sign-in box hands its token to the account service', async ({ page }) => {
+  // A stand-in for Google's library: it draws a button, and "signs someone
+  // in" when that button is pressed.
+  await page.route('https://accounts.google.com/gsi/client', (route) =>
+    route.fulfill({
+      contentType: 'text/javascript',
+      body: `
+        window.google = { accounts: { id: {
+          initialize(options) { window.__google = options },
+          renderButton(parent) {
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.textContent = 'Continue with Google'
+            button.onclick = () => window.__google.callback({ credential: 'token.from.google' })
+            parent.append(button)
+          },
+          cancel() {},
+        } } }`,
+    }),
+  )
+  // The local account service has no Google sign-in switched on; say it has.
+  await page.route('**/auth/v1/settings', async (route) => {
+    const response = await route.fetch()
+    const settings = (await response.json()) as { external: Record<string, boolean> }
+    await route.fulfill({
+      response,
+      json: { ...settings, external: { ...settings.external, google: true } },
+    })
+  })
+  // …and have it turn the token down, which a made-up one deserves.
+  let sent: { provider?: string; id_token?: string; nonce?: string } | null = null
+  await page.route('**/auth/v1/token?grant_type=id_token', async (route) => {
+    sent = route.request().postDataJSON() as typeof sent
+    await route.fulfill({
+      status: 400,
+      json: { error: 'invalid_request', error_description: 'Bad ID token' },
+    })
+  })
+
+  await page.goto('/settings')
+  const box = page.getByTestId('google-button')
+  await expect(box.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+  const options = await page.evaluate(
+    () => (window as unknown as { __google: { client_id: string; nonce: string } }).__google,
+  )
+  expect(options.client_id).toBe('test-client.apps.googleusercontent.com')
+
+  await box.getByRole('button', { name: 'Continue with Google' }).click()
+  await expect.poll(() => sent).not.toBeNull()
+  expect(sent).toMatchObject({ provider: 'google', id_token: 'token.from.google' })
+  // Google was given the hash of the one-time value; the account service the value itself.
+  expect(createHash('sha256').update(sent!.nonce!).digest('hex')).toBe(options.nonce)
+
+  // Turned down, the person is told so, and the app's own button — the long
+  // way round, through the account service — takes over.
+  await expect(page.getByRole('alert')).toBeVisible()
+  await expect(box.getByRole('button')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
 })

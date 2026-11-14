@@ -7,6 +7,7 @@ import { Card, SectionTitle } from '@/components/Page'
 import { Sheet } from '@/components/Sheet'
 import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
 import { findProviders } from '@/lib/cloud/client'
+import { googleBoxAvailable } from '@/lib/cloud/google'
 import { useProviders, type Provider } from '@/lib/cloud/providers'
 import {
   AuthError,
@@ -14,6 +15,7 @@ import {
   sendPasswordReset,
   setNewPassword,
   signInWith,
+  signInWithGoogleToken,
   signInWithPassword,
   signOut,
   signUp,
@@ -24,6 +26,8 @@ import { forgetAccount } from '@/lib/cloud/sync'
 import { db } from '@/lib/db/db'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/format'
+import { resolveTheme, useSettings } from '@/lib/settings'
+import { GoogleButton } from './GoogleButton'
 
 /**
  * Each company's sign-in button, drawn the way its guidelines ask: Apple's
@@ -103,6 +107,9 @@ function SignIn() {
   const [busy, setBusy] = useState<'in' | 'up' | 'reset' | Provider | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const dark = resolveTheme(useSettings().theme) === 'dark'
+  const [googleBox] = useState(googleBoxAvailable)
+  const [googleBoxFailed, setGoogleBoxFailed] = useState(false)
 
   async function attempt(kind: NonNullable<typeof busy>, action: () => Promise<string | void>) {
     setBusy(kind)
@@ -161,7 +168,8 @@ function SignIn() {
         <div className="mt-4 grid gap-2">
           {providers.map((provider) => {
             const { name, className, mark } = PROVIDER_BUTTON[provider]
-            return (
+            // The app's own button: off to the provider and back again.
+            const roundTrip = (
               <button
                 key={provider}
                 type="button"
@@ -175,6 +183,28 @@ function SignIn() {
                 {busy === provider ? <LoaderCircle className="size-[18px] animate-spin" /> : mark}
                 Continue with {name}
               </button>
+            )
+            // Google's own box says "crumbs-up.com" where the round trip
+            // names the account service. If it once fails to finish a
+            // sign-in, the round trip takes over so nobody is left stuck.
+            return provider === 'google' && googleBox && !googleBoxFailed ? (
+              <GoogleButton
+                key={provider}
+                dark={dark}
+                fallback={roundTrip}
+                onCredential={(token, nonce) =>
+                  void attempt('google', async () => {
+                    try {
+                      await signInWithGoogleToken(token, nonce)
+                    } catch (error) {
+                      setGoogleBoxFailed(true)
+                      throw error
+                    }
+                  })
+                }
+              />
+            ) : (
+              roundTrip
             )
           })}
           <p className="mt-2 flex items-center gap-3 text-xs font-semibold tracking-wider text-ink-faint uppercase before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
