@@ -1,6 +1,7 @@
 import type { CookieRecord } from '@/lib/db/schema'
 import {
   CATEGORIES,
+  assessCategory,
   overallExact,
   overallScore,
   type Category,
@@ -128,4 +129,36 @@ export function distribution(cookies: RatedCookie[]): { band: number; count: num
     bands[index]!.count += 1
   }
   return bands
+}
+
+export interface Disagreement {
+  /** Cookies scored with the questionnaire (hand-entered ones don't count). */
+  count: number
+  byCategory: Record<
+    Category,
+    {
+      /** Average of (what you recorded − what the questions suggested). */
+      average: number
+      /** How many suggestions you changed. */
+      moved: number
+    }
+  >
+}
+
+/**
+ * How your final scores compare with what the questionnaire suggested.
+ * A steady gap in one direction means the questions run hot or cold for
+ * your taste in that category — the signal for tuning the rubric.
+ */
+export function disagreement(cookies: CookieRecord[]): Disagreement {
+  const guided = cookies.filter((c) =>
+    CATEGORIES.every((cat) => assessCategory(cat, c.answers).complete),
+  )
+  const byCategory = Object.fromEntries(
+    CATEGORIES.map((cat) => {
+      const deltas = guided.map((c) => c.scores[cat] - c.suggested[cat])
+      return [cat, { average: mean(deltas), moved: deltas.filter((d) => d !== 0).length }]
+    }),
+  ) as Disagreement['byCategory']
+  return { count: guided.length, byCategory }
 }

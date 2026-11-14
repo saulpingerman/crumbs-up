@@ -42,7 +42,9 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
   exact spot for the map. Typing a bakery's name offers matching places to pin; typing a town
   offers suggestions and sets the state.
 - **Insights.** Averages by category, score distribution, cookie-by-cookie trend, top bakeries and
-  cookie types, and a hall of fame (_best tasting_, _ugly delicious_, _all show_…).
+  cookie types, and a hall of fame (_best tasting_, _ugly delicious_, _all show_…). A **You vs. the
+  questions** card shows how often, and in which direction, you overrule the suggested scores — so
+  if the questions run hot or cold for your taste in one category, it shows up and can be tuned.
 - **Shareable scorecards.** One tap turns a cookie into a 4:5 image for Instagram or a group chat.
 - **Quick entry.** Already scored a cookie in an old notebook? Skip the questions and type the
   three numbers in.

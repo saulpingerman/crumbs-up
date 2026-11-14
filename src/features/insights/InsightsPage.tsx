@@ -20,6 +20,7 @@ import { PASSPORT_SIZE } from '@/lib/states'
 import {
   byAverageDesc,
   byNewest,
+  disagreement,
   distribution,
   groupBy,
   groupByBakery,
@@ -27,6 +28,7 @@ import {
   summarize,
   type Group,
   type RatedCookie,
+  type Disagreement,
 } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { DistributionChart, TrendChart } from './Charts'
@@ -58,6 +60,7 @@ export function InsightsPage() {
       types: groupByType(cookies).sort(byAverageDesc).slice(0, 5),
       styles,
       fame: hallOfFame(cookies),
+      versus: disagreement(cookies),
     }
   }, [cookies])
 
@@ -80,7 +83,7 @@ export function InsightsPage() {
     )
   }
 
-  const { summary, bands, timeline, bakeries, types, styles, fame } = data
+  const { summary, bands, timeline, bakeries, types, styles, fame, versus } = data
   const ranked = [...CATEGORIES].sort(
     (a, b) => summary.categoryAverages[b] - summary.categoryAverages[a],
   )
@@ -150,6 +153,8 @@ export function InsightsPage() {
           </Card>
         )}
 
+        {versus.count >= 3 && <Versus versus={versus} />}
+
         <Leaderboard title="Top bakeries" groups={bakeries} unit="cookie" />
         <Leaderboard title="Top cookie types" groups={types} unit="rated" />
 
@@ -172,6 +177,45 @@ export function InsightsPage() {
         )}
       </div>
     </Page>
+  )
+}
+
+/** How the person's final scores compare with what the questionnaire suggested. */
+function Versus({ versus }: { versus: Disagreement }) {
+  const describe = (average: number) => {
+    if (Math.abs(average) < 0.15) return 'You and the questions agree.'
+    const amount = Math.abs(average).toFixed(1)
+    return average > 0
+      ? `You score about ${amount} higher than the questions suggest.`
+      : `You score about ${amount} lower than the questions suggest.`
+  }
+  return (
+    <Card className="lg:col-span-2">
+      <SectionTitle>You vs. the questions</SectionTitle>
+      <p className="mt-1 max-w-2xl text-sm text-ink-soft">
+        Across {plural(versus.count, 'cookie')} scored with the questionnaire, this is how your
+        final call compared with its suggestion. A steady gap one way means the questions run hot or
+        cold for your taste there — worth tuning.
+      </p>
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        {CATEGORIES.map((category) => {
+          const { average, moved } = versus.byCategory[category]
+          return (
+            <div key={category} className="rounded-2xl bg-oat px-4 py-3">
+              <dt className="text-sm font-semibold">{CATEGORY_META[category].label}</dt>
+              <dd className="numerals mt-1 text-3xl font-semibold">
+                {Math.abs(average) < 0.15
+                  ? '±0'
+                  : `${average > 0 ? '+' : '−'}${Math.abs(average).toFixed(1)}`}
+              </dd>
+              <dd className="mt-1 text-[13px] leading-snug text-ink-soft">
+                {describe(average)} Changed {moved} of {versus.count}.
+              </dd>
+            </div>
+          )
+        })}
+      </dl>
+    </Card>
   )
 }
 
