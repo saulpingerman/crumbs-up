@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
 import { fillDetails } from './helpers'
+
+const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))
 
 test('a cookie without a photo gets an illustration drawn from its review', async ({ page }) => {
   await page.goto('/rate')
@@ -61,4 +64,31 @@ test('cuts the cookie out of its photo and keeps the original', async ({ page })
       .getByAltText('Your cookie', { exact: true })
       .evaluate((img: HTMLImageElement) => img.naturalWidth),
   ).toBe(800)
+})
+
+test('finds the cookie wherever it is, and leaves a photo without one alone', async ({ page }) => {
+  test.setTimeout(300_000)
+  await page.goto('/rate')
+  await expect(page.getByRole('heading', { name: 'What are we rating?' })).toBeVisible()
+
+  // The cookie is low and to the left; a napkin sits in the middle of the frame.
+  await page.getByTestId('photo-input').setInputFiles(fixture('cookie-off-centre.jpg'))
+  const cutout = page.getByAltText('Your cookie, cut out of its photo')
+  await expect(cutout).toBeVisible({ timeout: 180_000 })
+  // It is the cookie that was cut out: the middle of the picture is golden, not napkin-white.
+  const [red, , blue] = await cutout.evaluate((img: HTMLImageElement) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 9
+    const context = canvas.getContext('2d')!
+    context.drawImage(img, img.naturalWidth * 0.45, img.naturalHeight * 0.45, 9, 9, 0, 0, 9, 9)
+    return [...context.getImageData(4, 4, 1, 1).data]
+  })
+  expect(red! - blue!).toBeGreaterThan(60)
+
+  // A label on a table: nothing to cut out, so the photo is kept as it was taken.
+  await page.getByTestId('photo-input').setInputFiles(fixture('no-cookie.jpg'))
+  await expect(page.getByText('Couldn’t pick out the cookie')).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByAltText('Your cookie', { exact: true })).toBeVisible()
+  await expect(cutout).toHaveCount(0)
+  await expect(page.getByRole('radio', { name: 'Original' })).toBeChecked()
 })

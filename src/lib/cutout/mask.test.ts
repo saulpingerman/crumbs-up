@@ -75,3 +75,56 @@ describe('refineMask', () => {
     expect(refineMask(new Float32Array(10), W, H, { x: 0.5, y: 0.5 })).toBeNull()
   })
 })
+
+describe('the shape of what was found', () => {
+  /** A confidence map that is 0.95 wherever `inside` says so. */
+  function drawn(inside: (x: number, y: number) => boolean) {
+    const mask = new Float32Array(W * H).fill(0.02)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (inside(x, y)) mask[y * W + x] = 0.95
+    return mask
+  }
+
+  it('calls a disc solid and gapless', () => {
+    // (A disc this small is all staircase; real masks are far finer and score higher.)
+    const disc = refineMask(scene([[20, 15, 9]]), W, H, { x: 0.5, y: 0.5 })!
+    expect(disc.solidity).toBeGreaterThan(0.9)
+    expect(disc.gap).toBeNull()
+  })
+
+  it('calls a filled rectangle exactly solid', () => {
+    const block = refineMask(
+      drawn((x, y) => x >= 8 && x < 30 && y >= 6 && y < 22),
+      W,
+      H,
+      { x: 0.5, y: 0.5 },
+    )!
+    expect(block.solidity).toBeCloseTo(1, 5)
+  })
+
+  it('sees that an L-shaped floor is not one solid thing', () => {
+    // Two arms of a floor around a piece of furniture.
+    const floor = refineMask(
+      drawn(
+        (x, y) => (x >= 4 && x < 12 && y >= 2 && y < 28) || (y >= 20 && y < 28 && x >= 4 && x < 36),
+      ),
+      W,
+      H,
+      { x: 6 / (W - 1), y: 10 / (H - 1) },
+    )!
+    expect(floor.solidity).toBeLessThan(0.7)
+  })
+
+  it('reports the cookie-sized gap in a wrapper, and where it is', () => {
+    // A big disc (the wrapper) with a smaller disc missing off-centre (the cookie).
+    const wrapper = refineMask(scene([[20, 15, 13]], [[24, 13, 6]]), W, H, {
+      x: 10 / (W - 1),
+      y: 0.5,
+    })!
+    expect(wrapper.gap).not.toBeNull()
+    expect(wrapper.gap!.share).toBeGreaterThan(0.15)
+    expect(wrapper.gap!.center.x).toBeCloseTo(24 / (W - 1), 1)
+    expect(wrapper.gap!.center.y).toBeCloseTo(13 / (H - 1), 1)
+    // The outline is still a clean disc.
+    expect(wrapper.solidity).toBeGreaterThan(0.9)
+  })
+})

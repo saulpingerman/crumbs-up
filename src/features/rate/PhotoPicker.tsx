@@ -89,9 +89,14 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
       })
       if (run.current !== token) return
       if (result) onChange(result)
-      else {
+      else if (point) {
         toast('Couldn’t find a cookie there', {
           description: 'Tap right on the cookie to try again, or keep the photo as it is.',
+        })
+      } else {
+        // Left alone on purpose: a photo as taken beats a wrong thing cut out of it.
+        toast('Couldn’t pick out the cookie', {
+          description: 'Tap it in the photo to cut it out, or keep the photo as it is.',
         })
       }
     } catch (error) {

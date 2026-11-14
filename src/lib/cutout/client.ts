@@ -1,5 +1,5 @@
-import type { Point } from './mask'
-import type { SegmentRequest, Stage, WorkerMessage } from './protocol'
+import type { Point, RefinedMask } from './mask'
+import type { CutoutRequest, Stage, WorkerMessage } from './protocol'
 
 export interface Progress {
   stage: Stage
@@ -7,14 +7,8 @@ export interface Progress {
   fraction?: number
 }
 
-export interface RawMask {
-  mask: Float32Array
-  width: number
-  height: number
-}
-
 interface Pending {
-  resolve: (mask: RawMask) => void
+  resolve: (mask: RefinedMask | null) => void
   reject: (error: Error) => void
   onProgress?: (progress: Progress) => void
 }
@@ -41,7 +35,7 @@ function getWorker(): Worker {
       return
     }
     pending.delete(message.id)
-    if (message.type === 'result') request.resolve(message)
+    if (message.type === 'result') request.resolve(message.mask)
     else request.reject(new Error(message.message))
   }
   worker.onerror = (event) => {
@@ -56,17 +50,20 @@ function getWorker(): Worker {
   return worker
 }
 
-/** Ask the worker for a mask of whatever is at `point` in the image. */
-export function segment(
+/**
+ * Ask the worker for the cookie's outline: at `point` if someone tapped
+ * there, otherwise wherever it finds one. Resolves to null if there's no
+ * cookie to be found.
+ */
+export function findOutline(
   image: ImageBitmap,
-  imageKey: string,
-  point: Point,
+  point: Point | undefined,
   onProgress?: (progress: Progress) => void,
-): Promise<RawMask> {
+): Promise<RefinedMask | null> {
   return new Promise((resolve, reject) => {
     const id = nextId++
     pending.set(id, { resolve, reject, onProgress })
-    const request: SegmentRequest = { type: 'segment', id, imageKey, image, point }
+    const request: CutoutRequest = { type: 'cutout', id, image, point }
     getWorker().postMessage(request, [image])
   })
 }

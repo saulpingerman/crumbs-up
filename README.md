@@ -95,31 +95,43 @@ all follow.
 
 The cut-out runs **entirely on the device** — finding the cookie never sends the photo anywhere.
 
-- It uses Google's open-source
-  [MediaPipe Interactive Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/interactive_segmenter):
-  given a photo and a point on an object, it returns that object's outline. The app starts with
-  the middle of the photo and lets you tap the cookie if that guess is wrong.
-- The outline is cleaned up (one shape only, chocolate-chip-sized holes filled, obviously wrong
-  results rejected), then the cookie is placed on a tabletop with a soft shadow.
-- The first use downloads the model and its runtime (about 35 MB in total) and stores them in the
-  browser's cache; after that it works offline. The work happens in a background worker, so the
-  form stays responsive while it thinks.
+- It uses two of Google's open-source [MediaPipe](https://ai.google.dev/edge/mediapipe) models.
+  A small object detector says roughly where things are; the
+  [Interactive Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/interactive_segmenter),
+  given a point on something, returns that thing's exact outline.
+- **Finding the cookie.** People rarely put it in the middle — it is held out in one hand, or sits
+  low in the frame with the bakery behind it. The detector was never taught the word "cookie",
+  but it reliably files one under _donut_, _cake_ or _sandwich_, which is enough to know where to
+  look. If it sees nothing of the kind, the app tries the most cookie-coloured spot, then the
+  place a cookie held in the left hand usually ends up.
+- **Checking it is one.** Each candidate is judged before it is used: a cookie is one solid shape
+  inside the frame. A floor wrapping around furniture, a wrapper with a cookie-shaped hole in it
+  (the cookie is then looked for _in_ the hole), a white label, or a person holding the cookie are
+  all turned down. If nothing convincing turns up within three looks, the photo is left as it was
+  — an honest photo beats a neatly cut-out piece of table — and you can tap the cookie yourself.
+- The outline is cleaned up (one shape only, chocolate-chip-sized holes filled), then the cookie
+  is placed on a tabletop with a soft shadow.
+- The first use downloads the models and their runtime (about 42 MB in total) and stores them in
+  the browser's cache; after that it works offline. The work happens in a background worker, so
+  the form stays responsive while it thinks.
 - If the download fails, nothing can be found, or the browser can't run it, the photo is simply
   used as it is. The feature can be switched off in Settings, and it does not start by itself for
   people who have asked their browser to save data.
 
-By default the model file is fetched from Google's public model bucket. To host it yourself, set
-`VITE_COOKIE_FINDER_MODEL_URL` at build time to wherever you put `interactive_segmentation.task`.
+By default the model files are fetched from Google's public model bucket. To host them yourself,
+set `VITE_COOKIE_FINDER_MODEL_URL` (for `interactive_segmentation.task`) and
+`VITE_COOKIE_SPOTTER_MODEL_URL` (for `efficientdet_lite2.tflite`) at build time.
 
 ## Maps, places and recommendations
 
-**Recommendations are computed on the device** from your own journal — nothing is sent anywhere
-to produce them, and nobody else's data is involved. Each kind of cookie the app knows (about 35 of them) carries a few traits:
-chocolate, caramel, spice, citrus, chewy, crisp and so on. The app works out which traits score
-above and below your average, pulling small samples toward zero so one great cookie doesn't define
-your palate, and ranks untried kinds by how well they fit. If the questionnaire recorded how a
-cookie actually ate (chewy, crisp…), that beats what its kind usually eats like. The knowledge base
-is one file — [`src/lib/cookie-kinds.ts`](src/lib/cookie-kinds.ts) — and easy to extend.
+**Recommendations are computed on the device** from your own journal — nothing is sent anywhere to
+produce them, and nobody else's data is involved. Each kind of cookie the app knows (about 35 of
+them) carries a few traits: chocolate, caramel, spice, citrus, chewy, crisp and so on. The app works
+out which traits score above and below your average, pulling small samples toward zero so one great
+cookie doesn't define your palate, and ranks untried kinds by how well they fit. If the
+questionnaire recorded how a cookie actually ate (chewy, crisp…), that beats what its kind usually
+eats like. The knowledge base is one file — [`src/lib/cookie-kinds.ts`](src/lib/cookie-kinds.ts) —
+and easy to extend.
 
 **Putting bakeries on the map works offline.** The app bundles about 16,000 U.S. cities and towns
 with coordinates, so city suggestions, "use my location" (which finds the nearest town) and
