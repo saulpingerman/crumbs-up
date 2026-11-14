@@ -30,3 +30,24 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
         run: npm run test:e2e
+
+  accounts:
+    # Sign-in and sync against a real database. The Supabase stack is started
+    # in Docker from supabase/, the same way `npx supabase start` does locally;
+    # the services the app doesn't use are left out to save a minute.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start Supabase
+        run: npx supabase start -x realtime,imgproxy,studio,postgres-meta,edge-runtime,logflare,vector,supavisor
+      - name: Database tests
+        run: npm run test:cloud
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+      - name: Two-device tests
+        run: npm run test:e2e:cloud
