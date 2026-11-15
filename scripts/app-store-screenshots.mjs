@@ -1,5 +1,6 @@
 // The App Store screenshots: the app with its sample cookies, at the size
-// Apple asks for (6.9-inch iPhone, 1320 × 2868), saved to docs/app-store/.
+// Apple requires (iPhone with Dynamic Island, medium display: 1206 × 2622),
+// saved to docs/app-store/.
 //
 //   node scripts/app-store-screenshots.mjs
 //
@@ -43,7 +44,7 @@ try {
   mkdirSync(out, { recursive: true })
   const browser = await chromium.launch()
   const context = await browser.newContext({
-    viewport: { width: 440, height: 956 },
+    viewport: { width: 402, height: 874 },
     deviceScaleFactor: 3,
     isMobile: true,
     hasTouch: true,

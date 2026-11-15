@@ -1,7 +1,9 @@
 # The App Store listing
 
 Everything App Store Connect asks for, ready to paste. The screenshots in this folder are the
-6.9-inch iPhone size (1320 × 2868), which covers every iPhone. To make them again after the app
+size App Store Connect requires, "iPhone with Dynamic Island (medium display)", 1206 × 2622.
+Apple scales them for the other iPhone sizes. (The large size, 1320 × 2868, was turned away by
+that box in November 2026.) To make them again after the app
 changes: `node scripts/app-store-screenshots.mjs`.
 
 ## Getting a build up
