@@ -40,7 +40,7 @@ export function PrivacyPage() {
           <p>
             Your cookie journal lives on your own device.
             {cloudConfigured &&
-              ' If you sign in, a copy is kept in your account so it can follow you between your phone and your computer. Your scores are also counted, without your name, in the app’s Top rated lists, unless you switch that off.'}
+              ' If you sign in, a copy is kept in your account so it can follow you between your phone and your computer. Your scores are also counted, without your name, in the app’s Top rated lists.'}
           </p>
           <p>
             <strong>There are no ads, no tracking, and nothing is sold.</strong>
