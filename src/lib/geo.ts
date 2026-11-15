@@ -82,6 +82,26 @@ export function project(point: LatLng): [x: number, y: number] | null {
   return albers([point.lng, point.lat])
 }
 
+/** The coordinate at a map position: `project` the other way round. */
+export function unproject(spot: [x: number, y: number]): LatLng | null {
+  const found = albers.invert?.(spot)
+  return found ? { lat: found[1], lng: found[0] } : null
+}
+
+/**
+ * How far "north" leans from straight up at a map position, in degrees
+ * clockwise. The country is drawn on a cone, so only its middle stands
+ * upright: Maine leans one way and Washington the other.
+ */
+export function lean(spot: [x: number, y: number]): number {
+  const here = unproject(spot)
+  if (!here) return 0
+  const above = project({ lat: here.lat + 0.25, lng: here.lng })
+  const below = project({ lat: here.lat - 0.25, lng: here.lng })
+  if (!above || !below) return 0
+  return (Math.atan2(above[0] - below[0], below[1] - above[1]) * 180) / Math.PI
+}
+
 const EARTH_KM = 6371
 
 export function distanceKm(a: LatLng, b: LatLng): number {

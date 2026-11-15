@@ -10,6 +10,8 @@ import { plural } from '@/lib/format'
 import { useSettings } from '@/lib/settings'
 import { stateByFips, stateName, US_STATES } from '@/lib/states'
 import { byAverageDesc, groupByState, type Group, type RatedCookie } from '@/lib/stats'
+import { BandLegend } from './BandLegend'
+import { bandOf } from './bands'
 
 /** us-atlas ships pre-projected (Albers USA) shapes in a 975×610 box. */
 const WIDTH = 975
@@ -26,23 +28,6 @@ const SHAPES = (() => {
     })
     .filter((s) => s !== null)
 })()
-
-/** Average-score bands, lowest to highest, matching --seq-1 … --seq-5. */
-const BANDS = [
-  { label: 'Under 5', min: 0 },
-  { label: '5 – 5.9', min: 5 },
-  { label: '6 – 6.9', min: 6 },
-  { label: '7 – 7.9', min: 7 },
-  { label: '8 and up', min: 8 },
-] as const
-
-function bandOf(average: number): number {
-  let band = 0
-  BANDS.forEach((b, i) => {
-    if (average >= b.min) band = i
-  })
-  return band
-}
 
 interface Props {
   cookies: RatedCookie[]
@@ -159,23 +144,7 @@ export function StatesView({ cookies }: Props) {
             )}
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-xs text-ink-soft">
-            <span className="font-semibold text-ink">Average score</span>
-            {BANDS.map((band, i) => (
-              <span key={band.label} className="flex items-center gap-1.5">
-                <span
-                  aria-hidden
-                  className="size-3 rounded-[4px]"
-                  style={{ background: `var(--seq-${i + 1})` }}
-                />
-                {band.label}
-              </span>
-            ))}
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden className="size-3 rounded-[4px] border border-line bg-oat" />
-              Not yet
-            </span>
-          </div>
+          <BandLegend />
         </Card>
 
         <div className="min-w-0 space-y-5">
