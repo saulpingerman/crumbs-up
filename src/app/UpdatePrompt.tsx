@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router'
-import { toast } from 'sonner'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 
 /**
  * A newer version of the app takes over by itself (see vite.config.ts); this
- * decides when the page reloads into it. Straight away, unless someone is in
- * the middle of rating a cookie: there they are asked, and the reload waits
- * until they tap it or leave the rating screens.
+ * reloads the page into it, with nothing to tap. The one wait is on the
+ * rating screens: the reload happens as soon as someone leaves them, so a
+ * cookie halfway through being rated isn't swapped out from under them.
  */
 export function UpdatePrompt() {
   const [stale, setStale] = useState(false)
@@ -25,17 +24,7 @@ export function UpdatePrompt() {
   const rating = useLocation().pathname.startsWith('/rate')
 
   useEffect(() => {
-    if (!stale) return
-    if (!rating) {
-      window.location.reload()
-      return
-    }
-    toast('A fresh batch is ready', {
-      id: 'app-update',
-      description: 'Update to get the newest version of Crumbs Up.',
-      duration: Infinity,
-      action: { label: 'Update', onClick: () => window.location.reload() },
-    })
+    if (stale && !rating) window.location.reload()
   }, [stale, rating])
 
   return null
