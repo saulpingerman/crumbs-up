@@ -33,9 +33,10 @@ before starting.
 
 ## Things that bit before
 
-- The cookie finder runs MediaPipe in a module worker. Always pass `canvas: new
-OffscreenCanvas(1, 1)` to its tasks: MediaPipe sniffs the user agent and crashes in any
-  WebKit browser without "Version/" in its name (Chrome on iOS, and app web views).
+- The cookie finder runs MediaPipe in a module worker. Always give each MediaPipe task its own
+  `OffscreenCanvas` through the `canvas` option: left to itself, MediaPipe sniffs the user agent
+  and crashes in any WebKit browser without "Version/" in its name (Chrome on iOS, app web
+  views).
 - The service worker is `autoUpdate`; `src/app/UpdatePrompt.tsx` reloads into a new version
   unless the person is on `/rate`.
 - `index.html` moves any `http:` visit (other than localhost or an IP) to `https:` before
