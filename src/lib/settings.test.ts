@@ -16,9 +16,8 @@ async function settingsFrom(saved?: object) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the defaults', () => {
-  it('start new people on a number per category, with taste and texture counting most', async () => {
+  it('start new people with taste and texture counting most', async () => {
     const settings = await settingsFrom()
-    expect(settings.reviewStyle).toBe('quick')
     expect(settings.weightPreset).toBe('eating')
   })
 
@@ -27,7 +26,6 @@ describe('the defaults', () => {
     // stored whether or not anyone chose them.
     const moved = await settingsFrom({ weightPreset: 'equal', reviewStyle: 'full', theme: 'dark' })
     expect(moved.weightPreset).toBe('eating')
-    expect(moved.reviewStyle).toBe('quick')
     expect(moved.theme).toBe('dark')
   })
 
@@ -39,6 +37,5 @@ describe('the defaults', () => {
   it('leave choices made since the change alone', async () => {
     const chosen = await settingsFrom({ weightPreset: 'equal', reviewStyle: 'full', version: 2 })
     expect(chosen.weightPreset).toBe('equal')
-    expect(chosen.reviewStyle).toBe('full')
   })
 })

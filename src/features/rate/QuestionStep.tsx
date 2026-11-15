@@ -9,7 +9,6 @@ import {
   STANDARD_SCORE,
   type Category,
   type ContextQuestion,
-  type FlawQuestion,
   type Option,
   type ScaleQuestion,
 } from '@/lib/rubric'
@@ -287,59 +286,5 @@ function ChoiceButton({
         {selected && <Check className="size-4" strokeWidth={3} />}
       </span>
     </button>
-  )
-}
-
-interface FlawProps {
-  question: FlawQuestion
-  index: number
-  count: number
-  value: string[]
-  onChange: (flawIds: string[]) => void
-  onContinue: () => void
-}
-
-/** The "anything off?" check: tap any flaws, or sail straight through. */
-export function FlawStep({ question, index, count, value, onChange, onContinue }: FlawProps) {
-  const toggle = (id: string) =>
-    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id])
-
-  return (
-    <div className="flex flex-1 flex-col">
-      <QuestionHeading
-        category={question.category}
-        index={index}
-        count={count}
-        prompt={question.prompt}
-        hint={question.hint}
-      />
-      <div role="group" aria-label={question.title} className="flex flex-wrap gap-2">
-        {question.flaws.map((flaw) => {
-          const on = value.includes(flaw.id)
-          return (
-            <button
-              key={flaw.id}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggle(flaw.id)}
-              className={cn(
-                'flex h-11 items-center gap-1.5 rounded-full border-[1.5px] px-4 text-[15px] font-medium transition active:scale-95',
-                on
-                  ? 'border-danger bg-danger-soft text-danger'
-                  : 'border-line bg-paper text-ink hover:border-ink-faint',
-              )}
-            >
-              {on && <Check className="size-4" strokeWidth={3} />}
-              {flaw.label}
-            </button>
-          )
-        })}
-      </div>
-      <StickyFooter>
-        <Button size="lg" className="w-full" onClick={onContinue}>
-          {value.length === 0 ? 'No flaws, carry on' : `Continue with ${value.length} flagged`}
-        </Button>
-      </StickyFooter>
-    </div>
   )
 }

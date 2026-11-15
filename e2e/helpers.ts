@@ -39,15 +39,6 @@ export async function addSamples(page: Page) {
   await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
 }
 
-/** The big animated number on a category result screen. */
-export function categoryScore(
-  page: Page,
-  category: 'Appearance' | 'Texture' | 'Taste',
-  score: string,
-) {
-  return page.getByLabel(`${category}: ${score} out of 10`)
-}
-
 /**
  * Turn the automatic photo cut-out off for a test that isn't about it, so it
  * doesn't download the model or change the picture halfway through.

@@ -4,12 +4,11 @@
 
 Buy a cookie, take its photo, and give it a number from 1 to 10 for how it looks, eats and
 tastes. Every number comes with words saying what it means, and **5 is an average cookie**: good,
-nothing special. For more detail there is a full tasting: five worded questions per category,
-from which Crumbs Up works out the score.
+nothing special.
 
 <p>
   <img src="docs/journal.png" width="24%" alt="The cookie journal" />
-  <img src="docs/question.png" width="24%" alt="A questionnaire step" />
+  <img src="docs/question.png" width="24%" alt="A rating step" />
   <img src="docs/result.png" width="24%" alt="A category score with its reasoning" />
   <img src="docs/verdict.png" width="24%" alt="The final verdict" />
 </p>
@@ -66,24 +65,13 @@ from which Crumbs Up works out the score.
 
 ## How the scoring works
 
-The full rule book is in the app under **Settings → How the scoring works**, and it is generated
-from the same data the questionnaire uses, so it can't drift.
+The rule book is in the app under **Settings → How the scoring works**, and it is generated from
+the same data the rating screens use, so it can't drift.
 
-**The quick review** (the default) asks for one number per category. Each number from 1 to 10 has
-a name ("Average", "Excellent"…) and a line saying what it means for that category, so the same
-cookie gets the same score whoever rates it. The **full tasting** works like this:
-
-1. **Each category asks five questions** (plus a quick "anything off?" flaw check). Texture first
-   asks what style the cookie is going for — chewy, crisp, cakey… — so a shortbread isn't marked
-   down for not being gooey.
-2. **Answers are worded, never numbered.** Every question has six rungs: two below average,
-   average itself, and three above it. Behind the words the rungs are worth
-   `1.5 · 3.5 · 5 · 6.5 · 8 · 10`.
-3. **The category score is the weighted average** of those rungs (first impressions, being true to
-   style, and flavor depth count the most). "Doesn't apply" answers drop out.
-4. **Flagged flaws subtract** half a point or a point each, capped at 2 per category.
-5. **It's rounded to the half point** and kept between 1 and 10.
-6. **You get the last word.** The suggestion can be nudged; the journal remembers both numbers.
+**Each category gets one number from 1 to 10.** Every number has a name ("Average",
+"Excellent"…) and a line saying what it means for that category, so the same cookie gets the same
+score whoever rates it. On the verdict, − and + fine-tune a score by half a point. Cookies rated
+earlier with the old 19-question tasting keep their scores and the answers behind them.
 
 The **overall** score combines the three categories. The default counts how it eats most: 40%
 taste, 40% texture, 20% appearance. Settings also offers equal thirds, the classic baking-contest
@@ -91,12 +79,8 @@ split (40/30/30) and a taste-first split (50/30/20). Changing it re-ranks the wh
 the overall in Top rated, without touching category scores. The journal and Top rated can also be
 ranked by taste, texture or appearance alone.
 
-The questions were shaped by how cookies are actually judged — fair and 4-H score sheets, sensory
-evaluation practice (fully-worded scales, judging texture as
-"characteristic of type"), and food-science writing on what separates a great cookie from a fine
-one. The rubric lives in [`src/lib/rubric/questions.ts`](src/lib/rubric/questions.ts) and is meant
-to be edited: change a prompt, a weight or a penalty there and the wizard, the guide and the tests
-all follow.
+The words for each number live in [`src/lib/rubric/questions.ts`](src/lib/rubric/questions.ts):
+change them there and the rating screens, the guide and the tests all follow.
 
 ## How the photo cut-out works
 
@@ -135,8 +119,8 @@ set `VITE_COOKIE_FINDER_MODEL_URL` (for `interactive_segmentation.task`) and
 produce them, and nobody else's data is involved. Each kind of cookie the app knows (about 35 of
 them) carries a few traits: chocolate, caramel, spice, citrus, chewy, crisp and so on. The app works
 out which traits score above and below your average, pulling small samples toward zero so one great
-cookie doesn't define your palate, and ranks untried kinds by how well they fit. If the
-questionnaire recorded how a cookie actually ate (chewy, crisp…), that beats what its kind usually
+cookie doesn't define your palate, and ranks untried kinds by how well they fit. If an old
+full tasting recorded how a cookie actually ate (chewy, crisp…), that beats what its kind usually
 eats like. The knowledge base is one file — [`src/lib/cookie-kinds.ts`](src/lib/cookie-kinds.ts) —
 and easy to extend.
 

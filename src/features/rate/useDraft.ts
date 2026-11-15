@@ -4,7 +4,6 @@ import { db } from '@/lib/db/db'
 import type { CookieDetails, CookieRecord, DraftRecord, ProcessedPhoto } from '@/lib/db/schema'
 import { todayIso } from '@/lib/format'
 import {
-  assessAll,
   CATEGORIES,
   getQuestion,
   isQuickReview,
@@ -32,29 +31,22 @@ export function blankDraft(key: string): DraftRecord {
     answers: {},
     nudges: { taste: 0, texture: 0, appearance: 0 },
     manual: null,
-    quick: getSettings().reviewStyle === 'quick',
+    quick: true,
     photo: 'none',
   }
 }
 
-/** What the answers alone come to, for whichever way of rating is in use. */
-function suggestedScores(answers: Answers, quick: boolean): Scores {
-  if (quick) return quickScores(answers)
-  const assessed = assessAll(answers)
-  return {
-    taste: assessed.taste.score,
-    texture: assessed.texture.score,
-    appearance: assessed.appearance.score,
-  }
+/** What the numbers picked come to, before any fine-tuning. */
+function suggestedScores(answers: Answers): Scores {
+  return quickScores(answers)
 }
 
 export function draftFromCookie(cookie: CookieRecord): DraftRecord {
-  const assessed = assessAll(cookie.answers)
-  const full = CATEGORIES.every((c) => assessed[c].complete)
-  const quick = !full && isQuickReview(cookie.answers)
-  // Scored by answering questions, the full set or the quick three?
-  const guided = full || quick
-  const suggested = suggestedScores(cookie.answers, quick)
+  // Rated with a number for each? Anything else (typed in, or the old full
+  // tasting, which is no longer offered) comes back as its scores, ready to
+  // adjust; an old tasting's answers are kept so its breakdown still shows.
+  const guided = isQuickReview(cookie.answers)
+  const suggested = suggestedScores(cookie.answers)
   return {
     key: draftKey(cookie.id),
     updatedAt: Date.now(),
@@ -77,7 +69,7 @@ export function draftFromCookie(cookie: CookieRecord): DraftRecord {
         }
       : { taste: 0, texture: 0, appearance: 0 },
     manual: guided ? null : { ...cookie.scores },
-    quick,
+    quick: true,
     photo: cookie.hasPhoto ? 'keep' : 'none',
   }
 }
@@ -110,8 +102,6 @@ export interface DraftApi {
   setNotes: (notes: string) => void
   setPhoto: (photo: ProcessedPhoto | 'keep' | 'none') => void
   setManual: (manual: Scores | null) => void
-  /** Switch between the quick three questions and the full tasting. */
-  setQuick: (quick: boolean) => void
   startOver: () => void
   /** Stop autosaving and delete the stored draft (after a successful save). */
   finish: () => Promise<void>
@@ -162,7 +152,9 @@ export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>
         setResumed(false)
         if (stored) void clearDraft(key)
       } else if (stored && hasContent(stored)) {
-        setDraft({ ...blankDraft(key), ...stored })
+        // A draft left halfway through the old full tasting carries on as
+        // numbers: the details are kept, the questions start again.
+        setDraft({ ...blankDraft(key), ...stored, quick: true })
         setResumed(true)
       } else {
         const blank = blankDraft(key)
@@ -235,14 +227,6 @@ export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>
     setNotes: useCallback((notes) => update((d) => ({ ...d, notes })), [update]),
     setPhoto: useCallback((photo) => update((d) => ({ ...d, photo })), [update]),
     setManual: useCallback((manual) => update((d) => ({ ...d, manual })), [update]),
-    setQuick: useCallback(
-      (quick) =>
-        update((d) =>
-          // A nudge adjusts one way's suggestion; it means nothing to the other's.
-          d.quick === quick ? d : { ...d, quick, nudges: { taste: 0, texture: 0, appearance: 0 } },
-        ),
-      [update],
-    ),
     startOver: useCallback(() => {
       setResumed(false)
       setTouched(false)
@@ -266,7 +250,7 @@ export function useDraft(editId: string | null, prefill?: Partial<CookieDetails>
 /** Final scores for a draft: suggestion plus nudge, or the typed-in values. */
 export function draftScores(draft: DraftRecord): { suggested: Scores; scores: Scores } {
   if (draft.manual) return { suggested: { ...draft.manual }, scores: { ...draft.manual } }
-  const suggested = suggestedScores(draft.answers, draft.quick)
+  const suggested = suggestedScores(draft.answers)
   const scores = { ...suggested }
   for (const c of CATEGORIES) {
     scores[c] = Math.min(10, Math.max(1, suggested[c] + draft.nudges[c]))

@@ -1,9 +1,7 @@
 import type { CookieDetails, DraftRecord } from '@/lib/db/schema'
 import {
-  QUESTIONS,
   QUICK_QUESTION_LIST,
   QUICK_QUESTIONS,
-  TASTING_ORDER,
   type Answers,
   type Category,
   type Question,
@@ -21,28 +19,9 @@ export type Step =
       index: number
       count: number
     }
-  | { kind: 'result'; category: Category }
   | { kind: 'summary' }
 
-const GUIDED_STEPS: Step[] = [
-  { kind: 'details' },
-  ...TASTING_ORDER.flatMap((category): Step[] => {
-    const questions = QUESTIONS[category]
-    return [
-      ...questions.map((question, i): Step => ({
-        kind: 'question',
-        category,
-        question,
-        index: i + 1,
-        count: questions.length,
-      })),
-      { kind: 'result', category },
-    ]
-  }),
-  { kind: 'summary' },
-]
-
-/** The quick review: straight from one overall question per category to the verdict. */
+/** Rating a cookie: a number for each category, then the verdict. */
 const QUICK_STEPS: Step[] = [
   { kind: 'details' },
   ...QUICK_QUESTION_LIST.map((question, i): Step => ({
@@ -57,14 +36,8 @@ const QUICK_STEPS: Step[] = [
 
 const MANUAL_STEPS: Step[] = [{ kind: 'details' }, { kind: 'summary' }]
 
-export function stepsFor(draft: Pick<DraftRecord, 'manual' | 'quick'>): Step[] {
-  return draft.manual ? MANUAL_STEPS : draft.quick ? QUICK_STEPS : GUIDED_STEPS
-}
-
-/** How many questions each way of rating asks, for telling them apart up front. */
-export const QUESTION_COUNT = {
-  quick: QUICK_STEPS.filter((step) => step.kind === 'question').length,
-  full: GUIDED_STEPS.filter((step) => step.kind === 'question').length,
+export function stepsFor(draft: Pick<DraftRecord, 'manual'>): Step[] {
+  return draft.manual ? MANUAL_STEPS : QUICK_STEPS
 }
 
 const EARLIEST_DATE = '1950-01-01'
@@ -141,9 +114,7 @@ export function furthestStep(steps: Step[], draft: DraftRecord): number {
   return blocked === -1 ? steps.length - 1 : blocked
 }
 
-/** Answered / total questions in a category, for the progress bar. */
-export function categoryProgress(category: Category, answers: Answers, quick = false): number {
-  const questions = quick ? [QUICK_QUESTIONS[category]] : QUESTIONS[category]
-  const done = questions.filter((q) => isAnswered(q, answers)).length
-  return questions.length ? done / questions.length : 0
+/** 1 once a category has its number, for the progress bar. */
+export function categoryProgress(category: Category, answers: Answers): number {
+  return isAnswered(QUICK_QUESTIONS[category], answers) ? 1 : 0
 }

@@ -25,7 +25,14 @@ function cookie(patch: Partial<CookieRecord>): CookieRecord {
   } as CookieRecord
 }
 
-const QUICK: Answers = {
+const NUMBERS: Answers = {
+  'quick.look': 'quick.look.n6',
+  'quick.bite': 'quick.bite.n8',
+  'quick.taste': 'quick.taste.n8',
+}
+
+/** A quick review saved before numbers, on the old worded rungs. */
+const OLD_QUICK: Answers = {
   'quick.look': 'quick.look.4',
   'quick.bite': 'quick.bite.5',
   'quick.taste': 'quick.taste.5',
@@ -44,53 +51,39 @@ function fullAnswers(rung: number): Answers {
 }
 
 describe('reopening a saved cookie', () => {
-  it('brings a quick review back as a quick review, fine-tuning included', () => {
+  it('brings numbers back as numbers, fine-tuning included', () => {
     const draft = draftFromCookie(
       cookie({
-        answers: QUICK,
-        suggested: { appearance: 6.5, texture: 8, taste: 8 },
-        scores: { appearance: 6.5, texture: 8, taste: 8.5 },
+        answers: NUMBERS,
+        suggested: { appearance: 6, texture: 8, taste: 8 },
+        scores: { appearance: 6, texture: 8, taste: 8.5 },
       }),
     )
-    expect(draft.quick).toBe(true)
     expect(draft.manual).toBeNull()
     expect(draft.nudges).toEqual({ appearance: 0, texture: 0, taste: 0.5 })
+    expect(draftScores(draft).scores).toEqual({ appearance: 6, texture: 8, taste: 8.5 })
+  })
+
+  it('still brings back a quick review saved on the old worded answers', () => {
+    const draft = draftFromCookie(
+      cookie({ answers: OLD_QUICK, scores: { appearance: 6.5, texture: 8, taste: 8.5 } }),
+    )
+    expect(draft.manual).toBeNull()
     expect(draftScores(draft).scores).toEqual({ appearance: 6.5, texture: 8, taste: 8.5 })
   })
 
-  it('brings a full tasting back as a full tasting', () => {
-    const draft = draftFromCookie(
-      cookie({
-        answers: fullAnswers(5),
-        suggested: { appearance: 8, texture: 8, taste: 8 },
-        scores: { appearance: 8, texture: 7.5, taste: 8 },
-      }),
-    )
-    expect(draft.quick).toBe(false)
-    expect(draft.manual).toBeNull()
-    expect(draft.nudges).toEqual({ appearance: 0, texture: -0.5, taste: 0 })
+  it('brings an old full tasting back as its scores, ready to adjust, answers kept', () => {
+    const scores = { appearance: 8, texture: 7.5, taste: 8 }
+    const answers = fullAnswers(5)
+    const draft = draftFromCookie(cookie({ answers, suggested: scores, scores }))
+    expect(draft.manual).toEqual(scores)
+    expect(draft.answers).toEqual(answers)
+    expect(draftScores(draft).scores).toEqual(scores)
   })
 
   it('brings typed-in scores back as typed-in scores', () => {
     const scores = { appearance: 6, texture: 7, taste: 9 }
     const draft = draftFromCookie(cookie({ answers: {}, suggested: scores, scores }))
-    expect(draft.quick).toBe(false)
     expect(draft.manual).toEqual(scores)
-  })
-})
-
-describe('scores for a rating in progress', () => {
-  it('uses whichever set of answers matches the way being rated', () => {
-    const base = draftFromCookie(cookie({ answers: { ...fullAnswers(3), ...QUICK } }))
-    expect(draftScores({ ...base, quick: true, manual: null }).suggested).toEqual({
-      appearance: 6.5,
-      texture: 8,
-      taste: 8,
-    })
-    expect(draftScores({ ...base, quick: false, manual: null }).suggested).toEqual({
-      appearance: 5,
-      texture: 5,
-      taste: 5,
-    })
   })
 })

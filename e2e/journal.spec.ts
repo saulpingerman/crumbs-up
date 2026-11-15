@@ -32,7 +32,7 @@ test('every screen fits a phone without sideways scrolling', async ({ page }) =>
     ['/discover', 'Your palate so far'],
     ['/insights', 'Hall of fame'],
     ['/settings', 'Your journal'],
-    ['/guide', 'From answers to a score'],
+    ['/guide', 'A number for each'],
   ] as const) {
     await page.goto(path)
     await expect(page.getByRole('heading', { name: landmark })).toBeVisible()
