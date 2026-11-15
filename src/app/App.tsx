@@ -44,6 +44,12 @@ const router = createBrowserRouter(
               }),
             },
             {
+              path: 'want-to-go',
+              lazy: async () => ({
+                Component: (await import('@/features/want-to-go/WantToGoPage')).WantToGoPage,
+              }),
+            },
+            {
               path: 'insights',
               lazy: async () => ({
                 Component: (await import('@/features/insights/InsightsPage')).InsightsPage,

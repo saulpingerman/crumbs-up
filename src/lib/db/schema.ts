@@ -139,3 +139,18 @@ export interface MetaRecord {
   key: 'owner' | 'cursor' | 'syncedAt'
   value: string
 }
+
+/** A bakery someone wants to go to, saved from the map or a list of places to try. */
+export interface WantToGoRecord {
+  /** The place's OpenStreetMap id, e.g. `N2126676335`. */
+  id: string
+  name: string
+  street: string
+  city: string
+  /** USPS code, or '' when it isn't known. */
+  state: string
+  lat: number
+  lng: number
+  /** When it was saved, for listing the newest first. */
+  addedAt: number
+}

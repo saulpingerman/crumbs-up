@@ -1,5 +1,12 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import type { CookieRecord, DraftRecord, MetaRecord, OutboxRecord, StoredImage } from './schema'
+import type {
+  CookieRecord,
+  DraftRecord,
+  MetaRecord,
+  OutboxRecord,
+  StoredImage,
+  WantToGoRecord,
+} from './schema'
 
 /**
  * Everything lives on the device in IndexedDB. Photos sit in their own
@@ -16,6 +23,8 @@ export class CrumbsDb extends Dexie {
   /** Changes waiting to be sent to the cloud copy (only used once signed in). */
   outbox!: EntityTable<OutboxRecord, 'id'>
   meta!: EntityTable<MetaRecord, 'key'>
+  /** Bakeries saved to go to. Kept on this device; not part of the synced journal. */
+  wantToGo!: EntityTable<WantToGoRecord, 'id'>
 
   constructor(name = 'crumbs-up') {
     super(name)
@@ -27,6 +36,7 @@ export class CrumbsDb extends Dexie {
     })
     this.version(2).stores({ originals: 'cookieId' })
     this.version(3).stores({ outbox: 'id', meta: 'key' })
+    this.version(4).stores({ wantToGo: 'id, addedAt' })
   }
 }
 
