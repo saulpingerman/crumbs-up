@@ -1,5 +1,5 @@
 import { ArrowRight, Compass, MapPinned, Plus, RotateCcw } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { CookiePhoto } from '@/components/CookiePhoto'
@@ -7,10 +7,12 @@ import { CookieRow } from '@/components/CookieRow'
 import { Card, Page, SectionTitle } from '@/components/Page'
 import type { CookieKind } from '@/lib/cookie-kinds'
 import { aScore, formatPlace, plural } from '@/lib/format'
+import { formatMiles } from '@/lib/osm'
 import { formatScore } from '@/lib/rubric'
 import { MIN_FOR_PALATE, listTastes, recommend, type Taste } from '@/lib/recommend'
 import { useSettings } from '@/lib/settings'
-import { STATE_NEIGHBORS } from '@/lib/state-neighbors'
+import { loadPlaces, type PlaceIndex } from '@/lib/places'
+import { newTowns } from '@/lib/towns'
 import { useCookies } from '@/lib/use-cookies'
 import { OpenInMaps } from '../map/OpenInMaps'
 
@@ -22,7 +24,16 @@ function because(tastes: Taste[]): string | null {
 export function DiscoverPage() {
   const cookies = useCookies()
   const { overallPrecision } = useSettings()
-  const recs = useMemo(() => (cookies ? recommend(cookies, STATE_NEIGHBORS) : null), [cookies])
+  const recs = useMemo(() => (cookies ? recommend(cookies) : null), [cookies])
+  // Towns come from a list bundled with the app, loaded when first needed.
+  const [places, setPlaces] = useState<PlaceIndex | null>(null)
+  useEffect(() => {
+    void loadPlaces().then(setPlaces, () => {})
+  }, [])
+  const nearby = useMemo(
+    () => (cookies && places ? newTowns(cookies, places) : []),
+    [cookies, places],
+  )
   if (!cookies || !recs) return null
 
   const missing = Math.max(1, MIN_FOR_PALATE - cookies.length)
@@ -162,22 +173,30 @@ export function DiscoverPage() {
           </Card>
         )}
 
-        {recs.newStates.length > 0 && (
+        {nearby.length > 0 && (
           <Card>
             <SectionTitle className="flex items-center gap-2">
               <Compass className="size-5 text-crust" aria-hidden />
               New territory
             </SectionTitle>
             <p className="mt-1 text-sm text-ink-soft">
-              States you haven’t logged a cookie in, right next door to ones you have.
+              Towns near you where you haven’t logged a cookie yet.
             </p>
             <ul className="mt-3 divide-y divide-line/70">
-              {recs.newStates.map((state) => (
-                <li key={state.code} className="flex items-baseline justify-between gap-3 py-2">
-                  <span className="font-semibold">{state.name}</span>
-                  <span className="truncate text-sm text-ink-soft">
-                    borders {state.borders.join(' and ')}
-                  </span>
+              {nearby.map((town) => (
+                <li key={`${town.name}|${town.state}`}>
+                  {/* Opens the map there, which finds its bakeries by itself. */}
+                  <Link
+                    to={`/map?lat=${town.lat}&lng=${town.lng}`}
+                    className="-mx-2 flex items-baseline justify-between gap-3 rounded-xl px-2 py-2.5 transition hover:bg-oat"
+                  >
+                    <span className="font-semibold">
+                      {town.name}, {town.state}
+                    </span>
+                    <span className="shrink-0 text-sm text-ink-soft">
+                      {formatMiles(town.km)} from {town.from}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>

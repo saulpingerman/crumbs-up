@@ -10,8 +10,9 @@ import { Medallion } from '@/components/Score'
 import { formatPlace, plural } from '@/lib/format'
 import { tierFor } from '@/lib/rubric'
 import { useSettings } from '@/lib/settings'
-import { ELSEWHERE, stateName } from '@/lib/states'
+import { stateName } from '@/lib/states'
 import { byNewest, byScoreDesc, summarize, type RatedCookie } from '@/lib/stats'
+import { townKey, townLabel } from '@/lib/towns'
 import { useCookies } from '@/lib/use-cookies'
 import { useTitle } from '@/lib/use-title'
 import { BiteableCookie } from './BiteableCookie'
@@ -22,13 +23,13 @@ type Sort = 'recent' | 'ranked'
 
 /**
  * How the journal was last being looked at. Opening a cookie and coming back
- * should return to the same search, state and order, not start again; a
+ * should return to the same search, town and order, not start again; a
  * fresh launch of the app does start again.
  */
-const lastView: { sort: Sort; query: string; state: string } = {
+const lastView: { sort: Sort; query: string; town: string } = {
   sort: 'recent',
   query: '',
-  state: '',
+  town: '',
 }
 
 export function JournalPage() {
@@ -36,19 +37,25 @@ export function JournalPage() {
   const { overallPrecision } = useSettings()
   const [sort, setSort] = useState<Sort>(lastView.sort)
   const [query, setQuery] = useState(lastView.query)
-  const [chosenState, setState] = useState(lastView.state)
+  const [chosenTown, setTown] = useState(lastView.town)
   useEffect(() => {
-    Object.assign(lastView, { sort, query, state: chosenState })
-  }, [sort, query, chosenState])
+    Object.assign(lastView, { sort, query, town: chosenTown })
+  }, [sort, query, chosenTown])
 
   const summary = useMemo(() => (cookies ? summarize(cookies) : undefined), [cookies])
 
-  const states = useMemo(() => {
-    const codes = [...new Set((cookies ?? []).map((c) => c.state))]
-    return codes.sort((a, b) => stateName(a).localeCompare(stateName(b)))
+  // The towns in the journal, by name. A cookie with no town typed in is
+  // only found under "All towns" (or by searching).
+  const towns = useMemo(() => {
+    const byKey = new Map<string, string>()
+    for (const cookie of cookies ?? []) {
+      const key = townKey(cookie)
+      if (key && !byKey.has(key)) byKey.set(key, townLabel(cookie))
+    }
+    return [...byKey].sort(([, a], [, b]) => a.localeCompare(b))
   }, [cookies])
-  // A remembered state whose last cookie has since gone filters nothing.
-  const state = states.includes(chosenState) ? chosenState : ''
+  // A remembered town whose last cookie has since gone filters nothing.
+  const town = towns.some(([key]) => key === chosenTown) ? chosenTown : ''
 
   const ranks = useMemo(() => {
     const map = new Map<string, number>()
@@ -59,7 +66,7 @@ export function JournalPage() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return (cookies ?? [])
-      .filter((c) => !state || c.state === state)
+      .filter((c) => !town || townKey(c) === town)
       .filter(
         (c) =>
           !q ||
@@ -69,20 +76,20 @@ export function JournalPage() {
             .includes(q),
       )
       .sort(sort === 'ranked' ? byScoreDesc : byNewest)
-  }, [cookies, query, state, sort])
+  }, [cookies, query, town, sort])
 
   if (!cookies || !summary) return null
   if (cookies.length === 0) return <FirstRun />
 
-  const filtered = Boolean(query.trim() || state)
+  const filtered = Boolean(query.trim() || town)
 
   return (
     <Page
       title="Cookie journal"
       lede={
         <>
-          {plural(summary.count, 'cookie')} from {plural(summary.bakeries, 'bakery', 'bakeries')}{' '}
-          across {plural(summary.states, 'state')}. Average score{' '}
+          {plural(summary.count, 'cookie')} from {plural(summary.bakeries, 'bakery', 'bakeries')}
+          {summary.towns > 0 && ` in ${plural(summary.towns, 'town')}`}. Average score{' '}
           <strong className="font-semibold text-ink">{summary.average.toFixed(1)}</strong>.
         </>
       }
@@ -118,18 +125,18 @@ export function JournalPage() {
             </button>
           )}
         </div>
-        {states.length > 1 && (
-          <div className="w-36 shrink-0">
+        {towns.length > 1 && (
+          <div className="w-40 shrink-0">
             <Select
-              aria-label="Filter by state"
-              value={state}
-              onChange={(e) => setState(e.target.value)}
+              aria-label="Filter by town"
+              value={town}
+              onChange={(e) => setTown(e.target.value)}
               className="h-11 rounded-full"
             >
-              <option value="">All states</option>
-              {states.map((code) => (
-                <option key={code} value={code}>
-                  {code === ELSEWHERE.code ? 'Outside U.S.' : stateName(code)}
+              <option value="">All towns</option>
+              {towns.map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
                 </option>
               ))}
             </Select>
@@ -154,7 +161,7 @@ export function JournalPage() {
             className="font-semibold text-ink underline"
             onClick={() => {
               setQuery('')
-              setState('')
+              setTown('')
             }}
           >
             Clear filters

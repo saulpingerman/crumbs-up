@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { COOKIE_KINDS, kindOf } from './cookie-kinds'
 import { recommend } from './recommend'
-import { STATE_NEIGHBORS } from './state-neighbors'
 import type { RatedCookie } from './stats'
 
 let n = 0
@@ -141,33 +140,10 @@ describe('recommend', () => {
     expect(result.returnTrips[0]).toMatchObject({ count: 1, average: 9 })
   })
 
-  it('suggests unvisited states that border visited ones', () => {
-    const result = recommend(
-      [cookie('Sugar', 6, { state: 'OR' }), cookie('Sugar', 6, { state: 'NV' })],
-      STATE_NEIGHBORS,
-    )
-    const codes = result.newStates.map((s) => s.code)
-    expect(codes).toContain('WA')
-    expect(codes).not.toContain('OR')
-    // Idaho and California touch both, so they come first.
-    expect(codes.slice(0, 2).sort()).toEqual(['CA', 'ID'])
-    expect(result.newStates[0]?.borders).toEqual(['Nevada', 'Oregon'])
-  })
-
   it('copes with an empty journal', () => {
     const result = recommend([])
     expect(result.personal).toBe(false)
     expect(result.tryNext.length).toBeGreaterThan(0)
     expect(result.returnTrips).toEqual([])
-    expect(result.newStates).toEqual([])
-  })
-})
-
-describe('state neighbors', () => {
-  it('knows which states touch', () => {
-    expect(STATE_NEIGHBORS.OR).toEqual(['CA', 'ID', 'NV', 'WA'])
-    expect(STATE_NEIGHBORS.ME).toEqual(['NH'])
-    expect(STATE_NEIGHBORS.HI).toEqual([])
-    expect(STATE_NEIGHBORS.DC?.sort()).toEqual(['MD', 'VA'])
   })
 })

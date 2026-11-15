@@ -1,6 +1,6 @@
 import { LoaderCircle, MapPin, Plus, Search } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { CookieRow } from '@/components/CookieRow'
 import { Card, SectionTitle } from '@/components/Page'
@@ -62,6 +62,14 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
   }, [])
 
   const places = useMemo(() => bakeryPlaces(cookies, towns), [cookies, towns])
+  // A link from elsewhere ("New territory", say) can open the map on a spot.
+  const [params] = useSearchParams()
+  const focus = useMemo(() => {
+    const lat = Number(params.get('lat'))
+    const lng = Number(params.get('lng'))
+    const given = params.has('lat') && params.has('lng')
+    return given && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null
+  }, [params])
   /** Bakeries the last search turned up that aren't in the journal. */
   const [spotted, setSpotted] = useState<OsmPlace[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -193,6 +201,7 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
               selectedId={selectedId}
               onSelect={(id) => select(id, true)}
               onView={setView}
+              focus={focus}
               dark={dark}
               className="h-[52dvh] min-h-80 lg:h-[34rem]"
             />

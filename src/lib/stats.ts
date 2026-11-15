@@ -9,6 +9,7 @@ import {
   type Weights,
 } from '@/lib/rubric'
 import { ELSEWHERE } from '@/lib/states'
+import { countTowns } from '@/lib/towns'
 
 export interface RatedCookie extends CookieRecord {
   /** Overall score at the chosen precision — what gets displayed. */
@@ -115,6 +116,8 @@ export interface Summary {
   average: number
   categoryAverages: Record<Category, number>
   bakeries: number
+  /** Distinct towns with at least one cookie. */
+  towns: number
   /** Distinct U.S. states (plus DC) with at least one cookie. */
   states: number
   best?: RatedCookie
@@ -130,6 +133,7 @@ export function summarize(cookies: RatedCookie[]): Summary {
     average: mean(cookies.map((c) => c.overall)),
     categoryAverages,
     bakeries: new Set(cookies.map(bakeryKey)).size,
+    towns: countTowns(cookies),
     states: new Set(cookies.map((c) => c.state).filter((s) => s !== ELSEWHERE.code)).size,
     best: [...cookies].sort(byScoreDesc)[0],
     aboveStandard: cookies.filter((c) => c.overallExact > 5).length,

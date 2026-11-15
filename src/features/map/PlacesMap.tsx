@@ -25,6 +25,9 @@ const STYLE = {
   dark: 'https://tiles.openfreemap.org/styles/dark',
 } as const
 
+/** Close enough to see a town's streets, far enough out to take in all of it. */
+const FOCUS_ZOOM = 12
+
 export interface MapPin extends LatLng {
   id: string
   title: string
@@ -47,6 +50,8 @@ interface Props {
   selectedId: string | null
   onSelect: (id: string) => void
   onView?: (view: MapView) => void
+  /** Somewhere to open on instead of the journal's own places. */
+  focus?: LatLng | null
   dark: boolean
   className?: string
 }
@@ -68,15 +73,15 @@ function collection(pins: MapPin[], kind: MapPin['kind']) {
 }
 
 /** A street map with the journal's bakeries, and any newly found ones, pinned on it. */
-export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className }: Props) {
+export function PlacesMap({ pins, selectedId, onSelect, onView, focus, dark, className }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapLibre | null>(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   // Latest values for the map's own event handlers, which are bound once.
-  const latest = useRef({ pins, onSelect, onView })
+  const latest = useRef({ pins, onSelect, onView, focus })
   useEffect(() => {
-    latest.current = { pins, onSelect, onView }
+    latest.current = { pins, onSelect, onView, focus }
   })
 
   useEffect(() => {
@@ -256,9 +261,15 @@ export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className 
         instance.on('mouseleave', layer, () => (instance.getCanvas().style.cursor = ''))
       }
 
-      // Open on the journal's own places rather than the whole country.
+      // Open on the spot that was asked for, or else on the journal's own
+      // places rather than the whole country.
       const mine = pins.filter((p) => p.kind === 'mine')
-      if (mine.length > 0) {
+      if (latest.current.focus) {
+        instance.jumpTo({
+          center: [latest.current.focus.lng, latest.current.focus.lat],
+          zoom: FOCUS_ZOOM,
+        })
+      } else if (mine.length > 0) {
         const bounds = new LngLatBounds()
         for (const p of mine) bounds.extend([p.lng, p.lat])
         instance.fitBounds(bounds, { padding: 56, maxZoom: 12, duration: 0 })
@@ -300,6 +311,12 @@ export function PlacesMap({ pins, selectedId, onSelect, onView, dark, className 
       instance.remove()
     }
   }, [dark])
+
+  // Go to a spot that is asked for once the map is already up.
+  useEffect(() => {
+    if (!focus || !ready) return
+    map.current?.jumpTo({ center: [focus.lng, focus.lat], zoom: FOCUS_ZOOM })
+  }, [focus, ready])
 
   // Keep the pins in step with the journal and with search results.
   useEffect(() => {

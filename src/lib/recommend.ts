@@ -13,7 +13,6 @@ import {
   type Trait,
 } from '@/lib/cookie-kinds'
 import { TEXTURE_STYLE_QUESTION_ID } from '@/lib/rubric'
-import { US_STATES, stateName } from '@/lib/states'
 import { bakeryKey, byScoreDesc, mean, type RatedCookie } from '@/lib/stats'
 
 /** Below this many recognizable cookies there isn't a palate to read yet. */
@@ -50,13 +49,6 @@ export interface ReturnTrip {
   best: RatedCookie
 }
 
-export interface NewState {
-  code: string
-  name: string
-  /** Visited states it borders. */
-  borders: string[]
-}
-
 export interface Recommendations {
   /** True once there are enough ratings to read a palate from. */
   personal: boolean
@@ -65,7 +57,6 @@ export interface Recommendations {
   tryNext: KindPick[]
   secondChances: SecondChance[]
   returnTrips: ReturnTrip[]
-  newStates: NewState[]
 }
 
 /** The traits one rated cookie stands for. */
@@ -78,10 +69,7 @@ function traitsOf(cookie: RatedCookie, kind: CookieKind): Trait[] {
   return [...kind.traits.filter((t) => !TEXTURE_TRAITS.includes(t)), ...style]
 }
 
-export function recommend(
-  cookies: RatedCookie[],
-  neighbors: Record<string, string[]> = {},
-): Recommendations {
+export function recommend(cookies: RatedCookie[]): Recommendations {
   const known = cookies
     .map((cookie) => ({ cookie, kind: kindOf(cookie.cookieType) }))
     .filter((entry): entry is { cookie: RatedCookie; kind: CookieKind } => Boolean(entry.kind))
@@ -185,19 +173,7 @@ export function recommend(
     .sort((a, b) => b.average - a.average)
     .slice(0, 4)
 
-  // States you haven't logged a cookie in, nearest to where you've been.
-  const visited = new Set(cookies.map((c) => c.state))
-  const newStates: NewState[] = US_STATES.filter((s) => !visited.has(s.code))
-    .map((s) => ({
-      code: s.code,
-      name: s.name,
-      borders: (neighbors[s.code] ?? []).filter((n) => visited.has(n)).map(stateName),
-    }))
-    .filter((s) => s.borders.length > 0)
-    .sort((a, b) => b.borders.length - a.borders.length || a.name.localeCompare(b.name))
-    .slice(0, 6)
-
-  return { personal, likes, dislikes, tryNext, secondChances, returnTrips, newStates }
+  return { personal, likes, dislikes, tryNext, secondChances, returnTrips }
 }
 
 /** "caramel and toffee notes and a good chew" */
