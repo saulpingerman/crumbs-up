@@ -67,9 +67,10 @@ const router = createBrowserRouter(
               }),
             },
             {
+              // The same page as Settings, by the name on its button.
               path: 'account',
               lazy: async () => ({
-                Component: (await import('@/features/account/AccountPage')).AccountPage,
+                Component: (await import('@/features/settings/SettingsPage')).SettingsPage,
               }),
             },
             {
