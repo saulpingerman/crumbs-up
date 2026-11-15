@@ -4,6 +4,7 @@ import { Select } from '@/components/Field'
 import { Card, SectionTitle } from '@/components/Page'
 import { bakeryPlaces, type BakeryPlace } from '@/lib/bakery-places'
 import { cn } from '@/lib/cn'
+import { ZoomableSvg } from '@/components/ZoomableSvg'
 import { rankCookies, sameCookie, type CommunityCookie } from '@/lib/community'
 import { boundsOf, isInCounty, loadCounties, type County, type CountyAtlas } from '@/lib/counties'
 import { formatAverage, plural } from '@/lib/format'
@@ -180,10 +181,9 @@ export function CountiesView({ cookies }: { cookies: RatedCookie[] }) {
         </div>
         {counties.length > 0 && (
           <>
-            <svg
+            <ZoomableSvg
               viewBox={frame.viewBox}
-              role="group"
-              aria-label={`Map of ${stateName(state)} by county, shaded by average cookie score`}
+              label={`Map of ${stateName(state)} by county, shaded by average cookie score`}
               className="max-h-[60dvh] w-full"
             >
               <g transform={frame.turn}>
@@ -232,7 +232,7 @@ export function CountiesView({ cookies }: { cookies: RatedCookie[] }) {
                   />
                 )}
               </g>
-            </svg>
+            </ZoomableSvg>
             <BandLegend />
           </>
         )}

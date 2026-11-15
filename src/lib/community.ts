@@ -7,7 +7,7 @@
  */
 import { normalizePlace } from '@/lib/places'
 import { CATEGORIES, overallExact, type RankBy, type Scores, type Weights } from '@/lib/rubric'
-import { ELSEWHERE } from '@/lib/states'
+import { ANYWHERE, ELSEWHERE } from '@/lib/states'
 
 /** One cookie at one bakery in one town, as everyone scored it. */
 export interface CommunityCookie {
@@ -95,6 +95,7 @@ export function communityTownKey(cookie: Pick<CommunityCookie, 'city' | 'state'>
 
 /** "Portland, OR" */
 export function communityTownLabel(cookie: Pick<CommunityCookie, 'city' | 'state'>): string {
+  if (cookie.state === ANYWHERE.code) return cookie.city ? `${cookie.city} (online)` : 'Online'
   if (!cookie.city) return ''
   return cookie.state && cookie.state !== ELSEWHERE.code
     ? `${cookie.city}, ${cookie.state}`

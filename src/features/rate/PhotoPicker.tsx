@@ -418,12 +418,33 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
               { value: 'original', label: 'Original' },
             ]}
           />
-          <p className="flex min-w-0 flex-1 basis-40 items-center gap-1.5 text-[13px] leading-snug text-ink-soft">
-            {view === 'original'
-              ? 'Your photo as you took it. Point out the cookie to lift it out.'
-              : 'Lifted out of your photo and set on a clean tabletop.'}
-          </p>
+          {view === 'cutout' && (
+            <p className="flex min-w-0 flex-1 basis-40 items-center gap-1.5 text-[13px] leading-snug text-ink-soft">
+              Lifted out of your photo and set on a clean tabletop.
+            </p>
+          )}
         </div>
+        {view === 'original' && (
+          // What to do here isn't obvious, and this is where someone lands
+          // after "Not the cookie?": say it plainly, step by step.
+          <ol className="mt-3 space-y-1.5 rounded-2xl bg-oat px-4 py-3 text-[14px] leading-snug">
+            <li className="flex gap-2">
+              <span className="numerals font-semibold text-crust">1</span>
+              <span>
+                <strong className="font-semibold">Tap the middle of the cookie</strong> in the photo
+                to lift it out.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="numerals font-semibold text-crust">2</span>
+              <span>
+                Picked the wrong thing?{' '}
+                <strong className="font-semibold">Draw a loop all the way around the cookie</strong>{' '}
+                with your finger, and lift it off when the loop is closed.
+              </span>
+            </li>
+          </ol>
+        )}
       </div>
     )
   }

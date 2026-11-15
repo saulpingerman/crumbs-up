@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { fromSamePlace, rateHereLink, yourPlaces } from './bakery-places'
+import { bakeryPlaces, fromSamePlace, rateHereLink, yourPlaces } from './bakery-places'
+import { formatPlace } from './format'
+import { countTowns } from './towns'
 import type { CookieRecord } from './db/schema'
 import { rate } from './stats'
 
@@ -93,5 +95,32 @@ describe('the same place', () => {
       lat: '45.5',
       lng: '-122.6',
     })
+  })
+})
+
+describe('an online shop', () => {
+  it('reads as online, with the area it serves if one was given', () => {
+    expect(formatPlace({ city: '', state: 'WW', online: true })).toBe('Online')
+    expect(formatPlace({ city: 'Bucks County', state: 'PA', online: true })).toBe(
+      'Online · Bucks County, PA',
+    )
+    expect(formatPlace({ city: '', state: 'PA', online: true })).toBe('Online · Pennsylvania')
+  })
+
+  it('is kept off the map, and out of the towns counted', () => {
+    const rated = rate(
+      [cookie({ online: true, city: 'Portland' }), cookie({ bakery: 'Lowell' })],
+      weights,
+      'half',
+    )
+    expect(bakeryPlaces(rated, null).map((p) => p.bakery)).toEqual(['Lowell'])
+    expect(countTowns(rated)).toBe(1)
+  })
+
+  it('stays online when a new cookie is rated there', () => {
+    const [place] = yourPlaces(rate([cookie({ online: true })], weights, 'half'))
+    expect(place!.online).toBe(true)
+    expect(rateHereLink(place!)).toContain('online=1')
+    expect(rateHereLink(place!)).not.toContain('lat=')
   })
 })

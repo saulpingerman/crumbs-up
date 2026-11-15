@@ -7,6 +7,7 @@ import { CookieRow } from '@/components/CookieRow'
 import { Card, SectionTitle } from '@/components/Page'
 import { bakeryPlaces } from '@/lib/bakery-places'
 import { cn } from '@/lib/cn'
+import { ZoomableSvg } from '@/components/ZoomableSvg'
 import { rankCookies, sameCookie } from '@/lib/community'
 import { plural } from '@/lib/format'
 import { worldBounds } from '@/lib/geo'
@@ -80,10 +81,9 @@ export function StatesView({ cookies }: Props) {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
         <Card className="p-3 sm:p-5">
           <div ref={frame} className="relative">
-            <svg
+            <ZoomableSvg
               viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-              role="group"
-              aria-label="Map of the United States shaded by average cookie score"
+              label="Map of the United States shaded by average cookie score"
               className="w-full"
               onPointerLeave={() => setHover(null)}
             >
@@ -144,7 +144,7 @@ export function StatesView({ cookies }: Props) {
                   pointerEvents="none"
                 />
               ))}
-            </svg>
+            </ZoomableSvg>
             {hover && (
               <div
                 role="status"
