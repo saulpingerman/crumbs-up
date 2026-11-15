@@ -242,3 +242,26 @@ test('a link to the site comes with a picture and a line about it', async ({ pag
   expect(picture.ok()).toBe(true)
   expect(picture.headers()['content-type']).toContain('image/jpeg')
 })
+
+test('opened as plain http, the site moves itself to https first', async ({ page, request }) => {
+  // On a page that isn't secure the browser switches off what saving and
+  // the cookie finder are built on, so the page mustn't stay there.
+  const html = await (await request.get('/')).text()
+  const asked: string[] = []
+  await page.route('**/*', async (route) => {
+    const url = route.request().url()
+    if (!url.includes('crumbs-up.example')) return route.abort()
+    if (route.request().isNavigationRequest()) asked.push(url)
+    return route.fulfill({
+      contentType: 'text/html',
+      body: url.startsWith('https:') ? '<p>secure</p>' : html,
+    })
+  })
+  await page.goto('http://crumbs-up.example/rate?from=link#top').catch(() => {})
+  await expect(page.getByText('secure')).toBeVisible()
+  expect(page.url()).toBe('https://crumbs-up.example/rate?from=link#top')
+  expect(asked).toEqual([
+    'http://crumbs-up.example/rate?from=link',
+    'https://crumbs-up.example/rate?from=link',
+  ])
+})

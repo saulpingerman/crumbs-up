@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { addSampleCookies } from '@/lib/samples'
-import { deleteCookie, deleteEverything, deleteSampleCookies, saveCookie } from './cookies'
+import { deleteCookie, deleteEverything, deleteSampleCookies, newId, saveCookie } from './cookies'
 import type { SaveCookieInput } from './cookies'
 import { db } from './db'
 
@@ -57,5 +57,25 @@ describe('saving cookies', () => {
     expect((await db.outbox.toArray()).map((entry) => [entry.id, entry.op])).toEqual([
       [saved.id, 'delete'],
     ])
+  })
+})
+
+describe('a new cookie’s id', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const shape = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+  it('is a random UUID', () => {
+    expect(newId()).toMatch(shape)
+    expect(newId()).not.toBe(newId())
+  })
+
+  it('is still made on a page that isn’t secure, where randomUUID doesn’t exist', () => {
+    // Plain http: the browser leaves randomUUID out but keeps getRandomValues.
+    const real = globalThis.crypto
+    vi.stubGlobal('crypto', { getRandomValues: real.getRandomValues.bind(real) })
+    const ids = new Set(Array.from({ length: 200 }, () => newId()))
+    expect(ids.size).toBe(200)
+    for (const id of ids) expect(id).toMatch(shape)
   })
 })
