@@ -14,6 +14,7 @@ import { useSettings } from '@/lib/settings'
 import { loadPlaces, type PlaceIndex } from '@/lib/places'
 import { newTowns } from '@/lib/towns'
 import { useCookies } from '@/lib/use-cookies'
+import { DiscoverTabs } from '../community/DiscoverTabs'
 import { OpenInMaps } from '../map/OpenInMaps'
 
 /** Why a kind was suggested, in a sentence. */
@@ -44,7 +45,11 @@ export function DiscoverPage() {
   )
 
   return (
-    <Page title="Discover" lede="What to try next, worked out from your own ratings.">
+    <Page
+      title="Discover"
+      lede="What to try next, worked out from your own ratings."
+      action={<DiscoverTabs />}
+    >
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
         <Card className="lg:col-span-2">
           <SectionTitle>

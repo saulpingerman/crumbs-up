@@ -40,12 +40,10 @@ export function PrivacyPage() {
           <p>
             Your cookie journal lives on your own device.
             {cloudConfigured &&
-              ' If you sign in, a copy is kept in your account so it can follow you between your phone and your computer. That is all it is used for.'}
+              ' If you sign in, a copy is kept in your account so it can follow you between your phone and your computer. Your scores are also counted, without your name, in the app’s Top rated lists, unless you switch that off.'}
           </p>
           <p>
-            <strong>
-              There are no ads, no tracking, and nothing is sold or shared with anyone.
-            </strong>
+            <strong>There are no ads, no tracking, and nothing is sold.</strong>
           </p>
         </Section>
 
@@ -78,6 +76,15 @@ export function PrivacyPage() {
               <p>
                 Accounts are hosted by Supabase, on servers in the United States. Your journal is
                 private to your account: nobody else using the app can see it.
+              </p>
+              <p>
+                <strong>Top rated.</strong> What other people can see is the Top rated lists, which
+                add everyone’s scores together: for each cookie at each bakery, the town it is in,
+                how many people rated it, and their average scores. Your scores are part of those
+                totals while you are signed in, unless you switch it off in Settings → Account. The
+                totals never include your name or email, your notes, your photos, or when you rated
+                something. Where only one person has rated a cookie, its total is that person’s
+                scores — still with nothing to say whose they are.
               </p>
             </>
           )}
@@ -135,6 +142,12 @@ export function PrivacyPage() {
               <strong>Take a copy.</strong> Settings → Back up journal saves everything, photos
               included, as a file you keep.
             </li>
+            {cloudConfigured && (
+              <li>
+                <strong>Stay out of Top rated.</strong> Settings → Account → Count my ratings in Top
+                rated. Switched off, your scores are left out of every total.
+              </li>
+            )}
             {cloudConfigured && (
               <li>
                 <strong>Sign out</strong> and, if you like, remove the journal from that device.

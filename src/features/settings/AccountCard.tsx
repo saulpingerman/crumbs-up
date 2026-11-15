@@ -314,6 +314,70 @@ function NewPassword() {
   )
 }
 
+/**
+ * Whether this person's scores go into Top rated. Shown only where the
+ * project has been set up to add ratings up at all.
+ */
+function CountMe() {
+  const [counted, setCounted] = useState<boolean | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    void import('@/lib/cloud/community')
+      .then(({ isCounted }) => isCounted())
+      .then(
+        (answer) => {
+          if (!cancelled) setCounted(answer)
+        },
+        () => {},
+      )
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  if (counted === null) return null
+
+  async function choose(next: boolean) {
+    setCounted(next)
+    try {
+      const community = await import('@/lib/cloud/community')
+      await community.setCounted(next)
+    } catch {
+      setCounted(!next)
+      toast.error('Couldn’t change that just now')
+    }
+  }
+
+  return (
+    <div className="mt-4 flex items-start justify-between gap-4 border-t border-line/70 pt-4">
+      <div className="min-w-0">
+        <p className="font-semibold">Count my ratings in Top rated</p>
+        <p className="text-sm text-ink-soft">
+          Your scores, without your name. Never your notes or photos.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={counted}
+        aria-label="Count my ratings in Top rated"
+        onClick={() => void choose(!counted)}
+        className={cn(
+          'relative mt-0.5 h-8 w-14 shrink-0 rounded-full transition-colors',
+          counted ? 'bg-crust' : 'bg-line',
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            'absolute top-1 left-1 size-6 rounded-full bg-white shadow-card transition-transform',
+            counted && 'translate-x-6',
+          )}
+        />
+      </button>
+    </div>
+  )
+}
+
 function SignedIn({ email }: { email: string }) {
   const status = useSyncStatus()
   const [leaving, setLeaving] = useState(false)
@@ -481,6 +545,8 @@ function SignedIn({ email }: { email: string }) {
           </div>
         </>
       )}
+
+      <CountMe />
 
       <button
         type="button"

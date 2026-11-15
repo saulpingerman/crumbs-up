@@ -207,3 +207,12 @@ test('the welcome cookie can be nibbled, and the + button asks to be pressed', a
   await addSamples(page)
   await expect(page.getByTestId('beckon')).toHaveCount(0)
 })
+
+test('a copy of the app without accounts has no Top rated to offer', async ({ page }) => {
+  // Top rated adds up everyone's ratings; with no accounts there is no everyone.
+  await page.goto('/discover')
+  await expect(page.getByRole('heading', { name: 'Discover' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Top rated' })).toHaveCount(0)
+  await page.goto('/top')
+  await expect(page.getByText('Top rated isn’t switched on yet')).toBeVisible()
+})
