@@ -220,3 +220,19 @@ test('a copy of the app without accounts has no Top rated to offer', async ({ pa
   await page.goto('/top')
   await expect(page.getByText('Top rated isn’t switched on yet')).toBeVisible()
 })
+
+test('a link to the site comes with a picture and a line about it', async ({ page, request }) => {
+  await page.goto('/')
+  // Messaging apps only follow a full address, and they fetch it from the
+  // live site — so check the address, then that this build ships the file.
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+    'content',
+    'https://crumbs-up.com/share.jpg',
+  )
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /Crumbs Up/)
+  await expect(page.locator('meta[property="og:description"]')).toHaveAttribute('content', /.{20,}/)
+
+  const picture = await request.get('/share.jpg')
+  expect(picture.ok()).toBe(true)
+  expect(picture.headers()['content-type']).toContain('image/jpeg')
+})
