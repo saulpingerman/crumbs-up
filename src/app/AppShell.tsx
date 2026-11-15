@@ -1,22 +1,24 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
-import { NavLink, Outlet, useNavigation } from 'react-router'
+import { NavLink, Outlet, useLocation, useNavigation } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { Wordmark } from '@/components/Logo'
 import { cn } from '@/lib/cn'
 import { db } from '@/lib/db/db'
 
 const TABS = [
-  { to: '/', label: 'Journal', icon: BookOpen, end: true },
-  { to: '/map', label: 'Map', icon: MapIcon, end: false },
-  { to: '/discover', label: 'Discover', icon: Compass, end: false },
-  { to: '/insights', label: 'Insights', icon: BarChart3, end: false },
+  { to: '/', label: 'Journal', icon: BookOpen, end: true, also: '' },
+  { to: '/map', label: 'Map', icon: MapIcon, end: false, also: '' },
+  // Top rated is the other half of Discover, so it keeps this tab lit.
+  { to: '/discover', label: 'Discover', icon: Compass, end: false, also: '/top' },
+  { to: '/insights', label: 'Insights', icon: BarChart3, end: false, also: '' },
 ] as const
 
 export function AppShell() {
   // Each tab's code is fetched the first time it is opened. On a slow
   // connection that takes a moment, and something should be seen to happen.
   const loading = useNavigation().state === 'loading'
+  const { pathname } = useLocation()
   // With nothing in the journal yet, the + button quietly asks to be pressed.
   const beckon = useLiveQuery(() => db.cookies.count()) === 0
   return (
@@ -52,7 +54,9 @@ export function AppShell() {
                 className={({ isActive }) =>
                   cn(
                     'rounded-full px-4 py-2 text-[15px] font-semibold transition',
-                    isActive ? 'bg-oat text-ink' : 'text-ink-soft hover:text-ink',
+                    isActive || (t.also && pathname.startsWith(t.also))
+                      ? 'bg-oat text-ink'
+                      : 'text-ink-soft hover:text-ink',
                   )
                 }
               >
@@ -132,7 +136,9 @@ function SettingsLink() {
   )
 }
 
-function Tab({ to, label, icon: Icon, end }: (typeof TABS)[number]) {
+function Tab({ to, label, icon: Icon, end, also }: (typeof TABS)[number]) {
+  const { pathname } = useLocation()
+  const alsoHere = Boolean(also) && pathname.startsWith(also)
   return (
     <NavLink
       to={to}
@@ -140,7 +146,7 @@ function Tab({ to, label, icon: Icon, end }: (typeof TABS)[number]) {
       className={({ isActive, isPending }) =>
         cn(
           'flex flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition',
-          isActive || isPending ? 'text-ink' : 'text-ink-faint',
+          isActive || isPending || alsoHere ? 'text-ink' : 'text-ink-faint',
         )
       }
     >
@@ -150,10 +156,13 @@ function Tab({ to, label, icon: Icon, end }: (typeof TABS)[number]) {
           <span
             className={cn(
               'flex h-7 w-12 items-center justify-center rounded-full transition',
-              (isActive || isPending) && 'bg-oat',
+              (isActive || isPending || alsoHere) && 'bg-oat',
             )}
           >
-            <Icon className="size-[22px]" strokeWidth={isActive || isPending ? 2.3 : 1.9} />
+            <Icon
+              className="size-[22px]"
+              strokeWidth={isActive || isPending || alsoHere ? 2.3 : 1.9}
+            />
           </span>
           {label}
         </>

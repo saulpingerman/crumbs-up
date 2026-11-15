@@ -492,3 +492,74 @@ test('Google’s own sign-in box hands its token to the account service', async 
   await expect(box.getByRole('button')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
 })
+
+test('Top rated adds up what people have rated, and anyone can leave it', async ({ browser }) => {
+  const email = `cookie-${crypto.randomUUID()}@example.com`
+  // A town nobody else has rated in, so this test's cookie is easy to find
+  // among whatever else the database holds.
+  const tag = crypto.randomUUID().slice(0, 8)
+  const town = `Testville ${tag}`
+  const rater = await openDevice(browser)
+  /** Never signs in. */
+  const visitor = await openDevice(browser)
+
+  await rater.goto('/rate')
+  await fillDetails(rater, {
+    type: 'Ginger Molasses',
+    bakery: `Totals ${tag}`,
+    state: 'OR',
+    city: town,
+  })
+  await rater.getByRole('button', { name: /Already scored it/ }).click()
+  for (let i = 0; i < 4; i++) await rater.getByRole('button', { name: 'Raise Taste' }).click()
+  await rater.getByRole('button', { name: 'Save to journal' }).click()
+  await expect(rater.getByText('These scores were entered by hand')).toBeVisible()
+  await signIn(rater, email, 'Create account')
+
+  // It is one of two halves of Discover, and needs no account to read.
+  await visitor.goto('/discover')
+  await visitor.getByRole('link', { name: 'Top rated' }).click()
+  await expect(visitor.getByRole('heading', { name: 'Top rated' })).toBeVisible()
+  await visitor.getByRole('combobox', { name: 'Town' }).selectOption({ label: `${town}, OR` })
+  const row = visitor.getByRole('listitem').filter({ hasText: 'Ginger Molasses' })
+  await expect(row).toContainText(`Totals ${tag}`)
+  await expect(row).toContainText('1 person')
+  // Taste 7, texture 5, appearance 5: an average of 5.7.
+  await expect(row.getByRole('img', { name: 'Average score 5.7 out of 10' })).toBeVisible()
+  await expect(row.getByRole('link', { name: 'Rate it' })).toBeVisible()
+
+  // The same cookie ranked as a bakery and as a kind of cookie.
+  await visitor.getByRole('radio', { name: 'Bakeries' }).click()
+  await expect(visitor.getByRole('listitem').filter({ hasText: `Totals ${tag}` })).toContainText(
+    '1 rating',
+  )
+  await visitor.getByRole('radio', { name: 'Types' }).click()
+  await expect(visitor.getByRole('listitem').filter({ hasText: 'Ginger Molasses' })).toBeVisible()
+
+  // The person who rated it sees their own score against it.
+  await rater.goto('/top')
+  await rater.getByRole('combobox', { name: 'Town' }).selectOption({ label: `${town}, OR` })
+  await expect(rater.getByRole('link', { name: 'You gave it 5.5' })).toBeVisible()
+
+  // They can take their ratings out of the totals…
+  await rater.goto('/settings')
+  const counted = rater.getByRole('switch', { name: 'Count my ratings in Top rated' })
+  await expect(counted).toBeChecked()
+  await counted.click()
+  await expect(counted).not.toBeChecked()
+
+  // …and the next time anyone looks, they are gone.
+  await expect(async () => {
+    await visitor.goto('/top')
+    await expect(visitor.getByRole('heading', { name: 'Top rated' })).toBeVisible()
+    await expect(
+      visitor.getByRole('combobox', { name: 'Town' }).getByRole('option', { name: `${town}, OR` }),
+    ).toHaveCount(0)
+  }).toPass({ timeout: 20_000 })
+
+  // The choice is remembered, and can be undone.
+  await rater.reload()
+  await expect(counted).not.toBeChecked()
+  await counted.click()
+  await expect(counted).toBeChecked()
+})
