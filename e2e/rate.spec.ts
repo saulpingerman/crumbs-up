@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { addSamples, answer, categoryScore, fillDetails, withoutCutout } from './helpers'
+import { addSamples, answer, fillDetails, withoutCutout } from './helpers'
 
 test('rates a cookie from photo to journal', async ({ page }) => {
   await withoutCutout(page)
