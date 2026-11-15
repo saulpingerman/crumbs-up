@@ -1,13 +1,11 @@
 import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router'
 import { Card, Page, SectionTitle } from '@/components/Page'
-import { categoryBg, categoryText } from '@/components/category-styles'
+import { categoryText } from '@/components/category-styles'
 import { cn } from '@/lib/cn'
 import {
-  ANCHORS,
   CATEGORY_META,
-  MAX_FLAW_PENALTY,
-  QUESTIONS,
+  QUICK_QUESTIONS,
   TASTING_ORDER,
   TIERS,
   WEIGHT_PRESETS,
@@ -16,11 +14,9 @@ import {
 } from '@/lib/rubric'
 import { useSettings } from '@/lib/settings'
 
-const RUNG_NAMES = ['Bad', 'Below average', 'Average', 'Better', 'Excellent', 'Best ever']
-
 /**
  * Everything on this page is generated from the rubric itself, so it can
- * never drift from what the questionnaire actually does.
+ * never drift from what the rating screens actually ask.
  */
 export function GuidePage() {
   const { weightPreset } = useSettings()
@@ -28,7 +24,7 @@ export function GuidePage() {
     <Page
       title="How the scoring works"
       kicker="The rule book"
-      lede="Worded questions, one fixed reference point, and no mystery math."
+      lede="A number for each, words for every number, and no mystery math."
       className="max-w-2xl"
       action={
         <Link
@@ -70,77 +66,17 @@ export function GuidePage() {
         </Card>
 
         <Card>
-          <SectionTitle>Look, bite, savor</SectionTitle>
+          <SectionTitle>A number for each</SectionTitle>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            The questions follow the order you actually meet a cookie: how it looks before you touch
-            it, how it eats, then how it tastes. In a full tasting each category asks five scored
-            questions and then checks for flaws. Heavier bars count for more.
-          </p>
-          <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            Most cookies get a <strong className="font-semibold text-ink">quick review</strong>: a
-            number from 1 to 10 for each of the three, with words for every number so a 7 means the
-            same thing each time. You can fine-tune by half points on the verdict, or pick the full
-            tasting before you start.
+            Rate how it looks, then its texture, then its taste: the order you meet a cookie. Each
+            gets a number from 1 to 10, and every number comes with words, so a 7 means the same
+            thing each time. On the verdict, − and + fine-tune a score by half a point.
           </p>
           <div className="mt-4 space-y-5">
             {TASTING_ORDER.map((category) => (
-              <CategoryQuestions key={category} category={category} />
+              <CategoryNumbers key={category} category={category} />
             ))}
           </div>
-        </Card>
-
-        <Card>
-          <SectionTitle>From answers to a score</SectionTitle>
-          <ol className="mt-3 space-y-4 text-[15px] leading-relaxed text-ink-soft">
-            <li>
-              <strong className="font-semibold text-ink">Every answer sits on a rung.</strong> The
-              choices are worded, never numbered, so you describe the cookie instead of grading it.
-              Behind the words, each rung carries a value:
-              <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-                {ANCHORS.map((value, i) => (
-                  <li
-                    key={value}
-                    className={cn(
-                      'rounded-xl px-2 py-2 text-center',
-                      i === 2 ? 'bg-texture-soft' : 'bg-oat',
-                    )}
-                  >
-                    <span className="numerals block text-xl font-semibold text-ink">
-                      {formatScore(value)}
-                    </span>
-                    <span className="block text-[11px] leading-tight font-medium">
-                      {RUNG_NAMES[i]}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <span className="mt-2 block text-sm">
-                There are three rungs above average and two below, because bakery cookies mostly
-                live above the line, and that’s where the detail is needed.
-              </span>
-            </li>
-            <li>
-              <strong className="font-semibold text-ink">
-                The category score is their weighted average.
-              </strong>{' '}
-              A question marked “doesn’t apply” (mix-ins on a plain shortbread, say) is left out
-              rather than counted as average.
-            </li>
-            <li>
-              <strong className="font-semibold text-ink">Flaws cost points.</strong> Each flaw you
-              flag takes off half a point or a full point, up to {formatScore(MAX_FLAW_PENALTY)} per
-              category.
-            </li>
-            <li>
-              <strong className="font-semibold text-ink">It’s rounded to the half point</strong>,
-              and kept between 1 and 10. A 10 takes the top answer on every question, so it stays
-              rare.
-            </li>
-            <li>
-              <strong className="font-semibold text-ink">You get the last word.</strong> The result
-              is a suggestion. Nudge it up or down and the journal remembers both numbers.
-            </li>
-          </ol>
         </Card>
 
         <Card>
@@ -179,39 +115,27 @@ export function GuidePage() {
   )
 }
 
-function CategoryQuestions({ category }: { category: Category }) {
+function CategoryNumbers({ category }: { category: Category }) {
   const meta = CATEGORY_META[category]
-  const scored = QUESTIONS[category].filter((q) => q.kind === 'scale')
-  const flaws = QUESTIONS[category].find((q) => q.kind === 'flaws')
-  const heaviest = Math.max(...scored.map((q) => q.weight))
-  const total = scored.reduce((sum, q) => sum + q.weight, 0)
-
+  const numbers = QUICK_QUESTIONS[category].options
+    .filter((o) => !o.retired && o.score !== null)
+    .reverse()
   return (
     <section>
       <h3 className={cn('text-xs font-bold tracking-[0.14em] uppercase', categoryText[category])}>
         {meta.verb} · {meta.label}
       </h3>
-      <ul className="mt-2 space-y-2">
-        {scored.map((q) => (
-          <li key={q.id} className="flex items-center gap-3">
-            <span className="w-36 shrink-0 text-[15px] font-semibold sm:w-44">{q.title}</span>
-            <span className="h-2 flex-1 rounded-full bg-oat">
-              <span
-                className={cn('block h-full rounded-full', categoryBg[category])}
-                style={{ width: `${(q.weight / heaviest) * 100}%` }}
-              />
-            </span>
-            <span className="w-9 shrink-0 text-right text-sm text-ink-soft tabular-nums">
-              {Math.round((q.weight / total) * 100)}%
+      <ol className="mt-2 divide-y divide-line/70">
+        {numbers.map((option) => (
+          <li key={option.id} className="flex items-baseline gap-3 py-1.5">
+            <span className="numerals w-6 shrink-0 text-right font-semibold">{option.score}</span>
+            <span className="min-w-0 text-[15px]">
+              <span className="font-semibold">{option.label}</span>
+              <span className="text-ink-soft"> · {option.detail}</span>
             </span>
           </li>
         ))}
-      </ul>
-      {flaws?.kind === 'flaws' && (
-        <p className="mt-2 text-sm text-ink-soft">
-          Flaws checked: {flaws.flaws.map((f) => f.label.toLowerCase()).join(', ')}.
-        </p>
-      )}
+      </ol>
     </section>
   )
 }

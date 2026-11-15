@@ -49,13 +49,9 @@ interface Props {
   onManual: (scores: Scores | null) => void
   /** Move one score away from what the answers suggested, by this much. */
   onNudge: (category: Category, value: number) => void
-  /** Jump back to a category's result screen to adjust it. */
-  onAdjust: (category: Category) => void
   /** Go and change the name, bakery, date, price or photo. */
   onDetails: () => void
   onGuided: () => void
-  /** Leave the quick review for the full tasting. */
-  onFull: () => void
   onSave: () => void
 }
 
@@ -66,16 +62,13 @@ export function SummaryStep({
   onNotes,
   onManual,
   onNudge,
-  onAdjust,
   onDetails,
   onGuided,
-  onFull,
   onSave,
 }: Props) {
   const id = useId()
   const settings = useSettings()
   const { suggested, scores } = draftScores(draft)
-  const quick = draft.quick && !draft.manual
   const weights = weightsFor(settings)
   const overall = overallScore(scores, weights, settings.overallPrecision)
   const tier = tierFor(overall)
@@ -150,48 +143,25 @@ export function SummaryStep({
               value={draft.manual[category]}
               onChange={(value) => onManual({ ...draft.manual!, [category]: value })}
             />
-          ) : quick ? (
-            // One answer only gets within a point or so. The steppers are
-            // for landing on the exact half point.
+          ) : (
+            // A whole number gets within half a point. The steppers are for
+            // landing on the exact half point.
             <ManualRow
               key={category}
               category={category}
               value={scores[category]}
               onChange={(value) => onNudge(category, value - suggested[category])}
             />
-          ) : (
-            <button
-              key={category}
-              type="button"
-              onClick={() => onAdjust(category)}
-              aria-label={`${CATEGORY_META[category].label} ${formatScore(scores[category])}, adjust`}
-              className="block w-full rounded-xl text-left transition active:scale-[0.99]"
-            >
-              <ScoreBar category={category} score={scores[category]} />
-            </button>
           ),
         )}
         <p className="border-t border-line/70 pt-3 text-xs leading-relaxed text-ink-faint">
           Overall: {WEIGHT_PRESETS[settings.weightPreset].label.toLowerCase()}.{' '}
-          {quick
-            ? 'Use − and + to fine-tune a score. '
-            : !draft.manual && 'Tap a score to revisit it. '}
+          {!draft.manual && 'Use − and + to fine-tune a score. '}
           <Link to="/settings" className="font-semibold underline">
             Change the weighting
           </Link>
         </p>
       </section>
-
-      {quick && (
-        <button
-          type="button"
-          onClick={onFull}
-          className="mx-auto mt-4 flex items-center gap-1.5 text-sm font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline"
-        >
-          <ListChecks className="size-4" />
-          Want the detail? Do the full tasting
-        </button>
-      )}
 
       {draft.manual && (
         <button
@@ -200,7 +170,7 @@ export function SummaryStep({
           className="mx-auto mt-4 flex items-center gap-1.5 text-sm font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline"
         >
           <ListChecks className="size-4" />
-          Let the questions score it instead
+          Pick a number for each instead
         </button>
       )}
 

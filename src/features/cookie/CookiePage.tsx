@@ -19,6 +19,7 @@ import { NotFound } from '@/app/Errors'
 import { Button, ButtonLink, IconButton } from '@/components/Button'
 import { CookiePhoto } from '@/components/CookiePhoto'
 import { CookieRow } from '@/components/CookieRow'
+import { Rungs } from '@/components/Rungs'
 import { fromSamePlace, rateHereLink } from '@/lib/bakery-places'
 import { Medallion, ScoreBar } from '@/components/Score'
 import { categoryText } from '@/components/category-styles'
@@ -48,7 +49,6 @@ import { useCookie, useCookies } from '@/lib/use-cookies'
 import { useCountUp } from '@/lib/use-count-up'
 import { forgetPhoto, useCookieImage } from '@/lib/use-photo'
 import { useTitle } from '@/lib/use-title'
-import { Rungs } from '../rate/ResultStep'
 import { ShareCard, SHARE_HEIGHT, SHARE_WIDTH } from './ShareCard'
 
 export function CookiePage() {
@@ -324,10 +324,7 @@ function Breakdown({ cookie }: { cookie: RatedCookie }) {
       <h2 className="font-display text-xl font-semibold">How it earned its scores</h2>
       {quick ? (
         <>
-          <p className="mt-1.5 text-sm text-ink-soft">
-            A quick review: one number for each. Choose{' '}
-            <strong className="font-semibold text-ink">Edit</strong> to do the full tasting.
-          </p>
+          <p className="mt-1.5 text-sm text-ink-soft">A number for each.</p>
           <div className="mt-3 space-y-2">
             {TASTING_ORDER.map((category) => (
               <CategoryBreakdown key={category} category={category} cookie={cookie} quick />
@@ -336,9 +333,9 @@ function Breakdown({ cookie }: { cookie: RatedCookie }) {
         </>
       ) : !hasAnswers ? (
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-          These scores were entered by hand, so there are no questionnaire answers behind them.
-          Choose <strong className="font-semibold text-ink">Edit</strong> to run the questions for
-          this cookie.
+          These scores were entered by hand. Choose{' '}
+          <strong className="font-semibold text-ink">Edit</strong> to pick a number for each
+          instead.
         </p>
       ) : (
         <>

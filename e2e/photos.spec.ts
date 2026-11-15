@@ -155,7 +155,7 @@ test('a rating saved before the cut-out arrives still gets it', async ({ page })
     photo: true,
   })
   // Three taps and a save: quicker than the cookie finder.
-  await page.getByRole('button', { name: 'Start tasting' }).click()
+  await page.getByRole('button', { name: 'Start rating' }).click()
   await answer(page, 'How did it look?', /^6 /)
   await answer(page, 'How was the texture?', /^8 /)
   await answer(page, 'How did it taste?', /^8 /)

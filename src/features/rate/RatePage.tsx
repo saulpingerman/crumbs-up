@@ -12,22 +12,13 @@ import { pendingCutout } from '@/lib/cutout/pending'
 import { saveCookie, type SaveCookieInput } from '@/lib/db/cookies'
 import type { CookieDetails, CookieRecord, ProcessedPhoto } from '@/lib/db/schema'
 import { db, requestPersistentStorage } from '@/lib/db/db'
-import {
-  CATEGORY_META,
-  TASTING_ORDER,
-  TEXTURE_STYLE_QUESTION_ID,
-  answersFor,
-  getQuestion,
-  type Category,
-  type Scores,
-} from '@/lib/rubric'
+import { CATEGORY_META, TASTING_ORDER, answersFor, type Scores } from '@/lib/rubric'
 import { getSettings, updateSettings } from '@/lib/settings'
 import { isKnownStateCode } from '@/lib/states'
 import { forgetPhoto, photoArrived } from '@/lib/use-photo'
 import { useTitle } from '@/lib/use-title'
 import { DetailsStep } from './DetailsStep'
-import { ChoiceStep, FlawStep } from './QuestionStep'
-import { ResultStep } from './ResultStep'
+import { ChoiceStep } from './QuestionStep'
 import { categoryProgress, furthestStep, stepsFor, type Step } from './steps'
 import { SummaryStep } from './SummaryStep'
 import { draftScores, hasContent, useDraft } from './useDraft'
@@ -180,7 +171,7 @@ export function RatePage() {
         // its page and a later edit tell a quick review from a full tasting.
         // A hand-scored cookie keeps any full-tasting answers too, so going
         // back to the questions later picks up where they were left.
-        answers: answersFor(draft.answers, draft.quick && !draft.manual ? 'quick' : 'full'),
+        answers: answersFor(draft.answers, draft.manual ? 'full' : 'quick'),
         suggested,
         scores,
         photo: draft.photo,
@@ -240,9 +231,6 @@ export function RatePage() {
     return <Navigate to={{ search: searchFor(index) }} replace state={{ depth }} />
   }
 
-  const resultIndex = (category: Category) =>
-    steps.findIndex((s) => s.kind === 'result' && s.category === category)
-
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
       <header className="pt-safe sticky top-0 z-20 bg-cream/92 backdrop-blur-lg">
@@ -255,12 +243,7 @@ export function RatePage() {
           >
             <ArrowLeft className="size-5" />
           </IconButton>
-          <Progress
-            step={step}
-            manual={Boolean(draft.manual)}
-            quick={draft.quick}
-            answers={draft.answers}
-          />
+          <Progress step={step} manual={Boolean(draft.manual)} answers={draft.answers} />
           <IconButton label="Close" onClick={close} disabled={saving}>
             <X className="size-5" />
           </IconButton>
@@ -280,21 +263,12 @@ export function RatePage() {
           api={api}
           editId={editId}
           saving={saving}
-          isLastCategory={(category) => TASTING_ORDER.at(-1) === category}
           onNext={() => go(index + 1)}
           onAutoNext={() => {
             clearTimeout(advance.current)
             advance.current = setTimeout(() => go(index + 1), ADVANCE_DELAY)
           }}
           onResume={() => go(furthest)}
-          fromVerdict={fromVerdict}
-          onBackToVerdict={back}
-          onAdjust={(category) =>
-            void navigate(
-              { search: searchFor(resultIndex(category)) },
-              { state: { depth: depth + 1, fromVerdict: true } },
-            )
-          }
           onDetails={() =>
             void navigate(
               { search: searchFor(0) },
@@ -315,15 +289,6 @@ export function RatePage() {
             // Replace, so "back" doesn't land on a quick-entry screen that no
             // longer exists.
             go(1, 'replace')
-          }}
-          onFull={() => {
-            api.setQuick(false)
-            // The quick questions each left a history entry behind. Unwind to
-            // the first of them, which now shows the full tasting's first
-            // question, so "back" from there lands on the details instead of
-            // stepping through screens that no longer exist.
-            if (depth > 1) void navigate(-(depth - 1))
-            else go(1, 'replace')
           }}
           onSave={() => void save()}
         />
@@ -348,18 +313,13 @@ interface StepViewProps {
   api: ReturnType<typeof useDraft>
   editId: string | null
   saving: boolean
-  isLastCategory: (category: Category) => boolean
   onNext: () => void
   onAutoNext: () => void
   onResume: () => void
-  fromVerdict: boolean
-  onBackToVerdict: () => void
-  onAdjust: (category: Category) => void
   onDetails: () => void
   toVerdict: boolean
   onManual: () => void
   onGuided: () => void
-  onFull: () => void
   onSave: () => void
 }
 
@@ -368,18 +328,13 @@ function StepView({
   api,
   editId,
   saving,
-  isLastCategory,
   onNext,
   onAutoNext,
   onResume,
-  fromVerdict,
-  onBackToVerdict,
-  onAdjust,
   onDetails,
   toVerdict,
   onManual,
   onGuided,
-  onFull,
   onSave,
 }: StepViewProps) {
   const { draft } = api
@@ -400,56 +355,19 @@ function StepView({
 
     case 'question': {
       const { question } = step
-      if (question.kind === 'flaws') {
-        const value = draft.answers[question.id]
-        return (
-          <FlawStep
-            question={question}
-            index={step.index}
-            count={step.count}
-            value={Array.isArray(value) ? value : []}
-            onChange={(ids) => api.setAnswer(question.id, ids)}
-            onContinue={() => {
-              // "No flaws" is recorded too, so this step counts as seen.
-              if (!Array.isArray(value)) api.setAnswer(question.id, [])
-              onNext()
-            }}
-          />
-        )
-      }
       const value = draft.answers[question.id]
+      if (question.kind !== 'scale') return null
       return (
         <ChoiceStep
           question={question}
           index={step.index}
           count={step.count}
           value={typeof value === 'string' ? value : undefined}
-          styleName={question.id === 'bite.type' ? textureStyleName(draft.answers) : undefined}
           onChoose={(optionId) => {
             api.setAnswer(question.id, optionId)
             onAutoNext()
           }}
           onNext={onNext}
-        />
-      )
-    }
-
-    case 'result': {
-      const next = TASTING_ORDER[TASTING_ORDER.indexOf(step.category) + 1]
-      return (
-        <ResultStep
-          category={step.category}
-          answers={draft.answers}
-          nudge={draft.nudges[step.category]}
-          onNudge={(value) => api.setNudge(step.category, value)}
-          nextLabel={
-            fromVerdict
-              ? 'Back to the verdict'
-              : isLastCategory(step.category) || !next
-                ? 'See the verdict'
-                : `Next: ${CATEGORY_META[next].label.toLowerCase()}`
-          }
-          onContinue={fromVerdict ? onBackToVerdict : onNext}
         />
       )
     }
@@ -463,44 +381,31 @@ function StepView({
           onNotes={api.setNotes}
           onManual={api.setManual}
           onNudge={api.setNudge}
-          onAdjust={onAdjust}
           onDetails={onDetails}
           onGuided={onGuided}
-          onFull={onFull}
           onSave={onSave}
         />
       )
   }
 }
 
-/** "“chewy”" — the picked texture style, quoted for use in a prompt. */
-function textureStyleName(answers: Record<string, string | string[]>): string | undefined {
-  const question = getQuestion(TEXTURE_STYLE_QUESTION_ID)
-  const picked = answers[TEXTURE_STYLE_QUESTION_ID]
-  if (!question || question.kind !== 'context' || typeof picked !== 'string') return undefined
-  const option = question.options.find((o) => o.id === picked)
-  return option ? `“${option.label.toLowerCase()}”` : undefined
-}
-
 function Progress({
   step,
   manual,
-  quick,
   answers,
 }: {
   step: Step
   manual: boolean
-  quick: boolean
   answers: Record<string, string | string[]>
 }) {
   if (manual) {
     return <p className="flex-1 text-center text-sm font-semibold text-ink-soft">Your own scores</p>
   }
-  const active = step.kind === 'question' || step.kind === 'result' ? step.category : null
+  const active = step.kind === 'question' ? step.category : null
   return (
     <ol aria-label="Progress" className="flex flex-1 items-start gap-1.5 px-1 pt-1">
       {TASTING_ORDER.map((category) => {
-        const done = step.kind === 'summary' ? 1 : categoryProgress(category, answers, quick)
+        const done = step.kind === 'summary' ? 1 : categoryProgress(category, answers)
         return (
           <li
             key={category}
