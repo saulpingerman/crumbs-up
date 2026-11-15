@@ -243,7 +243,7 @@ without an account. Signing in adds a copy in your account and keeps the two in 
    next. Together they create the one table, the private photo storage, the rules that keep each
    person's journal to themselves, the means for someone to delete their own account, and the
    totals behind **Top rated** (everyone's scores added up per cookie, with nothing in them to
-   say whose they were, and a way for anyone to be left out). Every file is safe to run twice.
+   say whose they were). Every file is safe to run twice.
 3. Under **Authentication → URL Configuration**, set the **Site URL** to where the app lives
    (for example `https://<user>.github.io/<repo>/`) and add that address followed by `**` to the
    **Redirect URLs**, plus `http://localhost:5173/**` for development.

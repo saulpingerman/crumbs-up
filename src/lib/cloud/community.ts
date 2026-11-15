@@ -1,6 +1,6 @@
 /**
- * Fetching the Top rated totals, and each person's choice about being
- * counted in them. The totals are public: no sign-in is needed to read them.
+ * Fetching the Top rated totals: what everyone who is signed in has scored,
+ * added up. They are public: no sign-in is needed to read them.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fromRows, type CommunityCookie } from '@/lib/community'
@@ -41,41 +41,4 @@ export async function fetchCommunity(force = false): Promise<CommunityCookie[]> 
 /** Forget what was fetched, so the next look is a fresh one. */
 export function forgetCommunity(): void {
   cache = null
-}
-
-/**
- * Whether the signed-in person's ratings are counted. `null` when it can't
- * be told — the project hasn't been set up for it — and there is no choice
- * to offer.
- */
-export async function readCounted(client: SupabaseClient): Promise<boolean | null> {
-  const { data, error } = await client.from('community_optouts').select('user_id').limit(1)
-  if (error) return null
-  return data.length === 0
-}
-
-/** Join or leave the totals. Takes effect the next time they are added up. */
-export async function writeCounted(
-  client: SupabaseClient,
-  userId: string,
-  counted: boolean,
-): Promise<void> {
-  const { error } = counted
-    ? await client.from('community_optouts').delete().eq('user_id', userId)
-    : // "Already out" is fine; there is nothing to update, so only adding is allowed.
-      await client.from('community_optouts').upsert({ user_id: userId }, { ignoreDuplicates: true })
-  if (error) throw new Error(error.message)
-}
-
-export async function isCounted(): Promise<boolean | null> {
-  return readCounted(await getClient())
-}
-
-export async function setCounted(counted: boolean): Promise<void> {
-  const client = await getClient()
-  const { data: who } = await client.auth.getUser()
-  const userId = who.user?.id
-  if (!userId) throw new Error('Not signed in.')
-  await writeCounted(client, userId, counted)
-  forgetCommunity()
 }

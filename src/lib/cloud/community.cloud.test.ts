@@ -1,7 +1,7 @@
 /**
  * The Top rated totals, checked against a real database: that they add up
- * the way they claim to, that leaving them works, and — the part that
- * matters most — that they give away nothing but totals.
+ * the way they claim to, that they count everyone, and (the part that
+ * matters most) that they give away nothing but totals.
  *
  * Skipped unless a Supabase is configured. To run it locally:
  *
@@ -11,7 +11,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { CookieRecord } from '@/lib/db/schema'
-import { readCommunity, readCounted, writeCounted } from './community'
+import { readCommunity } from './community'
 import { SupabaseRemote } from './remote'
 import { signUpConfirmed } from './test-accounts'
 
@@ -122,35 +122,16 @@ describe.skipIf(!url || !key)('Top rated totals (real Supabase)', () => {
     expect((await here(passerby)).some((c) => c.cookieType === 'Regretted')).toBe(false)
   })
 
-  it('takes someone out of every total when they ask, and puts them back', async () => {
-    expect(await readCounted(ben.client)).toBe(true)
-    await writeCounted(ben.client, ben.id, false)
-    expect(await readCounted(ben.client)).toBe(false)
-    // Asking twice changes nothing.
-    await writeCounted(ben.client, ben.id, false)
-
-    const without = await here(passerby)
-    expect(without).toHaveLength(1)
-    expect(without[0]).toMatchObject({ raters: 1, scores: { taste: 7, texture: 8, appearance: 7 } })
-    // Ana's own choice is untouched by Ben's.
-    expect(await readCounted(ana.client)).toBe(true)
-
-    await writeCounted(ben.client, ben.id, true)
-    expect(await readCounted(ben.client)).toBe(true)
+  it('counts everyone, with no way to be left out', async () => {
+    // There used to be a list of people whose ratings were skipped. It is
+    // gone, for the people on it and for anyone trying to add to it.
+    for (const client of [ana.client, ben.client, passerby]) {
+      const added = await client.from('community_optouts').insert({ user_id: ben.id })
+      expect(added.error).not.toBeNull()
+      const read = await client.from('community_optouts').select('user_id')
+      expect(read.error).not.toBeNull()
+    }
     expect(await here(passerby)).toHaveLength(3)
-  })
-
-  it('lets nobody speak for anyone else', async () => {
-    const { error } = await ana.client.from('community_optouts').insert({ user_id: ben.id })
-    expect(error).not.toBeNull()
-    expect(await readCounted(ben.client)).toBe(true)
-    // Nor can anyone see who has left, or do it without signing in.
-    await writeCounted(ben.client, ben.id, false)
-    const { data: seen } = await ana.client.from('community_optouts').select('user_id')
-    expect(seen).toEqual([])
-    const stranger = await passerby.from('community_optouts').select('user_id')
-    expect(stranger.data ?? []).toEqual([])
-    await writeCounted(ben.client, ben.id, true)
   })
 
   it('gives away totals and nothing else', async () => {

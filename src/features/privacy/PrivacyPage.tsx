@@ -81,10 +81,9 @@ export function PrivacyPage() {
                 <strong>Top rated.</strong> What other people can see is the Top rated lists, which
                 add everyone’s scores together: for each cookie at each bakery, the town it is in,
                 how many people rated it, and their average scores. Your scores are part of those
-                totals while you are signed in, unless you switch it off on the Account page. The
-                totals never include your name or email, your notes, your photos, or when you rated
-                something. Where only one person has rated a cookie, its total is that person’s
-                scores, still with nothing to say whose they are.
+                totals while you have an account. The totals never include your name or email, your
+                notes, your photos, or when you rated something. Where only one person has rated a
+                cookie, its total is that person’s scores, still with nothing to say whose they are.
               </p>
             </>
           )}
@@ -144,8 +143,9 @@ export function PrivacyPage() {
             </li>
             {cloudConfigured && (
               <li>
-                <strong>Stay out of Top rated.</strong> Account → Count my ratings in Top rated.
-                Switched off, your scores are left out of every total.
+                <strong>Stay out of Top rated.</strong> Only journals kept in an account are
+                counted. Use the app without signing in, or delete your account, and your scores are
+                in no total.
               </li>
             )}
             {cloudConfigured && (
