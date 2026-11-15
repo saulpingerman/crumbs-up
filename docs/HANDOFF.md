@@ -61,6 +61,16 @@ Other, a message, and an optional reply address). Reports go into the `feedback`
 through the app. Read them in Supabase → Table Editor → feedback. Where the app can't send one
 (no account service, offline), it offers the same report as an email to `help@crumbs-up.com`.
 
+Each report is also emailed to `help@crumbs-up.com` from `feedback@crumbs-up.com`, with Reply-To
+set to the sender's address when they gave one
+(`supabase/migrations/20261117000000_feedback_email.sql`). A trigger calls Resend's API through
+`pg_net`; the Resend key ("Sending access") lives in Supabase Vault as `resend_feedback_key`,
+pasted in by the owner, never in the repo. Without the key, or after 30 reports in an hour,
+reports are kept but not emailed, and a failed email never stops a report being saved. If emails
+stop, the SQL Editor shows Resend's answers:
+`select status_code, content from net._http_response order by created desc limit 5;`
+`scripts/check-feedback-email.sh` checks all this against the local stack (CI runs it).
+
 ## Known loose ends
 
 - **School and work addresses** (Penn State in particular) hold the code emails even though
