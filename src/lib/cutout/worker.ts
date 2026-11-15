@@ -90,6 +90,20 @@ async function prime(loaderUrl: string) {
   }
 }
 
+/**
+ * Each model's own drawing surface. Left to itself, MediaPipe decides whether
+ * a worker can have one by reading the browser's name: anything calling
+ * itself Safari without a "Version/17" or later in it is taken for an old
+ * Safari and given a page canvas instead, which a worker doesn't have. Chrome
+ * on an iPhone is Safari underneath but names itself "CriOS" with no
+ * "Version/", so the cookie finder crashed there ("document is not defined")
+ * while working in Safari on the same phone. Handing it a surface skips the
+ * guess. (google-ai-edge/mediapipe#5292)
+ */
+function surface(): OffscreenCanvas {
+  return new OffscreenCanvas(1, 1)
+}
+
 interface Tools {
   segmenter: InteractiveSegmenter
   /** Missing if it couldn't be loaded; the search carries on without it. */
@@ -130,12 +144,14 @@ function start(report: (stage: Stage, loaded?: number, total?: number) => void) 
     }
     const segmenter = await InteractiveSegmenter.createFromOptions(fileset, {
       baseOptions: { modelAssetBuffer: segmenterModel },
+      canvas: surface(),
     })
     const spotter = spotterModel
       ? await prime(fileset.wasmLoaderPath)
           .then(() =>
             ObjectDetector.createFromOptions(fileset, {
               baseOptions: { modelAssetBuffer: spotterModel },
+              canvas: surface(),
               scoreThreshold: 0.1,
               maxResults: 25,
             }),
