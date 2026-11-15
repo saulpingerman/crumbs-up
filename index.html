@@ -2,6 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Opened as plain http:// (typed without the s, an old bookmark), the
+      // browser switches off what the app is built on: saving a cookie, the
+      // cookie finder, offline use, signing in with Google. Move to https://
+      // before any of it starts. Local copies (localhost, a test server) stay.
+      if (
+        location.protocol === 'http:' &&
+        !/^(localhost|127\.|\[::1\]$)/.test(location.hostname) &&
+        !/^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)
+      ) {
+        location.replace(
+          'https://' + location.host + location.pathname + location.search + location.hash,
+        )
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Crumbs Up · Cookie Ratings</title>
     <meta
