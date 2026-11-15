@@ -616,7 +616,7 @@ test('Google’s own sign-in box hands its token to the account service', async 
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
 })
 
-test('Top rated adds up what people have rated, and anyone can leave it', async ({ browser }) => {
+test('Top rated adds up what everyone signed in has rated', async ({ browser }) => {
   const email = `cookie-${crypto.randomUUID()}@example.com`
   // A town nobody else has rated in, so this test's cookie is easy to find
   // among whatever else the database holds.
@@ -664,25 +664,8 @@ test('Top rated adds up what people have rated, and anyone can leave it', async 
   await rater.getByRole('combobox', { name: 'Town' }).selectOption({ label: `${town}, OR` })
   await expect(rater.getByRole('link', { name: 'You gave it 5.5' })).toBeVisible()
 
-  // They can take their ratings out of the totals…
+  // Everyone who is signed in is counted: there is no switch to leave by.
   await rater.goto('/account')
-  const counted = rater.getByRole('switch', { name: 'Count my ratings in Top rated' })
-  await expect(counted).toBeChecked()
-  await counted.click()
-  await expect(counted).not.toBeChecked()
-
-  // …and the next time anyone looks, they are gone.
-  await expect(async () => {
-    await visitor.goto('/top')
-    await expect(visitor.getByRole('heading', { name: 'Top rated' })).toBeVisible()
-    await expect(
-      visitor.getByRole('combobox', { name: 'Town' }).getByRole('option', { name: `${town}, OR` }),
-    ).toHaveCount(0)
-  }).toPass({ timeout: 20_000 })
-
-  // The choice is remembered, and can be undone.
-  await rater.reload()
-  await expect(counted).not.toBeChecked()
-  await counted.click()
-  await expect(counted).toBeChecked()
+  await expect(rater.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
+  await expect(rater.getByRole('switch')).toHaveCount(0)
 })
