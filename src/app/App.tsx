@@ -14,6 +14,7 @@ import { db } from '@/lib/db/db'
 import { useSettings } from '@/lib/settings'
 import { AppShell } from './AppShell'
 import { NotFound, RouteError, StorageUnavailable } from './Errors'
+import { isNativeApp } from '@/lib/native'
 import { UpdatePrompt } from './UpdatePrompt'
 
 const router = createBrowserRouter(
@@ -124,7 +125,7 @@ function Root() {
       <Outlet />
       <ScrollRestoration />
       {/* Inside the router: whether an update can go ahead depends on the page. */}
-      <UpdatePrompt />
+      {!isNativeApp && <UpdatePrompt />}
     </>
   )
 }

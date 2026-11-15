@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { isNativeApp } from '@/lib/native'
 
 export type Provider = 'apple' | 'google'
 
@@ -49,6 +50,8 @@ export async function refreshProviders(url: string, key: string): Promise<void> 
   listeners.forEach((listener) => listener())
 }
 
+const NONE: Provider[] = []
+
 /** The sign-in buttons to offer besides email. */
 export function useProviders(): Provider[] {
   return useSyncExternalStore(
@@ -56,7 +59,7 @@ export function useProviders(): Provider[] {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    () => providers,
-    () => providers,
+    () => (isNativeApp ? NONE : providers),
+    () => (isNativeApp ? NONE : providers),
   )
 }
