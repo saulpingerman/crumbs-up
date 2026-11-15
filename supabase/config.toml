@@ -230,7 +230,9 @@ enabled = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# On, as it is for the hosted project: the tests then go through the same
+# "enter the code from the email" step real people do.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # If enabled, users will need to provide their current password to change their password, unless
@@ -252,6 +254,20 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
+
+# The emails carry a code to type into the app and no link at all. A bare
+# "confirm" link to another site's address, from a domain with no history, is
+# what strict mail filters (schools, workplaces) hold as phishing; a code has
+# nothing to click, and works whichever device the email is read on.
+# The hosted project needs the same two subjects and bodies pasted in under
+# Authentication → Emails → Templates ("Confirm signup" and "Reset password").
+[auth.email.template.confirmation]
+subject = "{{ .Token }} is your Crumbs Up code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "{{ .Token }} is your Crumbs Up code"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

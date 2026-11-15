@@ -263,6 +263,15 @@ Supabase page for the provider lists the steps). That is all: the app asks the p
 providers are on, so the "Continue with Apple" and "Continue with Google" buttons appear by
 themselves the next time it is opened, with no new build.
 
+**The emails carry a code, not a link.** "Create account" and "Forgot password?" each open a page
+of their own, and both finish by typing a short code from an email into the app. A code works whichever device the email
+is read on, and an email with nothing to click is far less likely to be held as phishing by a
+school's or workplace's mail filter. The app expects it, so the project has to send it: under
+**Authentication → Emails → Templates**, give "Confirm signup" and "Reset password" the subject
+`{{ .Token }} is your Crumbs Up code` and the bodies in
+[`supabase/templates/`](supabase/templates). (The local stack picks both up from
+`supabase/config.toml` by itself.)
+
 **Things to know about the free plan**
 
 - New accounts confirm their email address by default, and Supabase's built-in mail service is
@@ -283,8 +292,8 @@ npm run test:cloud        # sync against a real database: privacy rules, conflic
 npm run test:e2e:cloud    # two "devices" sharing an account, in a real browser
 ```
 
-Emails the local stack "sends" (confirmations, password resets) are caught in an inbox at
-`http://127.0.0.1:24324`.
+Emails the local stack "sends" (the codes for confirming an account and resetting a password)
+are caught in an inbox at `http://127.0.0.1:24324`.
 
 CI runs the same two suites on every pull request, in a job of their own.
 

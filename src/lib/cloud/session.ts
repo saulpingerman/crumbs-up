@@ -137,7 +137,11 @@ function explain(message: string): string {
   if (/invalid login credentials/i.test(message))
     return 'That email and password don’t match an account.'
   if (/email not confirmed/i.test(message))
-    return 'Confirm your email first — check your inbox for the link.'
+    return 'Confirm your email first, with the code that was emailed to you.'
+  if (/token has expired|otp.*expired|invalid.*otp|otp_expired/i.test(message))
+    return 'That code is wrong or has expired. Check it, or send a new one.'
+  if (/only request this after/i.test(message))
+    return 'A code was sent a moment ago. Wait a minute before asking for another.'
   if (/already registered|already been registered/i.test(message))
     return 'There’s already an account with that email. Sign in instead.'
   if (/password should be at least|weak password/i.test(message))
@@ -155,7 +159,16 @@ function explain(message: string): string {
   return message
 }
 
-export class AuthError extends Error {}
+export class AuthError extends Error {
+  /** Set where the form can do something more useful than show the message. */
+  reason?: 'unconfirmed'
+}
+
+function authError(message: string): AuthError {
+  const error = new AuthError(explain(message))
+  if (/email not confirmed/i.test(message)) error.reason = 'unconfirmed'
+  return error
+}
 
 /** Run an auth call, turning both thrown and returned errors into one readable error. */
 async function run<R extends { error: { message: string } | null }>(
@@ -165,9 +178,9 @@ async function run<R extends { error: { message: string } | null }>(
   try {
     result = await action(await getClient())
   } catch (error) {
-    throw new AuthError(explain(error instanceof Error ? error.message : String(error)))
+    throw authError(error instanceof Error ? error.message : String(error))
   }
-  if (result.error) throw new AuthError(explain(result.error.message))
+  if (result.error) throw authError(result.error.message)
   return result
 }
 
@@ -180,7 +193,49 @@ export async function signUp(email: string, password: string): Promise<'signed-i
   const { data } = await run((client) =>
     client.auth.signUp({ email, password, options: { emailRedirectTo: returnUrl() } }),
   )
-  return data.session ? 'signed-in' : 'confirm'
+  if (data.session) return 'signed-in'
+  // For an address that already has an account the service answers as if all
+  // were well and sends nothing, which leaves a person waiting for an email
+  // that never comes. The made-up account it answers with has no sign-in
+  // methods; a real new one always has.
+  if (data.user && data.user.identities?.length === 0) {
+    throw new AuthError(
+      'There’s already an account with that email. Sign in, or use “Forgot password?”.',
+    )
+  }
+  return 'confirm'
+}
+
+/** What an emailed code is for: finishing a new account, or a password reset. */
+export type CodePurpose = 'signup' | 'recovery'
+
+/**
+ * Finish what an emailed code started. The code is typed into the app that
+ * asked for it, so nothing depends on which browser a link would have opened
+ * in — and an email with no link in it is one that mail filters let through.
+ */
+export async function confirmCode(
+  email: string,
+  code: string,
+  purpose: CodePurpose,
+): Promise<void> {
+  // Before the call: the session arrives while it is still in flight, and a
+  // reset must land on "choose a new password", not flash the account first.
+  if (purpose === 'recovery') recovering = true
+  try {
+    await run((client) => client.auth.verifyOtp({ email, token: code, type: purpose }))
+  } catch (error) {
+    if (purpose === 'recovery') recovering = false
+    throw error
+  }
+  if (purpose === 'recovery') emit()
+}
+
+export async function sendCodeAgain(email: string, purpose: CodePurpose): Promise<void> {
+  if (purpose === 'recovery') return sendPasswordReset(email)
+  await run((client) =>
+    client.auth.resend({ type: 'signup', email, options: { emailRedirectTo: returnUrl() } }),
+  )
 }
 
 /**

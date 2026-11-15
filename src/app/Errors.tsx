@@ -10,7 +10,7 @@ export function NotFound() {
       art={<LogoMark className="size-20 opacity-60" />}
       action={<ButtonLink to="/">Back to the journal</ButtonLink>}
     >
-      That page doesn’t exist — it may have been a cookie you deleted.
+      That page doesn’t exist. It may have been a cookie you deleted.
     </Empty>
   )
 }
@@ -36,7 +36,7 @@ export function RouteError() {
           </>
         }
       >
-        Something broke on this screen. Your cookies are safe on this device — reloading usually
+        Something broke on this screen. Your cookies are safe on this device. Reloading usually
         sorts it out.
       </Empty>
     </div>
@@ -52,8 +52,8 @@ export function StorageUnavailable() {
         action={<Button onClick={() => window.location.reload()}>Try again</Button>}
       >
         Crumbs Up keeps your journal in this browser’s storage, and that storage is switched off
-        here — usually because of private browsing. Open the app in a regular window and your
-        cookies will be right where you left them.
+        here, usually because of private browsing. Open the app in a regular window and your cookies
+        will be right where you left them.
       </Empty>
     </div>
   )

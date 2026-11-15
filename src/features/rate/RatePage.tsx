@@ -203,7 +203,7 @@ export function RatePage() {
     } catch (error) {
       console.error(error)
       toast.error('Couldn’t save this cookie', {
-        description: 'Your answers are still here — try again.',
+        description: 'Your answers are still here. Try again.',
       })
       setSaving(false)
     }

@@ -164,7 +164,7 @@ export function SummaryStep({
               key={category}
               type="button"
               onClick={() => onAdjust(category)}
-              aria-label={`${CATEGORY_META[category].label} ${formatScore(scores[category])} — adjust`}
+              aria-label={`${CATEGORY_META[category].label} ${formatScore(scores[category])}, adjust`}
               className="block w-full rounded-xl text-left transition active:scale-[0.99]"
             >
               <ScoreBar category={category} score={scores[category]} />

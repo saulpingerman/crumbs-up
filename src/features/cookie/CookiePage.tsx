@@ -113,7 +113,7 @@ export function CookiePage() {
             ))}
             <p className="flex items-center justify-center gap-1.5 border-t border-line/70 pt-3 text-xs font-medium text-ink-faint">
               <span aria-hidden className="inline-block h-3 w-0.5 rounded-full bg-ink/35" />
-              The notch marks 5 — a standard Toll House cookie
+              The notch marks 5, a standard Toll House cookie
             </p>
           </section>
 
@@ -357,7 +357,7 @@ function CategoryBreakdown({
                 <p className="text-[15px] font-semibold">
                   {line.option.label}
                   {line.option.detail && (
-                    <span className="font-normal text-ink-soft"> — {line.option.detail}</span>
+                    <span className="font-normal text-ink-soft"> · {line.option.detail}</span>
                   )}
                 </p>
               </div>

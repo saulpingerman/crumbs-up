@@ -136,7 +136,7 @@ export function ChoiceStep({
                 : 'border-ink-faint/60 text-ink-soft hover:border-ink-faint',
             )}
           >
-            <span className="font-semibold text-ink">{option.label}</span> — {option.detail}
+            <span className="font-semibold text-ink">{option.label}</span> · {option.detail}
           </button>
         ))}
         {list.map((option, i) => (
@@ -269,7 +269,7 @@ export function FlawStep({ question, index, count, value, onChange, onContinue }
       </div>
       <StickyFooter>
         <Button size="lg" className="w-full" onClick={onContinue}>
-          {value.length === 0 ? 'No flaws — carry on' : `Continue with ${value.length} flagged`}
+          {value.length === 0 ? 'No flaws, carry on' : `Continue with ${value.length} flagged`}
         </Button>
       </StickyFooter>
     </div>

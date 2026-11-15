@@ -14,7 +14,7 @@ export const TIERS: Tier[] = [
   { min: 8, name: 'Outstanding', line: 'Go out of your way for this one.' },
   { min: 7, name: 'Excellent', line: 'A seriously good cookie.' },
   { min: 6, name: 'Above standard', line: 'Clearly better than the bag recipe.' },
-  { min: 5, name: 'Standard', line: 'Toll House territory — good, nothing special.' },
+  { min: 5, name: 'Standard', line: 'Toll House territory. Good, nothing special.' },
   { min: 4, name: 'Below standard', line: 'You could do better at home.' },
   { min: 3, name: 'Disappointing', line: 'Not worth the calories.' },
   { min: 0, name: 'Skip it', line: 'Save your appetite.' },

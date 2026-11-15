@@ -13,6 +13,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import type { CookieRecord } from '@/lib/db/schema'
 import { readCommunity, readCounted, writeCounted } from './community'
 import { SupabaseRemote } from './remote'
+import { signUpConfirmed } from './test-accounts'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -27,13 +28,12 @@ interface Person {
 
 async function signUp(): Promise<Person> {
   const client = createClient(url!, key!, quiet)
-  const { data, error } = await client.auth.signUp({
-    email: `test-${crypto.randomUUID()}@example.com`,
-    password: 'correct horse battery staple',
-  })
-  if (error || !data.session || !data.user)
-    throw new Error(`sign-up failed: ${error?.message ?? 'no session'}`)
-  return { client, remote: new SupabaseRemote(client, data.user.id), id: data.user.id }
+  const user = await signUpConfirmed(
+    client,
+    `test-${crypto.randomUUID()}@example.com`,
+    'correct horse battery staple',
+  )
+  return { client, remote: new SupabaseRemote(client, user.id), id: user.id }
 }
 
 function cookie(patch: Partial<CookieRecord>): CookieRecord {

@@ -67,7 +67,7 @@ export function DiscoverPage() {
                     .
                   </>
                 ) : (
-                  'Your scores are remarkably even — no flavor or texture runs away with it yet.'
+                  'Your scores are very even. No flavor or texture stands out yet.'
                 )}{' '}
                 {recs.dislikes.length > 0 && (
                   <>You’re harder to win over with {listTastes(recs.dislikes.slice(0, 2))}. </>

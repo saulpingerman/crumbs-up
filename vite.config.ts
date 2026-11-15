@@ -20,7 +20,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         id: base,
-        name: 'Crumbs Up — Cookie Ratings',
+        name: 'Crumbs Up · Cookie Ratings',
         short_name: 'Crumbs Up',
         description:
           'A guided cookie-rating journal. Answer a few questions about taste, texture and appearance and get a fair, consistent score for every cookie.',

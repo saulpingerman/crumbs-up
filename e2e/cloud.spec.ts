@@ -31,40 +31,57 @@ async function rateByHand(page: Page, type: string, bakery: string, photo = fals
 }
 
 /**
- * The link in the newest email sent to an address. The local Supabase stack
- * delivers nothing; it keeps every message in an inbox with an API.
+ * The code in the newest email sent to an address — the `nth` one it has been
+ * sent, so that a second email isn't mistaken for the first. The local
+ * Supabase stack delivers nothing; it keeps every message in an inbox with
+ * an API.
  */
-async function emailedLink(request: APIRequestContext, email: string): Promise<string> {
+async function emailedCode(request: APIRequestContext, email: string, nth = 1): Promise<string> {
   const inbox = process.env.SUPABASE_MAIL_URL
-  let link = ''
+  let code = ''
   await expect(async () => {
     const found = await request.get(`${inbox}/api/v1/search`, { params: { query: `to:${email}` } })
     const { messages } = (await found.json()) as { messages: { ID: string }[] }
-    expect(messages.length).toBeGreaterThan(0)
+    expect(messages.length).toBeGreaterThanOrEqual(nth)
     const message = await request.get(`${inbox}/api/v1/message/${messages[0]!.ID}`)
-    const { Text } = (await message.json()) as { Text: string }
-    link = /https?:\/\/\S+\/auth\/v1\/verify\S+/.exec(Text)?.[0] ?? ''
-    expect(link).not.toBe('')
+    const { Text, HTML } = (await message.json()) as { Text: string; HTML: string }
+    // Nothing to click: a link is what gets these emails held as phishing.
+    expect(`${Text}${HTML}`).not.toMatch(/https?:|href=/i)
+    code = /\b\d{6,10}\b/.exec(Text)?.[0] ?? ''
+    expect(code).not.toBe('')
   }).toPass({ timeout: 15_000 })
-  return link
+  return code
 }
 
-/** Fill in the account form and send it; what happens next is up to the caller. */
+/**
+ * From the sign-in form in Settings: sign in there, or go through the
+ * "Create account" page. What happens once signed in is up to the caller.
+ */
 async function submitAccountForm(page: Page, email: string, how: 'Sign in' | 'Create account') {
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: how }).click()
-  if (how === 'Sign in') return
-  // A project that confirms email addresses (hosted ones do by default)
-  // sends a link instead of signing in; follow it like a person would.
-  const signedIn = page.getByRole('button', { name: 'Sign out' })
-  const askedToConfirm = page.getByText('check your inbox')
-  await expect(signedIn.or(askedToConfirm)).toBeVisible({ timeout: 20_000 })
-  if (await askedToConfirm.isVisible()) {
-    await page.goto(await emailedLink(page.request, email))
-    await expect(page.getByText('Signed in', { exact: true })).toBeVisible({ timeout: 20_000 })
-    await page.goto('/settings')
+  if (how === 'Sign in') {
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password').fill(password)
+    await page.getByRole('button', { name: 'Sign in' }).click()
+    return
   }
+  await page.getByRole('link', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: 'Create account' })).toBeVisible()
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel('Password', { exact: true }).fill(password)
+  await page.getByLabel('Confirm password').fill(password)
+  await page.getByRole('button', { name: 'Create account' }).click()
+  // A project that confirms email addresses (hosted ones do by default)
+  // emails a code instead of signing in; type it in like a person would.
+  const signedIn = page.getByRole('button', { name: 'Sign out' })
+  const askedForCode = page.getByLabel('Code')
+  await expect(signedIn.or(askedForCode)).toBeVisible({ timeout: 20_000 })
+  if (await askedForCode.isVisible()) {
+    await askedForCode.fill(await emailedCode(page.request, email))
+    await page.getByRole('button', { name: 'Confirm' }).click()
+  }
+  // Either way it ends back in Settings, signed in.
+  await expect(signedIn).toBeVisible({ timeout: 20_000 })
+  expect(new URL(page.url()).pathname).toBe('/settings')
 }
 
 async function signIn(page: Page, email: string, how: 'Sign in' | 'Create account') {
@@ -123,7 +140,7 @@ test('a journal follows its account from one device to another', async ({ browse
   await laptop.goto('/settings')
   await laptop.getByRole('button', { name: 'Sign out' }).click()
   await laptop.getByRole('button', { name: 'Remove it from this device' }).click()
-  await expect(laptop.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await expect(laptop.getByRole('link', { name: 'Create account' })).toBeVisible()
   await laptop.goto('/')
   await expect(
     laptop.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
@@ -155,7 +172,7 @@ test('a device refuses to merge one account’s journal into another', async ({ 
   // Sign out but keep the journal, then a different person signs in.
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
-  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
 
   const second = `second-${crypto.randomUUID()}@example.com`
   await submitAccountForm(device, second, 'Create account')
@@ -183,7 +200,7 @@ test('a kept journal can be added to a different account on purpose', async ({ b
   await signIn(device, `old-${crypto.randomUUID()}@example.com`, 'Create account')
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
-  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
 
   const fresh = `new-${crypto.randomUUID()}@example.com`
   await submitAccountForm(device, fresh, 'Create account')
@@ -197,9 +214,83 @@ test('a kept journal can be added to a different account on purpose', async ({ b
   await expect(other.getByText('Old Account Bakery')).toBeVisible()
 })
 
-test('a forgotten password is reset from the emailed link, in whichever browser opens it', async ({
+test('a new account is confirmed with an emailed code, however roundabout the route', async ({
   browser,
 }) => {
+  const email = `roundabout-${crypto.randomUUID()}@example.com`
+  const phone = await openDevice(browser)
+  await rateByHand(phone, 'Molasses', 'Patient Bakery')
+
+  // Creating an account has a page to itself. The address already typed
+  // into the sign-in form comes along.
+  await phone.goto('/settings')
+  await phone.getByLabel('Email').fill(email)
+  await phone.getByRole('link', { name: 'Create account' }).click()
+  await expect(phone.getByRole('heading', { name: 'Create account' })).toBeVisible()
+  expect(new URL(phone.url()).pathname).toBe('/account/new')
+  await expect(phone.getByLabel('Email')).toHaveValue(email)
+
+  // The password is typed twice, and both have to agree.
+  const create = phone.getByRole('button', { name: 'Create account' })
+  await phone.getByLabel('Password', { exact: true }).fill(password)
+  await phone.getByLabel('Confirm password').fill(`${password}-oops`)
+  await create.click()
+  await expect(phone.getByText('Those passwords don’t match.')).toBeVisible()
+  await phone.getByLabel('Password', { exact: true }).fill('short')
+  await phone.getByLabel('Confirm password').fill('short')
+  await create.click()
+  await expect(phone.getByText('Choose a password of at least 8 characters.')).toBeVisible()
+  await phone.getByLabel('Password', { exact: true }).fill(password)
+  await phone.getByLabel('Confirm password').fill(password)
+  await create.click()
+  const code = phone.getByLabel('Code')
+  await expect(code).toBeVisible({ timeout: 20_000 })
+  await expect(phone.getByText(email)).toBeVisible()
+
+  // Off to read the email. Phones throw the page away meanwhile; the step
+  // is still there on the way back.
+  await phone.reload()
+  await expect(code).toBeVisible()
+
+  // A mistyped code says so, and letters don't go in at all.
+  const sent = await emailedCode(phone.request, email)
+  await code.fill(sent === '000000' ? '111111' : '000000')
+  await phone.getByRole('button', { name: 'Confirm' }).click()
+  await expect(phone.getByText('That code is wrong or has expired')).toBeVisible()
+  await code.fill('12ab34')
+  await expect(code).toHaveValue('1234')
+
+  // They give up, come back another day and just try to sign in. The
+  // account exists but was never confirmed: a fresh code is sent and asked for.
+  await phone.getByRole('button', { name: 'Use a different email' }).click()
+  await expect(phone.getByLabel('Confirm password')).toBeVisible()
+  // (The service won't email the same person twice within a second — a
+  // minute, on the hosted project — and a test is quicker than that.)
+  await phone.waitForTimeout(1_100)
+  await phone.goto('/settings')
+  await phone.getByLabel('Email').fill(email)
+  await phone.getByLabel('Password').fill(password)
+  await phone.getByRole('button', { name: 'Sign in' }).click()
+  await expect(code).toBeVisible({ timeout: 20_000 })
+  await code.fill(await emailedCode(phone.request, email, 2))
+  await phone.getByRole('button', { name: 'Confirm' }).click()
+  await expect(phone.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 20_000 })
+  expect(new URL(phone.url()).pathname).toBe('/settings')
+  await expect(phone.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
+
+  // Making the same account twice doesn't leave anyone waiting for an email
+  // that will never come.
+  const other = await openDevice(browser)
+  await other.goto('/account/new')
+  await other.getByLabel('Email').fill(email)
+  await other.getByLabel('Password', { exact: true }).fill('some-other-password')
+  await other.getByLabel('Confirm password').fill('some-other-password')
+  await other.getByRole('button', { name: 'Create account' }).click()
+  await expect(other.getByText('There’s already an account with that email')).toBeVisible()
+  await expect(other.getByLabel('Code')).toHaveCount(0)
+})
+
+test('a forgotten password is reset on its own page, with an emailed code', async ({ browser }) => {
   const email = `forgetful-${crypto.randomUUID()}@example.com`
   const phone = await openDevice(browser)
   await rateByHand(phone, 'Oatmeal Raisin', 'Remembered Bakery')
@@ -207,25 +298,37 @@ test('a forgotten password is reset from the emailed link, in whichever browser 
   await phone.getByRole('button', { name: 'Sign out' }).click()
   await phone.getByRole('button', { name: 'Remove it from this device' }).click()
 
+  // "Forgot password?" opens a page that asks for the address.
+  await phone.getByRole('link', { name: 'Forgot password?' }).click()
+  await expect(phone.getByRole('heading', { name: 'Reset password' })).toBeVisible()
+  expect(new URL(phone.url()).pathname).toBe('/account/reset')
+  await phone.getByRole('button', { name: 'Email me a code' }).click()
+  await expect(phone.getByText('Enter your email address.')).toBeVisible()
   await phone.getByLabel('Email').fill(email)
-  await phone.getByRole('button', { name: 'Forgot password?' }).click()
-  await expect(phone.getByText('a reset link is on its way')).toBeVisible()
-  const link = await emailedLink(phone.request, email)
+  await phone.getByRole('button', { name: 'Email me a code' }).click()
+  await expect(phone.getByText('we emailed it a code')).toBeVisible()
+  await phone.getByLabel('Code').fill(await emailedCode(phone.request, email, 2))
+  await phone.getByRole('button', { name: 'Continue' }).click()
 
-  // The email is opened somewhere else entirely — as Mail on a phone would.
-  const elsewhere = await openDevice(browser)
-  await elsewhere.goto(link)
-  await expect(elsewhere.getByText('Choose a new password to finish resetting it.')).toBeVisible({
+  // The new password is typed twice too, and the page stays put for it.
+  await expect(phone.getByText('Choose a new password to finish resetting it.')).toBeVisible({
     timeout: 20_000,
   })
-  expect(new URL(elsewhere.url()).pathname).toBe('/settings')
-  expect(elsewhere.url()).not.toContain('token')
-  await elsewhere.getByLabel('New password').fill('a-brand-new-password')
-  await elsewhere.getByRole('button', { name: 'Save new password' }).click()
-  await expect(elsewhere.getByText('Password changed')).toBeVisible()
-  await expect(elsewhere.getByText(email)).toBeVisible()
+  expect(new URL(phone.url()).pathname).toBe('/account/reset')
+  await phone.getByLabel('New password', { exact: true }).fill('a-brand-new-password')
+  await phone.getByLabel('Confirm new password').fill('a-brand-new-passwor')
+  await phone.getByRole('button', { name: 'Save new password' }).click()
+  await expect(phone.getByText('Those passwords don’t match.')).toBeVisible()
+  await phone.getByLabel('Confirm new password').fill('a-brand-new-password')
+  await phone.getByRole('button', { name: 'Save new password' }).click()
+  await expect(phone.getByText('Password changed')).toBeVisible()
+  await expect(phone.getByText(email)).toBeVisible()
+  expect(new URL(phone.url()).pathname).toBe('/settings')
 
-  // Back where it started: the old password is dead, the new one brings the journal.
+  // The old password is dead; the new one brings the journal back.
+  await phone.getByRole('button', { name: 'Sign out' }).click()
+  await phone.getByRole('button', { name: 'Remove it from this device' }).click()
+  await phone.getByLabel('Email').fill(email)
   await phone.getByLabel('Password').fill(password)
   await phone.getByRole('button', { name: 'Sign in' }).click()
   await expect(phone.getByText('That email and password don’t match an account.')).toBeVisible()
@@ -235,9 +338,22 @@ test('a forgotten password is reset from the emailed link, in whichever browser 
   await phone.goto('/')
   await expect(phone.getByText('Remembered Bakery')).toBeVisible()
 
-  // A link only works once; a second try says so instead of doing nothing.
+  // Asking for a reset says the same thing whether or not there is an
+  // account, so the form can't be used to find out who has one.
+  const stranger = await openDevice(browser)
+  await stranger.goto('/account/reset')
+  await stranger.getByLabel('Email').fill(`nobody-${crypto.randomUUID()}@example.com`)
+  await stranger.getByRole('button', { name: 'Email me a code' }).click()
+  await expect(stranger.getByText('we emailed it a code')).toBeVisible()
+})
+
+test('an emailed link that has expired says so instead of doing nothing', async ({ browser }) => {
+  // Emails sent before codes replaced links, and sign-in providers that
+  // turn someone away, still come back this way.
   const later = await openDevice(browser)
-  await later.goto(link)
+  await later.goto(
+    '/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
+  )
   await expect(later.getByText('That link has expired or was already used')).toBeVisible({
     timeout: 20_000,
   })
@@ -345,7 +461,7 @@ test('a device is not cleared while it holds cookies the account has not receive
   await device.goto('/settings')
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Remove it from this device' }).click()
-  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
   await device.goto('/')
   await expect(
     device.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
@@ -361,7 +477,7 @@ test('deleting everything on a signed-out device leaves the account alone', asyn
   // Sign out but keep the journal here, then wipe the device.
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
-  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
   await device.getByRole('button', { name: 'Delete everything' }).click()
   const dialog = device.getByRole('alertdialog')
   await expect(dialog).toContainText('erased from this device')
@@ -409,7 +525,7 @@ test('an account can be deleted from inside the app', async ({ browser }) => {
     .getByRole('button', { name: 'Delete account, keep the journal on this device' })
     .click()
   await expect(device.getByText('Account deleted')).toBeVisible({ timeout: 30_000 })
-  await expect(device.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
   await device.goto('/')
   await expect(device.getByText('Farewell Bakery')).toBeVisible()
 

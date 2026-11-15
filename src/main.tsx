@@ -19,7 +19,7 @@ if (cloudConfigured) {
       onLinkSignIn: welcome,
       onLinkFailed: () =>
         toast.error('That link has expired or was already used', {
-          description: 'Sign in from Settings, or ask for a fresh link there.',
+          description: 'Sign in from Settings to try again.',
           duration: 12_000,
         }),
     }),
