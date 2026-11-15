@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { loadCounties, type CountyAtlas } from './counties'
+import { boundsOf, isInCounty, loadCounties, type CountyAtlas } from './counties'
 import { lean, project, unproject } from './geo'
 
 describe('counties', () => {
@@ -42,6 +42,45 @@ describe('counties', () => {
   it('has no county for somewhere out at sea or abroad', () => {
     expect(atlas.at({ lat: 30, lng: -40 })).toBeNull()
     expect(atlas.at({ lat: 48.8566, lng: 2.3522 })).toBeNull()
+  })
+})
+
+describe('a county on the ground', () => {
+  let atlas: CountyAtlas
+  beforeAll(async () => {
+    atlas = await loadCounties()
+  })
+
+  it('knows which towns are inside its lines', () => {
+    const centre = atlas.all.find((c) => c.fips === '42027')!
+    expect(isInCounty({ lat: 40.7934, lng: -77.86 }, centre)).toBe(true) // State College
+    expect(isInCounty({ lat: 40.9134, lng: -77.7783 }, centre)).toBe(true) // Bellefonte
+    expect(isInCounty({ lat: 40.5187, lng: -78.3947 }, centre)).toBe(false) // Altoona
+    expect(isInCounty({ lat: 48.8566, lng: 2.3522 }, centre)).toBe(false)
+  })
+
+  it('fits a rectangle of the world round itself', () => {
+    const centre = atlas.all.find((c) => c.fips === '42027')!
+    const bounds = boundsOf(centre)!
+    // Centre County runs roughly from 40.7°N to 41.25°N and 78.4°W to 77.1°W.
+    expect(bounds.south).toBeGreaterThan(40.5)
+    expect(bounds.south).toBeLessThan(40.75)
+    expect(bounds.north).toBeGreaterThan(41.2)
+    expect(bounds.north).toBeLessThan(41.4)
+    expect(bounds.west).toBeGreaterThan(-78.6)
+    expect(bounds.west).toBeLessThan(-78.3)
+    expect(bounds.east).toBeGreaterThan(-77.2)
+    expect(bounds.east).toBeLessThan(-76.9)
+    // Every town in it is inside that rectangle.
+    for (const town of [
+      { lat: 40.7934, lng: -77.86 },
+      { lat: 40.9134, lng: -77.7783 },
+    ]) {
+      expect(town.lat).toBeGreaterThan(bounds.south)
+      expect(town.lat).toBeLessThan(bounds.north)
+      expect(town.lng).toBeGreaterThan(bounds.west)
+      expect(town.lng).toBeLessThan(bounds.east)
+    }
   })
 })
 

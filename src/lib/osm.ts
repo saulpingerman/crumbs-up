@@ -131,6 +131,8 @@ export interface NearbyPlace extends OsmPlace {
   km: number
 }
 
+/** The service looks no further than this from the point asked about. */
+const FURTHEST_KM = 50
 /** The most the search service hands back for one question. */
 const ANSWER_LIMIT = 50
 /** A crowded view is asked about again in this many squares a side. */
@@ -149,7 +151,7 @@ function bakeriesAround(center: LatLng, radiusKm: number, signal?: AbortSignal) 
     [
       ['lat', String(center.lat)],
       ['lon', String(center.lng)],
-      ['radius', String(Math.min(50, Math.max(1, Math.ceil(radiusKm))))],
+      ['radius', String(Math.min(FURTHEST_KM, Math.max(1, Math.ceil(radiusKm))))],
       ['limit', String(ANSWER_LIMIT)],
       ['distance_sort', 'false'],
       ['lang', 'en'],
@@ -178,9 +180,12 @@ export interface BakeriesFound {
  * at a time, which is what fills in the corners of a city-sized view.
  */
 export async function bakeriesWithin(bounds: Bounds, signal?: AbortSignal): Promise<BakeriesFound> {
-  const whole = await bakeriesAround(centerOf(bounds), reachKm(bounds), signal)
+  // An area wider than one question can reach (a big county, say) is asked
+  // about in squares from the start; otherwise its corners would be missed.
+  const fits = reachKm(bounds) <= FURTHEST_KM
+  const whole = fits ? await bakeriesAround(centerOf(bounds), reachKm(bounds), signal) : []
   const answers = [whole]
-  let complete = whole.length < ANSWER_LIMIT
+  let complete = fits && whole.length < ANSWER_LIMIT
   if (!complete) {
     const squares = tiles(bounds, SQUARES)
     complete = true

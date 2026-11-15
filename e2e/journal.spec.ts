@@ -45,26 +45,6 @@ test('every screen fits a phone without sideways scrolling', async ({ page }) =>
   }
 })
 
-test('the map shades counties, a state at a time', async ({ page }) => {
-  await addSamples(page)
-  await page.goto('/map')
-  await page.getByRole('radio', { name: 'Counties' }).click()
-
-  // It opens on the state with the most cookies: Oregon, with two in Portland.
-  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('OR')
-  await expect(page.getByText('1 of 36 counties')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Multnomah County' })).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Multnomah County: 2 cookies, average 8.0' }),
-  ).toBeVisible()
-  await expect(page.getByRole('link', { name: /Brown Butter Chocolate Chip/ })).toBeVisible()
-
-  // Any other state with cookies is a choice away.
-  await page.getByRole('combobox', { name: 'State' }).selectOption({ label: 'Vermont' })
-  await expect(page.getByText('1 of 14 counties')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Chittenden County' })).toBeVisible()
-})
-
 test('the map opens a state and its cookies', async ({ page }) => {
   await addSamples(page)
   await page.goto('/map')

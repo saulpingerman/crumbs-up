@@ -9,7 +9,7 @@
  */
 import type { Feature, MultiPolygon, Polygon, Position } from 'geojson'
 import type { GeometryCollection, Topology } from 'topojson-specification'
-import { project, type LatLng } from '@/lib/geo'
+import { project, unproject, type Bounds, type LatLng } from '@/lib/geo'
 import { stateByFips } from '@/lib/states'
 
 export interface County {
@@ -53,6 +53,42 @@ function inCounty(x: number, y: number, county: County): boolean {
   return county.rings.some(
     ([outer, ...holes]) => inRing(x, y, outer!) && !holes.some((hole) => inRing(x, y, hole)),
   )
+}
+
+/** Is this spot inside this county? */
+export function isInCounty(point: LatLng, county: County): boolean {
+  const spot = project(point)
+  return spot !== null && inCounty(spot[0], spot[1], county)
+}
+
+/**
+ * The smallest rectangle of the world that takes in a county. Its box on
+ * the drawn map is tilted against the lines of latitude and longitude, so
+ * its corners and the middles of its sides are all looked at.
+ */
+export function boundsOf(county: County): Bounds | null {
+  const [left, top, right, bottom] = county.box
+  const midX = (left + right) / 2
+  const midY = (top + bottom) / 2
+  const spots = [
+    [left, top],
+    [midX, top],
+    [right, top],
+    [right, midY],
+    [right, bottom],
+    [midX, bottom],
+    [left, bottom],
+    [left, midY],
+  ]
+    .map(([x, y]) => unproject([x!, y!]))
+    .filter((spot) => spot !== null)
+  if (spots.length === 0) return null
+  return {
+    south: Math.min(...spots.map((s) => s.lat)),
+    north: Math.max(...spots.map((s) => s.lat)),
+    west: Math.min(...spots.map((s) => s.lng)),
+    east: Math.max(...spots.map((s) => s.lng)),
+  }
 }
 
 export class CountyAtlas {

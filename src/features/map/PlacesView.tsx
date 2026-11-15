@@ -15,42 +15,13 @@ import type { RatedCookie } from '@/lib/stats'
 import { OpenInMaps } from './OpenInMaps'
 import { SETTLE_MS, TOO_WIDE_KM, searchBounds, worthSearching, type SearchedArea } from './nearby'
 import type { MapPin as Pin, MapView } from './PlacesMap'
+import { notYetRated, promise, rateLink } from './suggest'
 
 // The map library is large, so it only loads when this view is opened.
 const PlacesMap = lazy(() => import('./PlacesMap').then((m) => ({ default: m.PlacesMap })))
 
 /** More rings than this and the map is more rings than map. */
 const MOST_RINGS = 200
-
-/** "Flour & Salt Bakery" and "flour and salt" are the same shop. */
-function essence(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/\b(the|bakery|bakeshop|bakehouse|baking|co|company|cafe|café|shop)\b/g, '')
-    .replace(/[^a-z0-9]/g, '')
-}
-
-/** How likely a place is to have a cookie worth rating, going by its name. */
-function promise(name: string): number {
-  if (/cookie|crumbl|levain|insomnia/i.test(name)) return 1
-  if (/dou?gh ?nut|bagel|pretzel|cupcake|cheesecake|tortill/i.test(name)) return -1
-  return 0
-}
-
-function rateLink(
-  bakery: string,
-  city: string,
-  state: string,
-  spot?: { lat: number; lng: number },
-) {
-  const params = new URLSearchParams({ bakery, city, state })
-  if (spot) {
-    params.set('lat', String(spot.lat))
-    params.set('lng', String(spot.lng))
-  }
-  return `/rate?${params}`
-}
 
 export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
   const settings = useSettings()
@@ -95,12 +66,9 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
     const timer = setTimeout(() => {
       looking = true
       setSearch('looking')
-      const visited = new Set(latest.current.places.map((p) => `${essence(p.bakery)}|${p.state}`))
       bakeriesWithin(bounds, stop.signal)
         .then(({ places: all, complete }) => {
-          const fresh = all
-            .filter((p) => essence(p.name) && !visited.has(`${essence(p.name)}|${p.state}`))
-            .slice(0, MOST_RINGS)
+          const fresh = notYetRated(all, latest.current.places).slice(0, MOST_RINGS)
           searched.current = { bounds, complete: complete && fresh.length === all.length }
           // Whatever is open in the card stays, even if the map has moved off it.
           setSpotted((before) => {
