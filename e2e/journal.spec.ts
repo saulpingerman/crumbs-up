@@ -46,6 +46,10 @@ test('every screen fits a phone without sideways scrolling', async ({ page }) =>
 })
 
 test('the map opens a state and its cookies', async ({ page }) => {
+  // A state's card also looks places up; this test is about the cookies.
+  await page.route('https://photon.komoot.io/**', (route) =>
+    route.fulfill({ json: { type: 'FeatureCollection', features: [] } }),
+  )
   await addSamples(page)
   await page.goto('/map')
   await expect(page.getByText('9 towns')).toBeVisible()

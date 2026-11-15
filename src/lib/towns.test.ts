@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PlaceIndex } from './places'
-import { countTowns, newTowns, townKey, townLabel } from './towns'
+import { bigTownsToTry, countTowns, newTowns, townKey, townLabel } from './towns'
 
 /** A handful of central Pennsylvania, and one place a long way off. */
 const index = new PlaceIndex({
@@ -76,5 +76,21 @@ describe('new territory', () => {
   it('has nothing to suggest for a journal it cannot place', () => {
     expect(newTowns([], index)).toEqual([])
     expect(newTowns([{ city: 'Nowhereville', state: 'PA', place: null }], index)).toEqual([])
+  })
+})
+
+describe('a state’s towns to look round', () => {
+  it('lists its biggest towns that have no cookie yet', () => {
+    const towns = bigTownsToTry(
+      [{ city: 'Philadelphia', state: 'PA', place: null }],
+      index,
+      'PA',
+      3,
+    )
+    expect(towns.map((t) => t.name)).toEqual(['Altoona', 'State College', 'Park Forest Village'])
+  })
+
+  it('has none for a state it knows no towns in', () => {
+    expect(bigTownsToTry([], index, 'OR')).toEqual([])
   })
 })

@@ -1,17 +1,14 @@
-import { MapPin, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
-import { Button } from '@/components/Button'
 import { CookieRow } from '@/components/CookieRow'
 import { Select } from '@/components/Field'
 import { Card, SectionTitle } from '@/components/Page'
-import { Medallion } from '@/components/Score'
 import { bakeryPlaces, type BakeryPlace } from '@/lib/bakery-places'
 import { cn } from '@/lib/cn'
 import { rankCookies, sameCookie, type CommunityCookie } from '@/lib/community'
-import { isInCounty, loadCounties, type County, type CountyAtlas } from '@/lib/counties'
+import { boundsOf, isInCounty, loadCounties, type County, type CountyAtlas } from '@/lib/counties'
 import { formatAverage, plural } from '@/lib/format'
 import { lean } from '@/lib/geo'
+import { bakeriesWithin } from '@/lib/osm'
 import { loadPlaces, type PlaceIndex } from '@/lib/places'
 import { useSettings } from '@/lib/settings'
 import { stateName, US_STATES } from '@/lib/states'
@@ -19,18 +16,15 @@ import { byScoreDesc, mean, type RatedCookie } from '@/lib/stats'
 import { useCommunity } from '@/lib/use-community'
 import { BandLegend } from './BandLegend'
 import { bandColor } from './bands'
-import { OpenInMaps } from './OpenInMaps'
-import { notYetRated, promise, rateLink } from './suggest'
-import { useCountyBakeries } from './use-county-bakeries'
+import { PlacesToTry } from './PlacesToTry'
+import { asSuggestions, notYetRated, promise } from './suggest'
+import { usePlacesLookup } from './use-places-lookup'
 
 interface Standing {
   county: County
   cookies: RatedCookie[]
   average: number
 }
-
-/** How many bakeries a county's suggestions start with. */
-const FIRST_FEW = 6
 
 /**
  * One state at a time, county by county, shaded by how good the cookies
@@ -267,7 +261,7 @@ export function CountiesView({ cookies }: { cookies: RatedCookie[] }) {
                 ))}
               </ul>
             )}
-            <PlacesToTry
+            <CountyPlaces
               // A fresh list, back at its first few, for each county.
               key={county.fips}
               county={county}
@@ -324,11 +318,8 @@ export function CountiesView({ cookies }: { cookies: RatedCookie[] }) {
   )
 }
 
-/**
- * Where to go in a county: what other people have rated highest there, and
- * the bakeries on the map that aren't in the journal yet.
- */
-function PlacesToTry({
+/** A county's places to try: what others rate highest there, and its untried bakeries. */
+function CountyPlaces({
   county,
   cookies,
   mine,
@@ -341,8 +332,14 @@ function PlacesToTry({
   towns: PlaceIndex
   online: boolean
 }) {
-  const [showAll, setShowAll] = useState(false)
-  const bakeries = useCountyBakeries(county, online)
+  // The search covers the rectangle the county sits in; keep what is
+  // actually inside its lines.
+  const bakeries = usePlacesLookup(`county:${county.fips}`, online, async (signal) => {
+    const bounds = boundsOf(county)
+    if (!bounds) return []
+    const { places } = await bakeriesWithin(bounds, signal)
+    return places.filter((place) => isInCounty(place, county))
+  })
   const community = useCommunity()
 
   // Other people's favourites in this county that aren't in the journal.
@@ -362,103 +359,21 @@ function PlacesToTry({
   const untried = useMemo(
     () =>
       bakeries.status === 'ready'
-        ? notYetRated(bakeries.places, mine).sort(
-            (a, b) => promise(b.name) - promise(a.name) || a.name.localeCompare(b.name),
+        ? asSuggestions(
+            notYetRated(bakeries.places, mine).sort(
+              (a, b) => promise(b.name) - promise(a.name) || a.name.localeCompare(b.name),
+            ),
           )
         : [],
     [bakeries, mine],
   )
-  const shown = showAll ? untried : untried.slice(0, FIRST_FEW)
-  const nothing = favourites.length === 0 && untried.length === 0
 
   return (
-    <section className="mt-4 border-t border-line/70 pt-4">
-      <h3 className="font-display text-lg font-semibold">Places to try</h3>
-
-      {favourites.length > 0 && (
-        <ul className="mt-2 space-y-2">
-          {favourites.map((cookie) => (
-            <li
-              key={`${cookie.cookieType}|${cookie.bakery}`}
-              className="flex items-center gap-3 rounded-2xl bg-oat/60 px-3 py-2.5"
-            >
-              <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                <p className="font-semibold">{cookie.cookieType}</p>
-                <p className="text-sm text-ink-soft">
-                  {cookie.bakery} · rated by {plural(cookie.raters, 'person', 'people')}
-                </p>
-                <Link
-                  to={rateLink(cookie.bakery, cookie.city, cookie.state)}
-                  className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold underline underline-offset-2"
-                >
-                  <Plus className="size-3.5" strokeWidth={2.6} />
-                  Rate it
-                </Link>
-              </div>
-              <Medallion
-                value={formatAverage(cookie.overall).replace(/\.0$/, '')}
-                size="sm"
-                label={`Average score ${formatAverage(cookie.overall)} out of 10`}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {bakeries.status === 'looking' && (
-        <p role="status" className="mt-2 text-sm text-ink-soft">
-          Looking for bakeries…
-        </p>
-      )}
-      {bakeries.status === 'failed' && (
-        <p role="status" className="mt-2 text-sm text-ink-soft">
-          Couldn’t look for bakeries just now.
-        </p>
-      )}
-      {bakeries.status === 'ready' && nothing && (
-        <p role="status" className="mt-2 text-sm text-ink-soft">
-          No bakeries listed here that you haven’t tried.
-        </p>
-      )}
-      {!online && nothing && (
-        <p className="mt-2 text-sm text-ink-soft">
-          Looking up bakeries is switched off in Settings.
-        </p>
-      )}
-
-      {shown.length > 0 && (
-        <ul className="mt-2 divide-y divide-line/70">
-          {shown.map((place) => (
-            <li key={place.id} className="py-3">
-              <p className="font-semibold [overflow-wrap:anywhere]">{place.name}</p>
-              <p className="flex items-center gap-1.5 text-sm text-ink-soft">
-                <MapPin className="size-3.5 shrink-0" aria-hidden />
-                {[place.street, place.city].filter(Boolean).join(', ') || 'Address not listed'}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Link
-                  to={rateLink(place.name, place.city, place.state, place)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full bg-cocoa px-3.5 text-sm font-semibold text-on-cocoa transition active:scale-95"
-                >
-                  <Plus className="size-4" strokeWidth={2.6} />
-                  Rate here
-                </Link>
-                <OpenInMaps bakery={place.name} city={place.city} state={place.state} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {untried.length > shown.length && (
-        <Button variant="secondary" className="mt-1 w-full" onClick={() => setShowAll(true)}>
-          Show all {untried.length}
-        </Button>
-      )}
-      {untried.length > 0 && (
-        <p className="mt-3 text-xs text-ink-faint">
-          Places © OpenStreetMap contributors. It lists bakeries, not whether they sell cookies.
-        </p>
-      )}
-    </section>
+    <PlacesToTry
+      favourites={favourites}
+      lookup={bakeries.status}
+      places={untried}
+      online={online}
+    />
   )
 }

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Segmented } from '@/components/Field'
 import { Page } from '@/components/Page'
 import { plural } from '@/lib/format'
@@ -15,6 +16,15 @@ type View = 'places' | 'counties' | 'states'
 export function MapPage() {
   const cookies = useCookies()
   const [view, setView] = useState<View>('places')
+  // A link to a spot ("towns to look round" on a state, say) is a request for
+  // the street map there, whichever view happens to be open.
+  const [params] = useSearchParams()
+  const spot = params.has('lat') && params.has('lng') ? params.toString() : ''
+  const [seenSpot, setSeenSpot] = useState(spot)
+  if (spot !== seenSpot) {
+    setSeenSpot(spot)
+    if (spot) setView('places')
+  }
   if (!cookies) return null
 
   const summary = summarize(cookies)

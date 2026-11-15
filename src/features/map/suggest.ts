@@ -14,7 +14,8 @@ export function essence(name: string): string {
 /** How likely a place is to have a cookie worth rating, going by its name. */
 export function promise(name: string): number {
   if (/cookie|crumbl|levain|insomnia/i.test(name)) return 1
-  if (/dou?gh ?nut|bagel|pretzel|cupcake|cheesecake|tortill/i.test(name)) return -1
+  // "Donut" as well as "doughnut": the short spelling is the common one on shop signs.
+  if (/do(?:ugh)? ?nut|bagel|pretzel|cupcake|cheesecake|tortill/i.test(name)) return -1
   return 0
 }
 
@@ -37,4 +38,61 @@ export function rateLink(
     params.set('lng', String(spot.lng))
   }
   return `/rate?${params}`
+}
+
+/** A place to try, as a list shows it. */
+export interface Suggestion {
+  key: string
+  name: string
+  /** Its address — or, for a chain, the towns it is in. */
+  detail: string
+  /** The place a "rate here" link starts from. */
+  place: OsmPlace
+  /** How many shops this stands for: more than one for a chain. */
+  shops: number
+}
+
+const address = (place: OsmPlace) => [place.street, place.city].filter(Boolean).join(', ')
+
+/** Each place on its own line. */
+export function asSuggestions(places: OsmPlace[]): Suggestion[] {
+  return places.map((place) => ({
+    key: place.id,
+    name: place.name,
+    detail: address(place),
+    place,
+    shops: 1,
+  }))
+}
+
+/**
+ * The same, with a chain's many shops folded into one line that names a few
+ * of its towns: seventeen rows of one cookie chain would bury the one-off
+ * shops, which are the more interesting find. One-offs come first.
+ */
+export function foldChains(places: OsmPlace[]): Suggestion[] {
+  const byName = new Map<string, OsmPlace[]>()
+  for (const place of places) {
+    const key = essence(place.name)
+    const shops = byName.get(key)
+    if (shops) shops.push(place)
+    else byName.set(key, [place])
+  }
+  const folded = [...byName].map(([key, shops]): Suggestion => {
+    const first = shops[0]!
+    if (shops.length === 1) {
+      return { key, name: first.name, detail: address(first), place: first, shops: 1 }
+    }
+    const towns = [...new Set(shops.map((shop) => shop.city).filter(Boolean))]
+    const named = towns.slice(0, 3).join(', ')
+    const more = towns.length - 3
+    return {
+      key,
+      name: first.name,
+      detail: `${shops.length} shops${named ? `: ${named}` : ''}${more > 0 ? ` and ${more} more towns` : ''}`,
+      place: first,
+      shops: shops.length,
+    }
+  })
+  return folded.sort((a, b) => a.shops - b.shops || a.name.localeCompare(b.name))
 }

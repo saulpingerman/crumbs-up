@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bakeriesWithin, formatMiles, parsePhoton } from './osm'
+import { bakeriesWithin, cookieShopsWithin, formatMiles, parsePhoton } from './osm'
 
 /** Trimmed from real Photon responses. */
 const response = {
@@ -172,6 +172,22 @@ describe('bakeries across a stretch of map', () => {
     // The same bakery turned up by several squares is still one bakery.
     expect(places).toHaveLength(1)
     expect(complete).toBe(true)
+  })
+
+  it('finds a whole state’s cookie shops by name, in one question', async () => {
+    const asked = serve(() => [feature(1, 40.8, -77.86)])
+    const state = { south: 39.72, north: 42.27, west: -80.52, east: -74.69 }
+    const shops = await cookieShopsWithin(state)
+    expect(asked).toHaveLength(1)
+    const [url] = asked
+    expect(url!.pathname).toBe('/api/')
+    expect(url!.searchParams.get('q')).toBe('cookie')
+    // West, south, east, north: the order the service wants.
+    expect(url!.searchParams.get('bbox')).toBe('-80.52,39.72,-74.69,42.27')
+    // Places that sell things to eat, not every shop with "cookie" on its sign.
+    expect(url!.searchParams.getAll('osm_tag')).toContain('shop:bakery')
+    expect(url!.searchParams.getAll('osm_tag')).not.toContain('shop')
+    expect(shops).toHaveLength(1)
   })
 
   it('gives up cleanly when the service is down', async () => {
