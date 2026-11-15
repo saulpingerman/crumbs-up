@@ -65,10 +65,7 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-1">
-            <AccountLink />
-            <SettingsLink />
-          </div>
+          <AccountLink />
           <ButtonLink to="/rate">
             <Plus className="size-4" strokeWidth={2.6} />
             Rate a cookie
@@ -82,10 +79,7 @@ export function AppShell() {
           <NavLink to="/" aria-label="Crumbs Up home" className="rounded-lg">
             <Wordmark />
           </NavLink>
-          <div className="flex items-center gap-1">
-            <AccountLink />
-            <SettingsLink />
-          </div>
+          <AccountLink />
         </div>
       </header>
 
@@ -126,47 +120,45 @@ export function AppShell() {
 }
 
 /**
- * Signing in used to hide behind the settings symbol, which says nothing
- * about accounts. It has a button of its own, in words; once someone is
- * signed in the same button is their way to the account.
+ * The one button in the corner. Signing in used to hide behind a settings
+ * symbol, which says nothing about accounts, so it is in words: "Sign in",
+ * and "Account" once someone has. The settings are on the page it opens.
+ * A copy of the app with no accounts has only settings, behind a gear.
  */
 function AccountLink() {
   const session = useSession()
-  // Nothing while it is still being worked out (a "Sign in" that flips to
-  // "Account" a moment later is worse than a short gap), and nothing at all
-  // in a copy of the app that has no accounts.
-  if (session.status === 'off' || session.status === 'loading') return null
+  const { pathname } = useLocation()
+  if (session.status === 'off') {
+    return (
+      <NavLink
+        to="/settings"
+        aria-label="Settings"
+        title="Settings"
+        className={({ isActive }) =>
+          cn(
+            'flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-oat hover:text-ink',
+            isActive ? 'bg-oat text-ink' : 'text-ink-soft',
+          )
+        }
+      >
+        <Settings className="size-[22px]" />
+      </NavLink>
+    )
+  }
+  // Nothing while it is still being worked out: a "Sign in" that flips to
+  // "Account" a moment later is worse than a short gap.
+  if (session.status === 'loading') return null
+  // Lit on its own page under either address, and on the pages that hang off it.
+  const here = pathname === '/settings' || pathname.startsWith('/account')
   return (
     <NavLink
       to="/account"
-      className={({ isActive }) =>
-        cn(
-          'flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap transition',
-          isActive
-            ? 'border-transparent bg-oat text-ink'
-            : 'border-line bg-paper text-ink hover:bg-oat',
-        )
-      }
+      className={cn(
+        'mr-2 flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap transition md:mr-0',
+        here ? 'border-transparent bg-oat text-ink' : 'border-line bg-paper text-ink hover:bg-oat',
+      )}
     >
       {session.status === 'signed-in' ? 'Account' : 'Sign in'}
-    </NavLink>
-  )
-}
-
-function SettingsLink() {
-  return (
-    <NavLink
-      to="/settings"
-      aria-label="Settings"
-      title="Settings"
-      className={({ isActive }) =>
-        cn(
-          'flex size-11 shrink-0 items-center justify-center rounded-full transition hover:bg-oat hover:text-ink',
-          isActive ? 'bg-oat text-ink' : 'text-ink-soft',
-        )
-      }
-    >
-      <Settings className="size-[22px]" />
     </NavLink>
   )
 }

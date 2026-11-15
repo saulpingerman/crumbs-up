@@ -222,11 +222,9 @@ test('a copy of the app without accounts has no Top rated to offer', async ({ pa
   // Nor is there anything to sign in to: the header offers Settings and no more.
   await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Sign in' })).toHaveCount(0)
-  await page.goto('/account')
-  await expect(
-    page.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
-  ).toBeVisible()
-  expect(new URL(page.url()).pathname).toBe('/')
+  await page.getByRole('link', { name: 'Settings' }).click()
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in' })).toHaveCount(0)
 })
 
 test('a link to the site comes with a picture and a line about it', async ({ page, request }) => {

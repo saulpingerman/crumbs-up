@@ -92,9 +92,12 @@ async function signIn(page: Page, email: string, how: 'Sign in' | 'Create accoun
   await submitAccountForm(page, email, how)
   await expect(page.getByText(email)).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
-  // The same button now leads to the account, and says so.
+  // The same button now leads to the account, and says so. It is the only
+  // one up there: the settings are on the page it opens.
   await expect(page.getByRole('link', { name: 'Account', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 }
 
 async function syncNow(page: Page) {
@@ -667,5 +670,6 @@ test('Top rated adds up what everyone signed in has rated', async ({ browser }) 
   // Everyone who is signed in is counted: there is no switch to leave by.
   await rater.goto('/account')
   await expect(rater.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
-  await expect(rater.getByRole('switch')).toHaveCount(0)
+  await expect(rater.getByRole('switch', { name: /Top rated/ })).toHaveCount(0)
+  await expect(rater.getByText('Count my ratings')).toHaveCount(0)
 })

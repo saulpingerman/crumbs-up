@@ -15,6 +15,7 @@ import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { Segmented } from '@/components/Field'
+import { AccountCard } from '@/features/account/AccountCard'
 import { useSession } from '@/lib/cloud/session'
 import { forgetAccount } from '@/lib/cloud/sync'
 import { Card, Page, SectionTitle } from '@/components/Page'
@@ -29,13 +30,29 @@ import { updateSettings, useSettings, weightsFor, type ThemeChoice } from '@/lib
 
 const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
+/**
+ * One page behind the one button in the header: the account on top (the
+ * sign-in form, until someone signs in) and the settings under it. A copy of
+ * the app with no accounts has only the settings, and calls the page that.
+ */
 export function SettingsPage() {
   const settings = useSettings()
-  const signedIn = useSession().status === 'signed-in'
+  const session = useSession()
+  const signedIn = session.status === 'signed-in'
+  const accounts = session.status !== 'off'
+  const title = !accounts ? 'Settings' : session.status === 'signed-out' ? 'Sign in' : 'Account'
 
   return (
-    <Page title="Settings" className="max-w-2xl">
+    <Page title={title} className="max-w-2xl">
       <div className="space-y-5">
+        {accounts && (
+          <>
+            <AccountCard />
+            <h2 id="settings" className="pt-4 font-display text-[28px] leading-tight font-semibold">
+              Settings
+            </h2>
+          </>
+        )}
         <Card>
           <SectionTitle>Overall score</SectionTitle>
           <div role="radiogroup" aria-label="Overall score weighting" className="mt-4 space-y-2">
