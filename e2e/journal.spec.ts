@@ -27,7 +27,7 @@ test('browses, searches and ranks the journal', async ({ page }) => {
 test('every screen fits a phone without sideways scrolling', async ({ page }) => {
   await addSamples(page)
   for (const [path, landmark] of [
-    ['/', 'Cookie journal'],
+    ['/', 'Cookie Journal'],
     ['/map', 'Your places'],
     ['/discover', 'Your palate so far'],
     ['/insights', 'Hall of fame'],
@@ -144,7 +144,7 @@ test('coming back from a cookie returns to the same place in the journal', async
   await last.click()
   await expect(page.getByRole('heading', { name: 'How it earned its scores' })).toBeVisible()
   await page.goBack()
-  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cookie Journal' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before - 60)
 })
 
@@ -300,4 +300,39 @@ test('a bug or an idea can be sent from Settings, by email when the app can’t 
   expect(params.get('subject')).toBe('Crumbs Up: Idea')
   expect(params.get('body')).toContain('A dark chocolate filter')
   expect(params.get('body')).toContain('Screen: /settings')
+})
+
+test('the logo goes home: the journal as it first opens, at the top', async ({ page }) => {
+  await addSamples(page)
+  const cards = page.locator('main ul a[href*="/cookie/"]')
+  const search = page.getByRole('searchbox', { name: 'Search the journal' })
+  const logo = page.getByRole('link', { name: 'Crumbs Up home' })
+
+  // A search left in the journal, then off to another tab and back by the logo.
+  await search.fill('portland')
+  await expect(cards).toHaveCount(2)
+  await page.getByRole('link', { name: 'Map' }).first().click()
+  await logo.click()
+  await expect(page.getByRole('heading', { name: 'Cookie Journal' })).toBeVisible()
+  await expect(search).toHaveValue('')
+  await expect(cards).toHaveCount(10)
+
+  // Tapped while already in the journal, scrolled down and filtered: same again.
+  await page.getByRole('combobox', { name: 'Filter by town' }).selectOption({
+    label: 'Burlington, VT',
+  })
+  await expect(cards).toHaveCount(1)
+  await page.getByRole('combobox', { name: 'Filter by town' }).selectOption('')
+  await page.getByRole('radio', { name: 'Ranked' }).click()
+  await page.mouse.wheel(0, 2000)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200)
+  await logo.click()
+  await expect(page.getByRole('radio', { name: 'Recent' })).toBeChecked()
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  // Coming back from a cookie still returns to the search that was left.
+  await search.fill('portland')
+  await cards.first().click()
+  await page.goBack()
+  await expect(search).toHaveValue('portland')
 })

@@ -151,7 +151,7 @@ test('a journal follows its account from one device to another', async ({ browse
   await phone.getByRole('link', { name: /Chocolate Chip/ }).click()
   await phone.getByRole('button', { name: 'Delete' }).click()
   await phone.getByRole('alertdialog').getByRole('button', { name: 'Delete cookie' }).click()
-  await expect(phone.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(phone.getByRole('heading', { name: 'Cookie Journal' })).toBeVisible()
   await syncNow(phone)
   await syncNow(laptop)
   await laptop.goto('/')

@@ -36,7 +36,7 @@ export async function addSamples(page: Page) {
     (window as unknown as { crumbsUpSamples: () => Promise<number> }).crumbsUpSamples(),
   )
   expect(added).toBe(10)
-  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cookie Journal' })).toBeVisible()
 }
 
 /**

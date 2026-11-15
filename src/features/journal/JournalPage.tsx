@@ -1,6 +1,6 @@
 import { Plus, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { CookiePhoto } from '@/components/CookiePhoto'
 import { Segmented, Select } from '@/components/Field'
@@ -27,20 +27,46 @@ type Sort = 'recent' | 'ranked'
  * should return to the same search, town and order, not start again; a
  * fresh launch of the app does start again.
  */
-const lastView: { sort: Sort; rankBy: RankBy; query: string; town: string } = {
+const FRESH: { sort: Sort; rankBy: RankBy; query: string; town: string } = {
   sort: 'recent',
   rankBy: 'overall',
   query: '',
   town: '',
 }
+const lastView = { ...FRESH }
+
+/** Navigation state for "the journal as it first opens": what the logo asks for. */
+export interface HomeState {
+  home?: boolean
+}
 
 export function JournalPage() {
   const cookies = useCookies()
   const { overallPrecision } = useSettings()
-  const [sort, setSort] = useState<Sort>(lastView.sort)
-  const [rankBy, setRankBy] = useState<RankBy>(lastView.rankBy)
-  const [query, setQuery] = useState(lastView.query)
-  const [chosenTown, setTown] = useState(lastView.town)
+  const location = useLocation()
+  // Tapping the logo means home: the journal as it first opens, not the
+  // search or town that was last left in it.
+  const home = Boolean((location.state as HomeState | null)?.home)
+  const start = home ? FRESH : lastView
+  const [sort, setSort] = useState<Sort>(start.sort)
+  const [rankBy, setRankBy] = useState<RankBy>(start.rankBy)
+  const [query, setQuery] = useState(start.query)
+  const [chosenTown, setTown] = useState(start.town)
+  // Tapped while already here: start over in place.
+  const [startedAt, setStartedAt] = useState(location.key)
+  if (home && startedAt !== location.key) {
+    setStartedAt(location.key)
+    setSort(FRESH.sort)
+    setRankBy(FRESH.rankBy)
+    setQuery(FRESH.query)
+    setTown(FRESH.town)
+  }
+  // Once done, forget it was asked for, so coming back to this page later
+  // (from a cookie, say) finds the journal as it was left, not reset again.
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (home) void navigate('.', { replace: true, state: null })
+  }, [home, navigate])
   useEffect(() => {
     Object.assign(lastView, { sort, rankBy, query, town: chosenTown })
   }, [sort, rankBy, query, chosenTown])
@@ -88,7 +114,7 @@ export function JournalPage() {
 
   return (
     <Page
-      title="Cookie journal"
+      title="Cookie Journal"
       lede={
         <>
           {plural(summary.count, 'cookie')} from {plural(summary.bakeries, 'bakery', 'bakeries')}
