@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Segmented } from '@/components/Field'
 import { Page } from '@/components/Page'
 import { plural } from '@/lib/format'
@@ -7,7 +7,10 @@ import { useCookies } from '@/lib/use-cookies'
 import { PlacesView } from './PlacesView'
 import { StatesView } from './StatesView'
 
-type View = 'places' | 'states'
+// The county outlines are a few hundred kilobytes; they wait until asked for.
+const CountiesView = lazy(() => import('./CountiesView').then((m) => ({ default: m.CountiesView })))
+
+type View = 'places' | 'counties' | 'states'
 
 export function MapPage() {
   const cookies = useCookies()
@@ -37,12 +40,19 @@ export function MapPage() {
           onChange={setView}
           options={[
             { value: 'places', label: 'Places' },
+            { value: 'counties', label: 'Counties' },
             { value: 'states', label: 'States' },
           ]}
         />
       }
     >
-      {view === 'places' ? <PlacesView cookies={cookies} /> : <StatesView cookies={cookies} />}
+      {view === 'places' && <PlacesView cookies={cookies} />}
+      {view === 'counties' && (
+        <Suspense fallback={<div aria-busy className="h-80 animate-pulse rounded-3xl bg-oat" />}>
+          <CountiesView cookies={cookies} />
+        </Suspense>
+      )}
+      {view === 'states' && <StatesView cookies={cookies} />}
     </Page>
   )
 }
