@@ -53,6 +53,14 @@ Settings that live only in dashboards (nothing in the repo changes them):
 - **Top rated** counts everyone with an account. There is no opt-out switch (the owner's call),
   and the privacy page says so.
 
+## Feedback
+
+The app's Settings has "Report a bug or suggest an idea", which opens `/feedback` (Bug, Idea or
+Other, a message, and an optional reply address). Reports go into the `feedback` table
+(`supabase/migrations/20261116000000_feedback.sql`): anyone can add one, nobody can read them back
+through the app. Read them in Supabase → Table Editor → feedback. Where the app can't send one
+(no account service, offline), it offers the same report as an email to `help@crumbs-up.com`.
+
 ## Known loose ends
 
 - **School and work addresses** (Penn State in particular) hold the code emails even though

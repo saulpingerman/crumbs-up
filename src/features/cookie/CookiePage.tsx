@@ -5,6 +5,7 @@ import {
   LoaderCircle,
   MapPin,
   Pencil,
+  Plus,
   Share2,
   Tag,
   Trash2,
@@ -17,6 +18,8 @@ import { toast } from 'sonner'
 import { NotFound } from '@/app/Errors'
 import { Button, ButtonLink, IconButton } from '@/components/Button'
 import { CookiePhoto } from '@/components/CookiePhoto'
+import { CookieRow } from '@/components/CookieRow'
+import { fromSamePlace, rateHereLink } from '@/lib/bakery-places'
 import { Medallion, ScoreBar } from '@/components/Score'
 import { categoryText } from '@/components/category-styles'
 import { Confirm } from '@/components/Sheet'
@@ -127,6 +130,8 @@ export function CookiePage() {
               </p>
             </section>
           )}
+
+          <SamePlace cookie={cookie} />
 
           <Breakdown cookie={cookie} />
 
@@ -261,6 +266,43 @@ function Standing({ cookie }: { cookie: RatedCookie }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * The other cookies from the same place, and a way to add one more: the new
+ * cookie starts at this bakery, town and pin, so it is linked to these.
+ */
+function SamePlace({ cookie }: { cookie: RatedCookie }) {
+  const all = useCookies()
+  const { overallPrecision } = useSettings()
+  const others = useMemo(() => (all ? fromSamePlace(cookie, all) : []), [all, cookie])
+  if (cookie.sample) return null
+  return (
+    <section className="mt-8">
+      <h2 className="font-display text-xl font-semibold">More from {cookie.bakery}</h2>
+      {others.length > 0 && (
+        <ul className="-mx-1.5 mt-2">
+          {others.map((other) => (
+            <li key={other.id}>
+              <CookieRow
+                cookie={other}
+                precision={overallPrecision}
+                detail={formatDate(other.eatenOn, 'short')}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      <ButtonLink
+        variant="secondary"
+        to={rateHereLink({ ...cookie, place: cookie.place ?? null })}
+        className="mt-3"
+      >
+        <Plus className="size-4" strokeWidth={2.6} />
+        Rate another cookie from here
+      </ButtonLink>
+    </section>
   )
 }
 

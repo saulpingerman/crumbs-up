@@ -275,3 +275,29 @@ test('opened as plain http, the site moves itself to https first', async ({ page
     'https://crumbs-up.example/rate?from=link',
   ])
 })
+
+test('a bug or an idea can be sent from Settings, by email when the app can’t send it', async ({
+  page,
+}) => {
+  await page.goto('/settings')
+  await page.getByRole('link', { name: 'Report a bug or suggest an idea' }).click()
+  await expect(page.getByRole('heading', { name: 'Send feedback' })).toBeVisible()
+  await expect(page.getByRole('radio', { name: 'Bug' })).toBeChecked()
+
+  // Nothing to send yet.
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Write a few words first.')).toBeVisible()
+
+  await page.getByRole('radio', { name: 'Idea' }).click()
+  await page.getByLabel('What would make Crumbs Up better?').fill('A dark chocolate filter')
+  await page.getByRole('button', { name: 'Send' }).click()
+  // This copy has no account service, so it offers the same report by email.
+  const email = page.getByRole('link', { name: 'Send it by email instead' })
+  await expect(email).toBeVisible()
+  const href = (await email.getAttribute('href'))!
+  expect(href).toMatch(/^mailto:help@crumbs-up\.com\?/)
+  const params = new URLSearchParams(href.split('?')[1])
+  expect(params.get('subject')).toBe('Crumbs Up: Idea')
+  expect(params.get('body')).toContain('A dark chocolate filter')
+  expect(params.get('body')).toContain('Screen: /settings')
+})
