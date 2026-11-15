@@ -43,6 +43,34 @@ const SAME_PLACE_KM = 5.5
 /** Smaller places than this rarely have a bakery to find. */
 const SMALLEST = 2500
 
+/** Where the journal has been: the town typed in, or the one a pinned spot is in. */
+export function visitedTowns(
+  cookies: Pick<CookieRecord, 'city' | 'state' | 'place'>[],
+  index: PlaceIndex,
+): Set<Place> {
+  const been = new Set<Place>()
+  for (const cookie of cookies) {
+    const town =
+      index.find(cookie.city, cookie.state) ?? (cookie.place ? index.nearest(cookie.place) : null)
+    if (town) been.add(town)
+  }
+  return been
+}
+
+/** A state's biggest towns with no cookie logged yet: where to go and look round. */
+export function bigTownsToTry(
+  cookies: Pick<CookieRecord, 'city' | 'state' | 'place'>[],
+  index: PlaceIndex,
+  state: string,
+  limit = 5,
+): Place[] {
+  const been = visitedTowns(cookies, index)
+  return index.all
+    .filter((place) => place.state === state && !been.has(place))
+    .sort((a, b) => b.population - a.population)
+    .slice(0, limit)
+}
+
 /**
  * Towns close to ones in the journal where no cookie has been logged yet:
  * nearer and bigger first. Somewhere new to go that isn't a whole state away.
@@ -52,13 +80,7 @@ export function newTowns(
   index: PlaceIndex,
   limit = 6,
 ): NearbyTown[] {
-  // Where the journal has been: the town typed in, or the one a pinned spot is in.
-  const been = new Set<Place>()
-  for (const cookie of cookies) {
-    const town =
-      index.find(cookie.city, cookie.state) ?? (cookie.place ? index.nearest(cookie.place) : null)
-    if (town) been.add(town)
-  }
+  const been = visitedTowns(cookies, index)
   if (been.size === 0) return []
   const anchors = [...been]
 

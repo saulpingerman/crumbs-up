@@ -192,7 +192,7 @@ test('the map shades counties, and any county says where to try', async ({ page 
   await page.getByRole('button', { name: 'Washington County: no cookies yet' }).click()
   await expect(page.getByRole('heading', { name: 'Washington County' })).toBeVisible()
   await expect(page.getByText('No cookies yet')).toBeVisible()
-  await expect(page.getByText('No bakeries listed here that you haven’t tried.')).toBeVisible({
+  await expect(page.getByText('Nothing listed here that you haven’t tried.')).toBeVisible({
     timeout: 15_000,
   })
   await expect(page.getByText('Rise & Shine Cookie Co.')).toHaveCount(0)
@@ -243,6 +243,45 @@ test('a county asks for nothing when online lookups are turned off', async ({ pa
   await expect(page.getByText('Looking up bakeries is switched off in Settings.')).toBeVisible()
   await page.waitForTimeout(1500)
   expect(asked).toBe(false)
+})
+
+test('any state says where to try, and its towns open the street map', async ({ page }) => {
+  await fakeTiles(page)
+  await fakePlaceSearch(page)
+  await addSamples(page)
+  await page.goto('/map')
+  await page.getByRole('radio', { name: 'States' }).click()
+
+  // A state with cookies in it: they are listed, then a cookie shop that
+  // isn't in the journal, then its biggest towns still to be looked round.
+  await page.getByRole('button', { name: 'Oregon: 2 cookies, average 8.0' }).click()
+  await expect(page.getByRole('heading', { name: 'Oregon' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Places to try' })).toBeVisible()
+  await expect(page.getByText('Rise & Shine Cookie Co.')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('link', { name: 'Salem', exact: true })).toBeVisible()
+  // Portland already has cookies in the journal, so it isn't one of them.
+  await expect(page.getByRole('link', { name: 'Portland', exact: true })).toHaveCount(0)
+
+  // A state with nothing rated in it can be tapped too. The shop found is in
+  // Oregon, so it isn't offered here.
+  await page.getByRole('button', { name: 'Washington: no cookies yet' }).click()
+  await expect(page.getByRole('heading', { name: 'Washington' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Washington: no cookies yet' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByRole('link', { name: 'Seattle', exact: true })).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByText('Rise & Shine Cookie Co.')).toHaveCount(0)
+
+  // A town opens the street map there, whatever view was open.
+  await page.getByRole('link', { name: 'Seattle', exact: true }).click()
+  await expect(page).toHaveURL(/\/map\?lat=47\.\d+&lng=-122\.\d+/)
+  await expect(page.getByRole('radio', { name: 'Places' })).toBeChecked()
+  await expect(page.getByRole('application')).toHaveAttribute('data-ready', 'true', {
+    timeout: 30_000,
+  })
 })
 
 test('new territory is towns nearby, and each opens the map there', async ({ page }) => {

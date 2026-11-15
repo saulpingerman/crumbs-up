@@ -89,6 +89,39 @@ export function unproject(spot: [x: number, y: number]): LatLng | null {
 }
 
 /**
+ * The smallest rectangle of the world that takes in a box on the drawn map
+ * (left, top, right, bottom). The drawn map is tilted against the lines of
+ * latitude and longitude, so the box's corners and the middles of its sides
+ * are all looked at.
+ */
+export function worldBounds(box: [number, number, number, number]): Bounds | null {
+  const [left, top, right, bottom] = box
+  const midX = (left + right) / 2
+  const midY = (top + bottom) / 2
+  const spots = (
+    [
+      [left, top],
+      [midX, top],
+      [right, top],
+      [right, midY],
+      [right, bottom],
+      [midX, bottom],
+      [left, bottom],
+      [left, midY],
+    ] as [number, number][]
+  )
+    .map(unproject)
+    .filter((spot) => spot !== null)
+  if (spots.length === 0) return null
+  return {
+    south: Math.min(...spots.map((s) => s.lat)),
+    north: Math.max(...spots.map((s) => s.lat)),
+    west: Math.min(...spots.map((s) => s.lng)),
+    east: Math.max(...spots.map((s) => s.lng)),
+  }
+}
+
+/**
  * How far "north" leans from straight up at a map position, in degrees
  * clockwise. The country is drawn on a cone, so only its middle stands
  * upright: Maine leans one way and Washington the other.

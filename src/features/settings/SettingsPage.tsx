@@ -134,7 +134,7 @@ export function SettingsPage() {
           <SectionTitle>Maps &amp; places</SectionTitle>
           <Row
             label="Look up bakeries online"
-            hint="Pin a bakery’s exact spot as you type its name, and show bakeries you haven’t tried as you move around the map or pick a county."
+            hint="Pin a bakery’s exact spot as you type its name, and show bakeries you haven’t tried as you move around the map or pick a county or state."
             className="mt-3 flex-nowrap items-start"
           >
             <Switch

@@ -126,6 +126,38 @@ export function findBakery(
   return photon('/api/', params, signal)
 }
 
+/** Kinds of place a shop with "cookie" in its name should be, to be a cookie shop. */
+const COOKIE_SHOP_KINDS = [
+  'shop:bakery',
+  'shop:pastry',
+  'shop:confectionery',
+  'shop:chocolate',
+  'amenity:cafe',
+  'amenity:fast_food',
+  'amenity:ice_cream',
+]
+
+/**
+ * Shops with "cookie" in their name inside a rectangle. A whole state has
+ * far too many bakeries to list, but its dedicated cookie shops are few
+ * enough to find in one question — and are the ones most worth a trip.
+ * The rectangle can take in a bit of the states next door; `state` on each
+ * place says which it is really in.
+ */
+export function cookieShopsWithin(bounds: Bounds, signal?: AbortSignal): Promise<OsmPlace[]> {
+  return photon(
+    '/api/',
+    [
+      ['q', 'cookie'],
+      ['bbox', `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`],
+      ['limit', '50'],
+      ['lang', 'en'],
+      ...COOKIE_SHOP_KINDS.map((tag): [string, string] => ['osm_tag', tag]),
+    ],
+    signal,
+  )
+}
+
 export interface NearbyPlace extends OsmPlace {
   /** Straight-line distance from the middle of the map. */
   km: number
