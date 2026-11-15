@@ -33,6 +33,9 @@ if (!command) {
   process.exit(0)
 }
 
+const inbox = read('MAILPIT_URL') ?? read('INBUCKET_URL') ?? ''
+await codeEmailsReady()
+
 const child = spawn(command, args, {
   stdio: 'inherit',
   env: {
@@ -43,7 +46,50 @@ const child = spawn(command, args, {
     // fake of Google's library. No real client is involved.
     VITE_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
     // The local stack catches every email it "sends"; tests read them here.
-    SUPABASE_MAIL_URL: read('MAILPIT_URL') ?? read('INBUCKET_URL') ?? '',
+    SUPABASE_MAIL_URL: inbox,
   },
 })
 child.on('exit', (code) => process.exit(code ?? 1))
+
+/**
+ * For its first few seconds the account service hasn't fetched this
+ * project's email wording yet, and sends its stock email — a link, where the
+ * app and its tests expect a code. A test run started straight after
+ * `supabase start` (as CI's is) would trip over that, so make throwaway
+ * accounts until the email that comes back carries a code.
+ */
+async function codeEmailsReady() {
+  if (!inbox) return
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  const deadline = Date.now() + 60_000
+  let last = 'no email arrived'
+  while (Date.now() < deadline) {
+    const email = `warm-up-${crypto.randomUUID()}@example.com`
+    try {
+      const made = await fetch(`${url}/auth/v1/signup`, {
+        method: 'POST',
+        headers: { apikey: key, 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password: crypto.randomUUID() }),
+      })
+      // Signed in on the spot: this project doesn't confirm addresses, so
+      // there are no emails to wait for.
+      if ((await made.json()).access_token) return
+      for (let tries = 0; tries < 8; tries++) {
+        await pause(250)
+        const found = await fetch(
+          `${inbox}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
+        )
+        const [message] = (await found.json()).messages
+        if (!message) continue
+        if (/\b\d{6,10}\b/.test(message.Subject)) return
+        last = `the email was still "${message.Subject}"`
+        break
+      }
+    } catch (error) {
+      last = String(error)
+    }
+    await pause(1_000)
+  }
+  console.error(`The local Supabase stack never started sending code emails (${last}).`)
+  process.exit(1)
+}
