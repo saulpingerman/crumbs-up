@@ -123,6 +123,12 @@ export function PrivacyPage() {
               </li>
             )}
             <li>
+              <strong>Sending feedback</strong> sends what you write, the email address you give for
+              a reply (if any), the screen you came from, the app’s version and your browser’s name
+              and version, so a bug can be found. Only the people who run Crumbs Up read it.
+              {cloudConfigured && ' If you are signed in, it is linked to your account.'}
+            </li>
+            <li>
               <strong>Loading the app itself.</strong> Like any website, the company hosting it can
               see the internet address of devices that load it.
             </li>

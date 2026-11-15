@@ -352,3 +352,34 @@ test('a cookie that beats the whole journal gets the crown', async ({ page }) =>
   // Crumbs are for a verdict as it lands, not for a number being typed in.
   await expect(page.getByTestId('crumbs')).toHaveCount(0)
 })
+
+test('cookies from the same place are linked, and another is a tap away', async ({ page }) => {
+  await page.goto('/rate')
+  await fillDetails(page, {
+    type: 'Snickerdoodle',
+    bakery: 'Two Rivers',
+    state: 'PA',
+    city: 'Easton',
+  })
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+  await expect(page.getByRole('heading', { name: 'More from Two Rivers' })).toBeVisible()
+
+  // From its page, the next cookie starts at the same place, already linked.
+  await page.getByRole('link', { name: 'Rate another cookie from here' }).click()
+  await expect(page.getByLabel('Bakery')).toHaveValue('Two Rivers')
+  await expect(page.getByLabel('City')).toHaveValue('Easton')
+  await expect(page.getByText('Same place as 1 other cookie')).toBeVisible()
+  await page.getByLabel('Type of cookie').fill('Molasses')
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+  await expect(page.getByRole('heading', { name: 'Molasses' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Snickerdoodle/ })).toBeVisible()
+
+  // Starting from scratch, places already in the journal are offered.
+  await page.goto('/rate')
+  const offered = page.getByRole('list', { name: 'Places you’ve been' })
+  await offered.getByRole('button', { name: 'Two Rivers · Easton' }).click()
+  await expect(page.getByLabel('Bakery')).toHaveValue('Two Rivers')
+  await expect(page.getByText('Same place as 2 other cookies')).toBeVisible()
+})

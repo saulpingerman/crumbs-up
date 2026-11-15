@@ -5,15 +5,16 @@ import {
   Download,
   FileSpreadsheet,
   LoaderCircle,
+  MessageSquarePlus,
   ShieldCheck,
   Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { toast } from 'sonner'
-import { Button } from '@/components/Button'
+import { Button, ButtonLink } from '@/components/Button'
 import { Segmented } from '@/components/Field'
 import { AccountCard } from '@/features/account/AccountCard'
 import { useSession } from '@/lib/cloud/session'
@@ -38,6 +39,7 @@ const dateTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeS
 export function SettingsPage() {
   const settings = useSettings()
   const session = useSession()
+  const { pathname } = useLocation()
   const signedIn = session.status === 'signed-in'
   const accounts = session.status !== 'off'
   const title = !accounts ? 'Settings' : session.status === 'signed-out' ? 'Sign in' : 'Account'
@@ -53,6 +55,15 @@ export function SettingsPage() {
             </h2>
           </>
         )}
+        <ButtonLink
+          to="/feedback"
+          state={{ from: pathname }}
+          variant="secondary"
+          className="w-full"
+        >
+          <MessageSquarePlus className="size-4" />
+          Report a bug or suggest an idea
+        </ButtonLink>
         <Card>
           <SectionTitle>Overall score</SectionTitle>
           <div role="radiogroup" aria-label="Overall score weighting" className="mt-4 space-y-2">

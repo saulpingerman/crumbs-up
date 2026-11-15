@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   History,
+  Link2,
   ListChecks,
   LoaderCircle,
   LocateFixed,
@@ -15,7 +16,8 @@ import { Field, Select, TextInput } from '@/components/Field'
 import { Confirm } from '@/components/Sheet'
 import { cn } from '@/lib/cn'
 import { COMMON_COOKIE_TYPES } from '@/lib/cookie-types'
-import { todayIso } from '@/lib/format'
+import { plural, todayIso } from '@/lib/format'
+import { placeKey, yourPlaces } from '@/lib/bakery-places'
 import { findBakery, type OsmPlace } from '@/lib/osm'
 import { loadPlaces, normalizePlace, type PlaceIndex } from '@/lib/places'
 import { updateSettings, useSettings, type ReviewStyle } from '@/lib/settings'
@@ -81,18 +83,22 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
       .slice(0, 8)
   }, [history, details.cookieType])
 
+  // Places already in the journal. Picking one links this cookie to the
+  // others from there: same bakery, town and map pin.
+  const journalPlaces = useMemo(() => yourPlaces(cookies ?? []), [cookies])
+  const editing = editId ? (cookies ?? []).find((c) => c.id === editId) : undefined
+  const linkedPlace = journalPlaces.find(
+    (p) =>
+      p.key === placeKey(details) &&
+      // A cookie being edited is only "linked" if others share its place.
+      p.cookies - (editing && placeKey(editing) === p.key ? 1 : 0) > 0,
+  )
   const bakerySuggestions = useMemo(() => {
     const q = details.bakery.trim().toLowerCase()
-    const seen = new Set<string>()
-    return history
-      .filter((c) => {
-        const key = `${c.bakery.toLowerCase()}|${c.state}`
-        if (seen.has(key)) return false
-        seen.add(key)
-        return c.bakery.toLowerCase() !== q && (!q || c.bakery.toLowerCase().includes(q))
-      })
-      .slice(0, 6)
-  }, [history, details.bakery])
+    return journalPlaces
+      .filter((p) => p.key !== placeKey(details) && (!q || p.bakery.toLowerCase().includes(q)))
+      .slice(0, 8)
+  }, [journalPlaces, details])
 
   // The town list is only fetched once someone goes near the city field.
   const [places, setPlaces] = useState<PlaceIndex | null>(null)
@@ -310,24 +316,35 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
             aria-invalid={Boolean(errors.bakery)}
             aria-describedby={errors.bakery ? `${id}-bakery-error` : undefined}
           />
-          <Suggestions
-            label="Bakeries you’ve visited"
-            items={bakerySuggestions.map((c) => ({
-              key: c.id,
-              label: c.city ? `${c.bakery} · ${c.city}` : c.bakery,
-            }))}
-            onPick={(_, key) => {
-              const match = bakerySuggestions.find((c) => c.id === key)
-              if (match) {
-                setDetails({
-                  bakery: match.bakery,
-                  city: match.city,
-                  state: match.state,
-                  place: match.place ?? null,
-                })
-              }
-            }}
-          />
+          {linkedPlace ? (
+            <p className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-ok">
+              <Link2 className="size-4 shrink-0" aria-hidden />
+              Same place as{' '}
+              {plural(
+                linkedPlace.cookies - (editing && placeKey(editing) === linkedPlace.key ? 1 : 0),
+                'other cookie',
+              )}
+            </p>
+          ) : (
+            <Suggestions
+              label="Places you’ve been"
+              items={bakerySuggestions.map((p) => ({
+                key: p.key,
+                label: p.city ? `${p.bakery} · ${p.city}` : p.bakery,
+              }))}
+              onPick={(_, key) => {
+                const match = bakerySuggestions.find((p) => p.key === key)
+                if (match) {
+                  setDetails({
+                    bakery: match.bakery,
+                    city: match.city,
+                    state: match.state,
+                    place: match.place,
+                  })
+                }
+              }}
+            />
+          )}
           {mapMatches.length > 0 && (
             <div className="mt-2 rounded-2xl border border-line bg-paper p-1.5">
               <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-bold tracking-[0.1em] text-ink-faint uppercase">

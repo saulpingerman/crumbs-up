@@ -675,3 +675,25 @@ test('Top rated adds up what everyone signed in has rated', async ({ browser }) 
   await expect(rater.getByRole('switch', { name: /Top rated/ })).toHaveCount(0)
   await expect(rater.getByText('Count my ratings')).toHaveCount(0)
 })
+
+test('feedback is sent through the app, signed in or not', async ({ browser }) => {
+  const visitor = await openDevice(browser)
+  await visitor.goto('/feedback')
+  await visitor.getByLabel('What went wrong? What were you doing?').fill('The map froze')
+  await visitor.getByRole('button', { name: 'Send' }).click()
+  await expect(visitor.getByText('Thanks, got it.')).toBeVisible({ timeout: 20_000 })
+  await expect(visitor.getByText('Every one gets read.')).toBeVisible()
+
+  // Signed in, the reply address is filled in already.
+  const email = `feedback-${crypto.randomUUID()}@example.com`
+  const member = await openDevice(browser)
+  await signIn(member, email, 'Create account')
+  await member.getByRole('link', { name: 'Report a bug or suggest an idea' }).click()
+  await expect(member.getByLabel('Your email, for a reply')).toHaveValue(email)
+  await member.getByRole('radio', { name: 'Idea' }).click()
+  await member.getByLabel('What would make Crumbs Up better?').fill('More maps')
+  await member.getByRole('button', { name: 'Send' }).click()
+  await expect(member.getByText('We’ll reply if there’s anything to ask.')).toBeVisible({
+    timeout: 20_000,
+  })
+})

@@ -77,3 +77,71 @@ export function bakeryPlaces(cookies: RatedCookie[], index: PlaceIndex | null): 
   }
   return places.sort((a, b) => b.average - a.average || b.cookies.length - a.cookies.length)
 }
+
+/** A place in the journal: one bakery in one town, however many cookies came from it. */
+export interface YourPlace {
+  key: string
+  bakery: string
+  city: string
+  state: string
+  /** The pinned spot, from whichever of its cookies has one (the newest that does). */
+  place: LatLng | null
+  /** How many cookies in the journal came from here. */
+  cookies: number
+  /** The most recent visit, for ordering. */
+  lastEaten: string
+}
+
+/**
+ * Every place in the journal, most recently visited first. Picking one for a
+ * new cookie gives it the same bakery, town and pin, so the two are linked:
+ * they show up together on the map and on each other's pages.
+ */
+export function yourPlaces(cookies: RatedCookie[]): YourPlace[] {
+  const byKey = new Map<string, YourPlace>()
+  const newestFirst = [...cookies].sort(
+    (a, b) => b.eatenOn.localeCompare(a.eatenOn) || b.createdAt - a.createdAt,
+  )
+  for (const cookie of newestFirst) {
+    const key = placeKey(cookie)
+    const found = byKey.get(key)
+    if (found) {
+      found.cookies += 1
+      found.place ??= cookie.place ?? null
+      // Show the name the way it was written with capitals, if it ever was.
+      if (found.bakery === found.bakery.toLowerCase()) found.bakery = cookie.bakery.trim()
+      if (found.city === found.city.toLowerCase()) found.city = cookie.city.trim()
+    } else {
+      byKey.set(key, {
+        key,
+        bakery: cookie.bakery.trim(),
+        city: cookie.city.trim(),
+        state: cookie.state,
+        place: cookie.place ?? null,
+        cookies: 1,
+        lastEaten: cookie.eatenOn,
+      })
+    }
+  }
+  return [...byKey.values()]
+}
+
+/** The other cookies from the same place as this one, best first. */
+export function fromSamePlace(cookie: RatedCookie, cookies: RatedCookie[]): RatedCookie[] {
+  const key = placeKey(cookie)
+  return cookies.filter((c) => c.id !== cookie.id && placeKey(c) === key).sort(byScoreDesc)
+}
+
+/** A "rate another one from here" link: the new cookie starts at the same place, pin and all. */
+export function rateHereLink(
+  place: Pick<YourPlace, 'bakery' | 'city' | 'state' | 'place'>,
+): string {
+  const params = new URLSearchParams({ bakery: place.bakery })
+  if (place.city) params.set('city', place.city)
+  if (place.state) params.set('state', place.state)
+  if (place.place) {
+    params.set('lat', String(place.place.lat))
+    params.set('lng', String(place.place.lng))
+  }
+  return `/rate?${params}`
+}

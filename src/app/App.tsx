@@ -86,6 +86,12 @@ const router = createBrowserRouter(
                 Component: (await import('@/features/account/ResetPasswordPage')).ResetPasswordPage,
               }),
             },
+            {
+              path: 'feedback',
+              lazy: async () => ({
+                Component: (await import('@/features/feedback/FeedbackPage')).FeedbackPage,
+              }),
+            },
             { path: '*', element: <NotFound /> },
           ],
         },
