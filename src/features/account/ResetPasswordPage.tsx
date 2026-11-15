@@ -7,7 +7,7 @@ import { readPending, rememberPending, type PendingCode } from '@/lib/cloud/pend
 import { sendPasswordReset, useRecovering, useSession } from '@/lib/cloud/session'
 import type { AccountPageState } from './CreateAccountPage'
 import { EnterCode } from './EnterCode'
-import { AccountPage, Outcome } from './form'
+import { AccountFrame, Outcome } from './form'
 import { useAttempt } from './use-attempt'
 import { NewPassword } from './NewPassword'
 import { looksLikeEmail } from './passwords'
@@ -33,10 +33,10 @@ export function ResetPasswordPage() {
   const done = signedIn && !recovering
   useEffect(() => {
     if (signedIn) rememberPending(null)
-    if (done) void navigate('/settings', { replace: true })
+    if (done) void navigate('/account', { replace: true })
   }, [signedIn, done, navigate])
 
-  if (session.status === 'off') return <Navigate to="/settings" replace />
+  if (session.status === 'off') return <Navigate to="/" replace />
 
   function awaitCode(next: PendingCode | null) {
     rememberPending(next)
@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AccountPage title="Reset password">
+    <AccountFrame title="Reset password">
       {signedIn ? (
         recovering && <NewPassword />
       ) : pending ? (
@@ -79,6 +79,6 @@ export function ResetPasswordPage() {
           </Button>
         </form>
       )}
-    </AccountPage>
+    </AccountFrame>
   )
 }

@@ -54,7 +54,7 @@ async function emailedCode(request: APIRequestContext, email: string, nth = 1): 
 }
 
 /**
- * From the sign-in form in Settings: sign in there, or go through the
+ * From the sign-in page: sign in there, or go through the
  * "Create account" page. What happens once signed in is up to the caller.
  */
 async function submitAccountForm(page: Page, email: string, how: 'Sign in' | 'Create account') {
@@ -79,20 +79,26 @@ async function submitAccountForm(page: Page, email: string, how: 'Sign in' | 'Cr
     await askedForCode.fill(await emailedCode(page.request, email))
     await page.getByRole('button', { name: 'Confirm' }).click()
   }
-  // Either way it ends back in Settings, signed in.
+  // Either way it ends back on the account page, signed in.
   await expect(signedIn).toBeVisible({ timeout: 20_000 })
-  expect(new URL(page.url()).pathname).toBe('/settings')
+  expect(new URL(page.url()).pathname).toBe('/account')
 }
 
 async function signIn(page: Page, email: string, how: 'Sign in' | 'Create account') {
-  await page.goto('/settings')
+  // By way of the button in the header, the way a person gets there.
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await submitAccountForm(page, email, how)
   await expect(page.getByText(email)).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
+  // The same button now leads to the account, and says so.
+  await expect(page.getByRole('link', { name: 'Account', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0)
 }
 
 async function syncNow(page: Page) {
-  await page.goto('/settings')
+  await page.goto('/account')
   await page.getByRole('button', { name: 'Sync now' }).click()
   await expect(page.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
 }
@@ -107,7 +113,7 @@ test('a journal follows its account from one device to another', async ({ browse
   await signIn(phone, email, 'Create account')
 
   // A wrong password is turned away; the right one brings the journal, photo and all.
-  await laptop.goto('/settings')
+  await laptop.goto('/account')
   await laptop.getByLabel('Email').fill(email)
   await laptop.getByLabel('Password').fill('not-the-password')
   await laptop.getByRole('button', { name: 'Sign in' }).click()
@@ -137,7 +143,7 @@ test('a journal follows its account from one device to another', async ({ browse
   await expect(laptop.getByRole('link', { name: /Chocolate Chip/ })).toHaveCount(0)
 
   // Signing out can take the journal off the device without touching the account.
-  await laptop.goto('/settings')
+  await laptop.goto('/account')
   await laptop.getByRole('button', { name: 'Sign out' }).click()
   await laptop.getByRole('button', { name: 'Remove it from this device' }).click()
   await expect(laptop.getByRole('link', { name: 'Create account' })).toBeVisible()
@@ -223,7 +229,7 @@ test('a new account is confirmed with an emailed code, however roundabout the ro
 
   // Creating an account has a page to itself. The address already typed
   // into the sign-in form comes along.
-  await phone.goto('/settings')
+  await phone.goto('/account')
   await phone.getByLabel('Email').fill(email)
   await phone.getByRole('link', { name: 'Create account' }).click()
   await expect(phone.getByRole('heading', { name: 'Create account' })).toBeVisible()
@@ -267,7 +273,7 @@ test('a new account is confirmed with an emailed code, however roundabout the ro
   // (The service won't email the same person twice within a second — a
   // minute, on the hosted project — and a test is quicker than that.)
   await phone.waitForTimeout(1_100)
-  await phone.goto('/settings')
+  await phone.goto('/account')
   await phone.getByLabel('Email').fill(email)
   await phone.getByLabel('Password').fill(password)
   await phone.getByRole('button', { name: 'Sign in' }).click()
@@ -275,7 +281,7 @@ test('a new account is confirmed with an emailed code, however roundabout the ro
   await code.fill(await emailedCode(phone.request, email, 2))
   await phone.getByRole('button', { name: 'Confirm' }).click()
   await expect(phone.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 20_000 })
-  expect(new URL(phone.url()).pathname).toBe('/settings')
+  expect(new URL(phone.url()).pathname).toBe('/account')
   await expect(phone.getByText('Everything is synced')).toBeVisible({ timeout: 30_000 })
 
   // Making the same account twice doesn't leave anyone waiting for an email
@@ -323,7 +329,7 @@ test('a forgotten password is reset on its own page, with an emailed code', asyn
   await phone.getByRole('button', { name: 'Save new password' }).click()
   await expect(phone.getByText('Password changed')).toBeVisible()
   await expect(phone.getByText(email)).toBeVisible()
-  expect(new URL(phone.url()).pathname).toBe('/settings')
+  expect(new URL(phone.url()).pathname).toBe('/account')
 
   // The old password is dead; the new one brings the journal back.
   await phone.getByRole('button', { name: 'Sign out' }).click()
@@ -377,7 +383,7 @@ test('Apple and Google buttons appear when the project has them switched on', as
       json: { ...settings, external: { ...settings.external, apple: true, google: true } },
     })
   })
-  await page.goto('/settings')
+  await page.goto('/account')
   const buttons = page.getByRole('button', { name: /^Continue with/ })
   await expect(buttons).toHaveText(['Continue with Apple', 'Continue with Google'])
 
@@ -396,7 +402,7 @@ test('Apple and Google buttons appear when the project has them switched on', as
   // The buttons are remembered, so they are there at once next time — even offline.
   await page.unroute('**/auth/v1/settings')
   await page.route('**/auth/v1/settings', (route) => route.abort())
-  await page.goto('/settings')
+  await page.goto('/account')
   await expect(buttons).toHaveCount(2)
 })
 
@@ -430,7 +436,7 @@ test('coming back from a sign-in provider signs the device in', async ({ browser
   await expect(second.getByText('Signed in', { exact: true })).toBeVisible({ timeout: 20_000 })
   expect(second.url()).toBe('http://localhost:4173/')
   await expect(second.getByText('Provider Bakery')).toBeVisible({ timeout: 30_000 })
-  await second.goto('/settings')
+  await second.goto('/account')
   await expect(second.getByText(email)).toBeVisible()
 })
 
@@ -449,7 +455,7 @@ test('a device is not cleared while it holds cookies the account has not receive
   await device.waitForTimeout(1500)
   await device.context().setOffline(true)
   await rateByHand(device, 'Macaroon', 'Offline Bakery')
-  await device.goto('/settings')
+  await device.goto('/account')
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Remove it from this device' }).click()
   await expect(device.getByText('Some cookies haven’t reached your account yet')).toBeVisible()
@@ -458,7 +464,7 @@ test('a device is not cleared while it holds cookies the account has not receive
 
   // Back online it is sent first, and then the device can be cleared.
   await device.context().setOffline(false)
-  await device.goto('/settings')
+  await device.goto('/account')
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Remove it from this device' }).click()
   await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
@@ -478,6 +484,7 @@ test('deleting everything on a signed-out device leaves the account alone', asyn
   await device.getByRole('button', { name: 'Sign out' }).click()
   await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
   await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
+  await device.goto('/settings')
   await device.getByRole('button', { name: 'Delete everything' }).click()
   const dialog = device.getByRole('alertdialog')
   await expect(dialog).toContainText('erased from this device')
@@ -530,7 +537,7 @@ test('an account can be deleted from inside the app', async ({ browser }) => {
   await expect(device.getByText('Farewell Bakery')).toBeVisible()
 
   // The account itself is gone: its password opens nothing.
-  await device.goto('/settings')
+  await device.goto('/account')
   await device.getByLabel('Email').fill(email)
   await device.getByLabel('Password').fill(password)
   await device.getByRole('button', { name: 'Sign in' }).click()
@@ -588,7 +595,7 @@ test('Google’s own sign-in box hands its token to the account service', async 
     })
   })
 
-  await page.goto('/settings')
+  await page.goto('/account')
   const box = page.getByTestId('google-button')
   await expect(box.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
   const options = await page.evaluate(
@@ -658,7 +665,7 @@ test('Top rated adds up what people have rated, and anyone can leave it', async 
   await expect(rater.getByRole('link', { name: 'You gave it 5.5' })).toBeVisible()
 
   // They can take their ratings out of the totals…
-  await rater.goto('/settings')
+  await rater.goto('/account')
   const counted = rater.getByRole('switch', { name: 'Count my ratings in Top rated' })
   await expect(counted).toBeChecked()
   await counted.click()

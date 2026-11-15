@@ -1,8 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings2 } from 'lucide-react'
+import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigation } from 'react-router'
 import { ButtonLink } from '@/components/Button'
 import { Wordmark } from '@/components/Logo'
+import { useSession } from '@/lib/cloud/session'
 import { cn } from '@/lib/cn'
 import { db } from '@/lib/db/db'
 
@@ -64,7 +65,10 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
-          <SettingsLink />
+          <div className="flex items-center gap-1">
+            <AccountLink />
+            <SettingsLink />
+          </div>
           <ButtonLink to="/rate">
             <Plus className="size-4" strokeWidth={2.6} />
             Rate a cookie
@@ -78,7 +82,10 @@ export function AppShell() {
           <NavLink to="/" aria-label="Crumbs Up home" className="rounded-lg">
             <Wordmark />
           </NavLink>
-          <SettingsLink />
+          <div className="flex items-center gap-1">
+            <AccountLink />
+            <SettingsLink />
+          </div>
         </div>
       </header>
 
@@ -118,6 +125,34 @@ export function AppShell() {
   )
 }
 
+/**
+ * Signing in used to hide behind the settings symbol, which says nothing
+ * about accounts. It has a button of its own, in words; once someone is
+ * signed in the same button is their way to the account.
+ */
+function AccountLink() {
+  const session = useSession()
+  // Nothing while it is still being worked out (a "Sign in" that flips to
+  // "Account" a moment later is worse than a short gap), and nothing at all
+  // in a copy of the app that has no accounts.
+  if (session.status === 'off' || session.status === 'loading') return null
+  return (
+    <NavLink
+      to="/account"
+      className={({ isActive }) =>
+        cn(
+          'flex h-9 shrink-0 items-center rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap transition',
+          isActive
+            ? 'border-transparent bg-oat text-ink'
+            : 'border-line bg-paper text-ink hover:bg-oat',
+        )
+      }
+    >
+      {session.status === 'signed-in' ? 'Account' : 'Sign in'}
+    </NavLink>
+  )
+}
+
 function SettingsLink() {
   return (
     <NavLink
@@ -131,7 +166,7 @@ function SettingsLink() {
         )
       }
     >
-      <Settings2 className="size-[22px]" />
+      <Settings className="size-[22px]" />
     </NavLink>
   )
 }

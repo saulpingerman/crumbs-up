@@ -20,18 +20,18 @@ export function Outcome({ problem, notice }: { problem: string | null; notice?: 
   )
 }
 
-/** The frame the account pages share: a title, a way back, one card. */
-export function AccountPage({ title, children }: { title: string; children: ReactNode }) {
+/** The frame "Create account" and "Reset password" share: a title, a way back, one card. */
+export function AccountFrame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Page
       title={title}
       className="max-w-md"
       action={
         <Link
-          to="/settings"
+          to="/account"
           className="flex items-center gap-1.5 text-sm font-semibold text-ink-soft hover:text-ink"
         >
-          <ArrowLeft className="size-4" /> Settings
+          <ArrowLeft className="size-4" /> Sign in
         </Link>
       }
     >
