@@ -191,3 +191,22 @@ test('a cookie finder that can’t start says why, for a screenshot to carry bac
   await expect(toast).toBeVisible({ timeout: 60_000 })
   await expect(toast).toContainText('Download failed (404)')
 })
+
+test.describe('as Chrome on an iPhone', () => {
+  // Chrome on iOS is Safari underneath but calls itself "CriOS", with no
+  // "Version/" in its name. MediaPipe took that for an old Safari and crashed
+  // in the cookie finder's worker ("document is not defined").
+  test.use({
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0.6778.73 Mobile/15E148 Safari/604.1',
+  })
+
+  test('the cookie finder still cuts the cookie out', async ({ page }) => {
+    test.setTimeout(240_000)
+    await page.goto('/rate')
+    await page.getByTestId('photo-input').setInputFiles(fixture('cookie.jpg'))
+    await expect(page.getByAltText('Your cookie, cut out of its photo')).toBeVisible({
+      timeout: 180_000,
+    })
+  })
+})
