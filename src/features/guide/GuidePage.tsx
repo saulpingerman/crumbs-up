@@ -43,7 +43,7 @@ export function GuidePage() {
         <Card>
           <SectionTitle>One anchor: a 5 is a Toll House cookie</SectionTitle>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            Every score is measured against the same thing — the classic chocolate chip cookie from
+            Every score is measured against the same thing: the classic chocolate chip cookie from
             the back of the bag. Good, nothing special. That’s a 5. A bakery has to beat it to
             climb, and has to fumble to fall below it.
           </p>
@@ -79,8 +79,9 @@ export function GuidePage() {
           </p>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
             Short on time? A <strong className="font-semibold text-ink">quick review</strong> asks
-            one overall question for each of the three instead — same rungs, same scale — and lets
-            you fine-tune the scores by half points on the verdict. You pick which before you start.
+            one overall question for each of the three instead, on the same rungs and scale, and
+            lets you fine-tune the scores by half points on the verdict. You pick which before you
+            start.
           </p>
           <div className="mt-4 space-y-5">
             {TASTING_ORDER.map((category) => (
@@ -116,7 +117,7 @@ export function GuidePage() {
               </ul>
               <span className="mt-2 block text-sm">
                 There are three rungs above the standard and two below, because bakery cookies
-                mostly live above the line — that’s where the detail is needed.
+                mostly live above the line, and that’s where the detail is needed.
               </span>
             </li>
             <li>

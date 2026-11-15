@@ -223,8 +223,8 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
               ))}
             </ul>
             <p className="mt-3 text-xs text-ink-faint">
-              Places © OpenStreetMap contributors. Listings can be out of date — check before a long
-              drive.
+              Places © OpenStreetMap contributors. Listings can be out of date, so check before a
+              long drive.
             </p>
           </Card>
         )}
@@ -257,7 +257,7 @@ export function PlacesView({ cookies }: { cookies: RatedCookie[] }) {
             <div className="mt-4 rounded-2xl bg-oat px-4 py-3 text-sm">
               <p className="font-semibold">Not on the map yet</p>
               <p className="mt-0.5 text-ink-soft">
-                {unplaced.map((p) => p.bakery).join(', ')} — the map only knows U.S. towns, and
+                {unplaced.map((p) => p.bakery).join(', ')}: the map only knows U.S. towns, and
                 couldn’t place {unplaced.length === 1 ? 'this one' : 'these'}. Check the town and
                 state on {unplaced.length === 1 ? 'its cookie' : 'their cookies'}, or pin the exact
                 spot with “Use my location” next time you’re there.
@@ -373,7 +373,7 @@ function FoundPlace({ place }: { place: NearbyPlace }) {
         <OpenInMaps bakery={place.name} city={place.city} state={place.state} />
       </div>
       <p className="mt-3 text-xs text-ink-faint">
-        From OpenStreetMap — it lists bakeries, not whether they sell cookies.{' '}
+        From OpenStreetMap, which lists bakeries, not whether they sell cookies.{' '}
         <Link to="/discover" className="font-semibold underline">
           What to order
         </Link>

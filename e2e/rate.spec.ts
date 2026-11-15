@@ -41,7 +41,7 @@ test('rates a cookie from photo to journal', async ({ page }) => {
   await answer(page, 'Does the texture keep things interesting?', 'Lots going on')
   await answer(page, 'How does it feel as you chew?', 'Luxurious')
   await answer(page, 'How fresh does it eat?', 'Very fresh')
-  await page.getByRole('button', { name: 'No flaws — carry on' }).click()
+  await page.getByRole('button', { name: 'No flaws, carry on' }).click()
   await expect(categoryScore(page, 'Texture', '8')).toBeVisible()
   await page.getByRole('button', { name: 'Next: taste' }).click()
 
@@ -51,7 +51,7 @@ test('rates a cookie from photo to journal', async ({ page }) => {
   await answer(page, 'What do the ingredients taste like?', 'Premium')
   await answer(page, 'Does it deliver on what it promised?', 'Bold and true')
   await answer(page, 'When it was gone, how did you feel?', 'Still thinking about it')
-  await page.getByRole('button', { name: 'No flaws — carry on' }).click()
+  await page.getByRole('button', { name: 'No flaws, carry on' }).click()
   await expect(categoryScore(page, 'Taste', '8')).toBeVisible()
   await page.getByRole('button', { name: 'See the verdict' }).click()
 
@@ -64,10 +64,10 @@ test('rates a cookie from photo to journal', async ({ page }) => {
   await expect(page.getByTestId('crown')).toHaveCount(0)
 
   // A score can be revisited from the verdict without redoing the questions.
-  await page.getByRole('button', { name: /^Texture 8 — adjust/ }).click()
+  await page.getByRole('button', { name: /^Texture 8, adjust/ }).click()
   await page.getByRole('button', { name: 'Raise texture by half a point' }).click()
   await page.getByRole('button', { name: 'Back to the verdict' }).click()
-  await expect(page.getByRole('button', { name: /^Texture 8.5 — adjust/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Texture 8.5, adjust/ })).toBeVisible()
   await page.getByLabel('Tasting notes').fill('Toffee edges and a soft middle.')
   await page.getByRole('button', { name: 'Save to journal' }).click()
 

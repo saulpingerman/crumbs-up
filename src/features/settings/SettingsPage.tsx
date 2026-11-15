@@ -246,7 +246,8 @@ function DataCard() {
       downloadBlob(blob, filename)
       updateSettings({ lastBackupAt: Date.now(), changesSinceBackup: 0 })
       toast.success(`Backed up ${plural(count, 'cookie')}`, {
-        description: 'Keep the .zip somewhere safe — Files, iCloud Drive, Google Drive or email.',
+        description:
+          'Keep the .zip somewhere safe, like Files, iCloud Drive, Google Drive or email.',
       })
     } catch (error) {
       console.error(error)
@@ -419,7 +420,7 @@ function DataCard() {
                 and from your account, on every device signed in to it
               </strong>
             )}
-            . This can’t be undone — make a backup first if you might want them back.
+            . This can’t be undone. Make a backup first if you might want them back.
           </>
         }
         confirmLabel="Delete everything"

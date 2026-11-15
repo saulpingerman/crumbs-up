@@ -196,7 +196,7 @@ function Versus({ versus }: { versus: Disagreement }) {
       <p className="mt-1 max-w-2xl text-sm text-ink-soft">
         Across {plural(versus.count, 'cookie')} scored with the questionnaire, this is how your
         final call compared with its suggestion. A steady gap one way means the questions run hot or
-        cold for your taste there — worth tuning.
+        cold for your taste there.
       </p>
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         {CATEGORIES.map((category) => {

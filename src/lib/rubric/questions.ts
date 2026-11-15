@@ -19,7 +19,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
     id: 'appearance',
     label: 'Appearance',
     verb: 'Look',
-    blurb: 'Before the first bite — judge it the way it sat in the case.',
+    blurb: 'Before the first bite. Judge it the way it sat in the case.',
   },
   texture: {
     id: 'texture',
@@ -86,7 +86,7 @@ const appearance: Question[] = [
       ['Off-putting', 'I almost didn’t buy it'],
       ['A little sad', 'Tired, plain or sloppy'],
       ['A normal cookie', 'Looks like one from the bag recipe'],
-      ['Inviting', 'Looked good — I wanted it'],
+      ['Inviting', 'Looked good, I wanted it'],
       ['Gorgeous', 'Caught my eye right away'],
       ['Showstopper', 'The best-looking cookie in any case'],
     ],
@@ -96,7 +96,7 @@ const appearance: Question[] = [
     category: 'appearance',
     title: 'Bake color',
     prompt: 'How’s the color of the bake?',
-    hint: 'Judge it for its type — shortbread should be pale, a chocolate chip should be golden.',
+    hint: 'Judge it for its type. Shortbread should be pale, a chocolate chip should be golden.',
     weight: 2,
     rungs: [
       ['Burnt or raw-looking', 'Scorched, or ghostly pale'],
@@ -143,7 +143,7 @@ const appearance: Question[] = [
     category: 'appearance',
     title: 'Mix-ins on show',
     prompt: 'How do the mix-ins or toppings look?',
-    hint: 'Chocolate, nuts, fruit, sprinkles, filling, icing — whatever this cookie is showing off.',
+    hint: 'Chocolate, nuts, fruit, sprinkles, filling, icing: whatever this cookie is showing off.',
     weight: 2,
     rungs: [
       ['Where are they?', 'Barely any, or a careless pile'],
@@ -161,7 +161,7 @@ const appearance: Question[] = [
     category: 'appearance',
     title: 'Appearance flaws',
     prompt: 'Anything off about how it looks?',
-    hint: 'Tap all that apply — or skip if it’s clean.',
+    hint: 'Tap all that apply, or skip if it’s clean.',
     flaws: [
       { id: 'look.flaw.burnt', label: 'Burnt edges or bottom', penalty: 1 },
       { id: 'look.flaw.pale', label: 'Pale, under-baked look', penalty: 0.5 },
@@ -185,7 +185,7 @@ const texture: Question[] = [
     category: 'texture',
     title: 'Texture style',
     prompt: 'What style is this cookie going for?',
-    hint: 'Not scored — it just tells us what “done right” means for this one.',
+    hint: 'Not scored. It just tells us what “done right” means for this one.',
     options: [
       {
         id: 'bite.style.gooey',
@@ -242,7 +242,7 @@ const texture: Question[] = [
     prompt: 'How’s the bake all the way through?',
     weight: 2.5,
     rungs: [
-      ['Ruined', 'Rock hard, bone dry — or raw dough'],
+      ['Ruined', 'Rock hard, bone dry, or raw dough'],
       ['Noticeably off', 'Dry and crumbly, or underdone'],
       ['Acceptable', 'A little dry or a little soft, no big deal'],
       ['Baked right', 'Moist where it should be'],
@@ -260,7 +260,7 @@ const texture: Question[] = [
     rungs: [
       ['Unpleasant', 'Pasty, mushy or like cardboard'],
       ['Monotonous', 'Every bite the same, and dull'],
-      ['Even', 'Uniform — fine, unremarkable'],
+      ['Even', 'Uniform. Fine, unremarkable'],
       ['Some contrast', 'A couple of textures at play'],
       ['Lots going on', 'Distinct layers that work together'],
       ['Every bite different', 'And every one of them great'],
@@ -278,7 +278,7 @@ const texture: Question[] = [
       ['Normal', 'Chews like a cookie'],
       ['Pleasant', 'Tender and clean'],
       ['Luxurious', 'Rich, buttery, satisfying'],
-      ['Melts away', 'Impossibly tender — unforgettable'],
+      ['Melts away', 'Impossibly tender, unforgettable'],
     ],
   }),
   scale({
@@ -302,7 +302,7 @@ const texture: Question[] = [
     category: 'texture',
     title: 'Texture flaws',
     prompt: 'Anything wrong with how it eats?',
-    hint: 'Tap all that apply — or skip if it’s clean.',
+    hint: 'Tap all that apply, or skip if it’s clean.',
     flaws: [
       { id: 'bite.flaw.dry', label: 'Dry or crumbly', penalty: 0.5 },
       { id: 'bite.flaw.tough', label: 'Tough or hard', penalty: 0.5 },
@@ -331,7 +331,7 @@ const taste: Question[] = [
       ['Familiar', 'Classic bag-recipe flavor'],
       ['Richer than usual', 'Real butter and vanilla come through'],
       ['Layered', 'Toffee, caramel, brown-butter or toasty notes'],
-      ['Extraordinary', 'Complex — I kept noticing new things'],
+      ['Extraordinary', 'Complex, I kept noticing new things'],
     ],
   }),
   scale({
@@ -339,10 +339,10 @@ const taste: Question[] = [
     category: 'taste',
     title: 'Sweetness & balance',
     prompt: 'How well balanced is it?',
-    hint: 'Sweetness, salt and richness — does anything shout over the rest?',
+    hint: 'Sweetness, salt and richness. Does anything shout over the rest?',
     weight: 2,
     rungs: [
-      ['Way off', 'Cloying or bland — hard to finish'],
+      ['Way off', 'Cloying or bland, hard to finish'],
       ['Out of balance', 'Noticeably too sweet, or too flat'],
       ['Typical', 'Ordinary cookie sweetness'],
       ['Well balanced', 'Nothing sticks out'],
@@ -370,7 +370,7 @@ const taste: Question[] = [
     category: 'taste',
     title: 'Star flavor',
     prompt: 'Does it deliver on what it promised?',
-    hint: 'Whatever this cookie is named for — chocolate, peanut butter, cinnamon, lemon…',
+    hint: 'Whatever this cookie is named for: chocolate, peanut butter, cinnamon, lemon…',
     weight: 2,
     rungs: [
       ['Missing', 'Couldn’t tell what it was meant to be'],
@@ -402,7 +402,7 @@ const taste: Question[] = [
     category: 'taste',
     title: 'Taste flaws',
     prompt: 'Any off notes?',
-    hint: 'Tap all that apply — or skip if it’s clean.',
+    hint: 'Tap all that apply, or skip if it’s clean.',
     flaws: [
       { id: 'taste.flaw.burnt', label: 'Burnt or bitter', penalty: 1 },
       { id: 'taste.flaw.artificial', label: 'Artificial aftertaste', penalty: 0.5 },
@@ -439,7 +439,7 @@ export const QUICK_QUESTIONS: Record<Category, ScaleQuestion> = {
       ['Off-putting', 'I almost didn’t buy it'],
       ['A little sad', 'Tired, plain or sloppy'],
       ['A normal cookie', 'Looks like one from the bag recipe'],
-      ['Inviting', 'Looked good — I wanted it'],
+      ['Inviting', 'Looked good, I wanted it'],
       ['Gorgeous', 'Caught my eye right away'],
       ['Showstopper', 'The best-looking cookie in any case'],
     ],

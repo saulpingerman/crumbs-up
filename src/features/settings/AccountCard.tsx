@@ -448,7 +448,7 @@ function SignedIn({ email }: { email: string }) {
             <span>
               <span className="block font-semibold">
                 {status.phase === 'syncing' && 'Syncing…'}
-                {status.phase === 'offline' && 'Offline — will sync when you’re back online'}
+                {status.phase === 'offline' && 'Offline. Will sync when you’re back online'}
                 {status.phase === 'error' && 'Couldn’t sync just now'}
                 {status.phase === 'idle' &&
                   (status.pending > 0 ? 'Changes waiting to sync' : 'Everything is synced')}

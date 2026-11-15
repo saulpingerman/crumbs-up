@@ -84,7 +84,7 @@ export function PrivacyPage() {
                 totals while you are signed in, unless you switch it off in Settings → Account. The
                 totals never include your name or email, your notes, your photos, or when you rated
                 something. Where only one person has rated a cookie, its total is that person’s
-                scores — still with nothing to say whose they are.
+                scores, still with nothing to say whose they are.
               </p>
             </>
           )}
@@ -101,7 +101,7 @@ export function PrivacyPage() {
               <strong>Finding a bakery</strong> by name asks Photon (built on OpenStreetMap), which
               sees what you typed and the town you entered. The map also asks it for bakeries you
               haven’t tried, by itself, whenever you stop on a close-up view or pick a county or a
-              state: it sees the area the map is showing, or the county or state — which is your own
+              state: it sees the area the map is showing, or the county or state, which is your own
               area if you centred the map on yourself. You can switch both off in Settings.
             </li>
             <li>
