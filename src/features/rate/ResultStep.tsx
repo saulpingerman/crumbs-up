@@ -64,7 +64,7 @@ export function ResultStep({ category, answers, nudge, onNudge, nextLabel, onCon
 
       <ScoreBar category={category} score={final} bare className="mt-5" />
       <div className="mt-1.5 flex justify-center text-[11px] font-semibold text-ink-faint">
-        ▲ 5 = a standard Toll House cookie
+        ▲ 5 = average
       </div>
 
       <section className="mt-6 rounded-3xl border border-line bg-paper p-4 shadow-card">

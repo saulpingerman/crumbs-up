@@ -6,17 +6,22 @@ export const TASTING_ORDER: readonly Category[] = ['appearance', 'texture', 'tas
 
 export type Scores = Record<Category, number>
 
+/** What a list of cookies is ordered by: the overall score, or one category on its own. */
+export type RankBy = 'overall' | Category
+
 export interface Option {
   id: string
   label: string
   /** One short line that makes the label concrete. */
   detail?: string
   /**
-   * Where this answer sits on the 1–10 scale (5 = a standard Toll House
+   * Where this answer sits on the 1–10 scale (5 = an average
    * cookie). `null` means "doesn't apply" and removes the question from the
    * average instead of pulling it toward the middle.
    */
   score: number | null
+  /** Kept only so ratings saved with an older set of answers still read back. Never offered. */
+  retired?: true
 }
 
 export interface ScaleQuestion {
@@ -29,6 +34,8 @@ export interface ScaleQuestion {
   hint?: string
   weight: number
   options: Option[]
+  /** Answered by picking a number from 1 to 10 rather than a worded rung. */
+  numbered?: true
 }
 
 /** Unscored context question (e.g. which texture style the cookie aims for). */

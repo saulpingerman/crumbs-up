@@ -16,7 +16,7 @@ import {
 } from '@/lib/rubric'
 import { useSettings } from '@/lib/settings'
 
-const RUNG_NAMES = ['Bad', 'Below standard', 'The standard', 'Better', 'Excellent', 'Best ever']
+const RUNG_NAMES = ['Bad', 'Below average', 'Average', 'Better', 'Excellent', 'Best ever']
 
 /**
  * Everything on this page is generated from the rubric itself, so it can
@@ -41,11 +41,10 @@ export function GuidePage() {
     >
       <div className="space-y-5">
         <Card>
-          <SectionTitle>One anchor: a 5 is a Toll House cookie</SectionTitle>
+          <SectionTitle>The scale: 5 is average</SectionTitle>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            Every score is measured against the same thing: the classic chocolate chip cookie from
-            the back of the bag. Good, nothing special. That’s a 5. A bakery has to beat it to
-            climb, and has to fumble to fall below it.
+            Every score is out of 10, and a 5 is an average cookie: good, nothing special. A bakery
+            has to beat that to climb, and has to fumble to fall below it.
           </p>
           <ol className="mt-4 divide-y divide-line/70">
             {TIERS.map((tier, i) => {
@@ -78,10 +77,10 @@ export function GuidePage() {
             questions and then checks for flaws. Heavier bars count for more.
           </p>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-            Short on time? A <strong className="font-semibold text-ink">quick review</strong> asks
-            one overall question for each of the three instead, on the same rungs and scale, and
-            lets you fine-tune the scores by half points on the verdict. You pick which before you
-            start.
+            Most cookies get a <strong className="font-semibold text-ink">quick review</strong>: a
+            number from 1 to 10 for each of the three, with words for every number so a 7 means the
+            same thing each time. You can fine-tune by half points on the verdict, or pick the full
+            tasting before you start.
           </p>
           <div className="mt-4 space-y-5">
             {TASTING_ORDER.map((category) => (
@@ -116,8 +115,8 @@ export function GuidePage() {
                 ))}
               </ul>
               <span className="mt-2 block text-sm">
-                There are three rungs above the standard and two below, because bakery cookies
-                mostly live above the line, and that’s where the detail is needed.
+                There are three rungs above average and two below, because bakery cookies mostly
+                live above the line, and that’s where the detail is needed.
               </span>
             </li>
             <li>

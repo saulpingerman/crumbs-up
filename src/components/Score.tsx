@@ -100,8 +100,7 @@ interface ScoreBarProps {
 }
 
 /**
- * A category score on a 0–10 track. The notch at 5 is the "Toll House
- * line": everything in this app is measured against that standard cookie.
+ * A category score on a 0–10 track. The notch at 5 marks average.
  */
 export function ScoreBar({ category, score, className, bare }: ScoreBarProps) {
   const meta = CATEGORY_META[category]
@@ -142,18 +141,30 @@ export function ScoreBar({ category, score, className, bare }: ScoreBarProps) {
 /** Three compact numbers for cards: taste · texture · appearance. */
 export function MiniScores({
   scores,
+  highlight,
   className,
 }: {
   scores: Record<Category, number>
+  /** One category to pick out, when a list is ranked by it. */
+  highlight?: Category
   className?: string
 }) {
   return (
     <span className={cn('inline-flex items-center gap-2.5 text-xs font-semibold', className)}>
       {(['taste', 'texture', 'appearance'] as const).map((c) => (
-        <span key={c} className="inline-flex items-center gap-1" title={CATEGORY_META[c].label}>
+        <span
+          key={c}
+          className={cn(
+            'inline-flex items-center gap-1',
+            highlight === c && '-mx-1.5 rounded-full bg-oat px-1.5 py-0.5',
+          )}
+          title={CATEGORY_META[c].label}
+        >
           <span aria-hidden className={cn('size-1.5 rounded-full', categoryBg[c])} />
           <span className="sr-only">{CATEGORY_META[c].label}</span>
-          <span className="text-ink-soft tabular-nums">{formatScore(scores[c])}</span>
+          <span className={cn('tabular-nums', highlight === c ? 'text-ink' : 'text-ink-soft')}>
+            {formatScore(scores[c])}
+          </span>
         </span>
       ))}
     </span>

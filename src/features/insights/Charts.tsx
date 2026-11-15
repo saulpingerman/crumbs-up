@@ -159,7 +159,7 @@ export function TrendChart({ cookies, precision }: TrendProps) {
               stroke="var(--ink-faint)"
               strokeWidth={1}
               label={{
-                value: 'Standard',
+                value: 'Average',
                 position: 'insideBottomRight',
                 fill: 'var(--ink-soft)',
                 fontSize: 11,

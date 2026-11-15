@@ -89,9 +89,7 @@ export function ShareCard({ cookie, photoUrl, precision, ref }: Props) {
               <LogoMark className="size-12" />
               <span className="font-display text-[38px] leading-none font-semibold">Crumbs Up</span>
             </span>
-            <span className="text-[19px] font-medium text-ink-faint">
-              5 = a standard Toll House cookie
-            </span>
+            <span className="text-[19px] font-medium text-ink-faint">5 = average</span>
           </div>
         </div>
       </div>

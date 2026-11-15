@@ -11,8 +11,9 @@ import type {
 /**
  * Bump when questions, weights or anchor scores change. Every saved cookie
  * records the version it was rated with, so old ratings stay explainable.
+ * 2: the quick review asks for a number from 1 to 10 instead of a worded rung.
  */
-export const RUBRIC_VERSION = 1
+export const RUBRIC_VERSION = 2
 
 export const CATEGORY_META: Record<Category, CategoryMeta> = {
   appearance: {
@@ -37,7 +38,7 @@ export const CATEGORY_META: Record<Category, CategoryMeta> = {
 
 /**
  * Every scored question uses the same six rungs so answers stay comparable:
- * two below the standard, the standard itself, and three above it — bakery
+ * two below average, average itself, and three above it — bakery
  * cookies mostly live above the line, so that is where the resolution goes.
  */
 export const ANCHORS = [1.5, 3.5, 5, 6.5, 8, 10] as const
@@ -85,7 +86,7 @@ const appearance: Question[] = [
     rungs: [
       ['Off-putting', 'I almost didn’t buy it'],
       ['A little sad', 'Tired, plain or sloppy'],
-      ['A normal cookie', 'Looks like one from the bag recipe'],
+      ['A normal cookie', 'Looks like most cookies'],
       ['Inviting', 'Looked good, I wanted it'],
       ['Gorgeous', 'Caught my eye right away'],
       ['Showstopper', 'The best-looking cookie in any case'],
@@ -423,58 +424,115 @@ export const ALL_QUESTIONS: Question[] = [...appearance, ...texture, ...taste]
 /* ----------------------------- Quick review ----------------------------- */
 
 /**
- * The short way to rate: one overall question per category instead of five
- * detailed ones. The answers sit on the same six rungs, so a quick 8 and a
- * full 8 mean the same thing — the quick one just comes with less reasoning.
+ * The short way to rate: one number per category, 1 to 10, with words for
+ * every number so the same cookie gets the same score whoever rates it.
+ * The names are shared; the line under each says what that number means for
+ * this category. 5 is average, as everywhere else.
  */
+export const NUMBER_NAMES: Record<number, string> = {
+  10: 'Perfect',
+  9: 'Legendary',
+  8: 'Outstanding',
+  7: 'Excellent',
+  6: 'Above average',
+  5: 'Average',
+  4: 'Below average',
+  3: 'Disappointing',
+  2: 'Bad',
+  1: 'Awful',
+}
+
+type TenLines = [string, string, string, string, string, string, string, string, string, string]
+
+/** Lines for 1 to 10, in that order. */
+const NUMBER_LINES: Record<Category, TenLines> = {
+  appearance: [
+    'I almost didn’t eat it',
+    'Burnt, broken or a mess',
+    'Pale, tired or sloppy',
+    'A bit plain or uneven',
+    'A normal-looking cookie',
+    'Nicer than most',
+    'Really inviting',
+    'Bakery-window gorgeous',
+    'Stopped me in my tracks',
+    'The best-looking cookie I’ve seen',
+  ],
+  texture: [
+    'I couldn’t eat it',
+    'Rock hard, or raw in the middle',
+    'Stale, tough or greasy',
+    'A little dry, hard or doughy',
+    'Fine, nothing special',
+    'Better than most',
+    'Great all the way through',
+    'Exactly what it should be',
+    'Close to perfect',
+    'Couldn’t eat any better',
+  ],
+  taste: [
+    'I couldn’t finish a bite',
+    'Hard to keep eating',
+    'Bland, or something tasted off',
+    'Flat, or too sweet',
+    'Good, nothing special',
+    'Better than most',
+    'Seriously good',
+    'I’d go out of my way for it',
+    'One of the best I’ve had',
+    'The best cookie I’ve ever had',
+  ],
+}
+
+/** The worded answers the quick review used before numbers; old ratings still read back. */
+const RETIRED_RUNGS: Record<Category, [string, string, string, string, string, string]> = {
+  appearance: [
+    'Off-putting',
+    'A little sad',
+    'A normal cookie',
+    'Inviting',
+    'Gorgeous',
+    'Showstopper',
+  ],
+  texture: ['Bad', 'Off', 'Fine', 'Good', 'Great', 'Perfect'],
+  taste: ['Bad', 'Disappointing', 'Fine', 'Good', 'Delicious', 'Unforgettable'],
+}
+
+function numberQuestion(
+  id: string,
+  category: Category,
+  title: string,
+  prompt: string,
+): ScaleQuestion {
+  const lines = NUMBER_LINES[category]
+  const numbers: Option[] = lines.map((detail, i) => ({
+    id: `${id}.n${i + 1}`,
+    label: NUMBER_NAMES[i + 1]!,
+    detail,
+    score: i + 1,
+  }))
+  const retired: Option[] = RETIRED_RUNGS[category].map((label, i) => ({
+    id: `${id}.${i + 1}`,
+    label,
+    score: ANCHORS[i] ?? 5,
+    retired: true,
+  }))
+  return {
+    kind: 'scale',
+    id,
+    category,
+    title,
+    prompt,
+    weight: 1,
+    numbered: true,
+    options: [...numbers, ...retired],
+  }
+}
+
 export const QUICK_QUESTIONS: Record<Category, ScaleQuestion> = {
-  appearance: scale({
-    id: 'quick.look',
-    category: 'appearance',
-    title: 'Overall look',
-    prompt: 'How did it look?',
-    hint: 'All things considered: color, shape, finish, toppings.',
-    weight: 1,
-    rungs: [
-      ['Off-putting', 'I almost didn’t buy it'],
-      ['A little sad', 'Tired, plain or sloppy'],
-      ['A normal cookie', 'Looks like one from the bag recipe'],
-      ['Inviting', 'Looked good, I wanted it'],
-      ['Gorgeous', 'Caught my eye right away'],
-      ['Showstopper', 'The best-looking cookie in any case'],
-    ],
-  }),
-  texture: scale({
-    id: 'quick.bite',
-    category: 'texture',
-    title: 'Overall texture',
-    prompt: 'How was the texture?',
-    hint: 'Judge it as the kind of cookie it is trying to be.',
-    weight: 1,
-    rungs: [
-      ['Bad', 'Stale, raw in the middle or rock hard'],
-      ['Off', 'Dry, tough or greasy'],
-      ['Fine', 'Like a decent homemade cookie'],
-      ['Good', 'Pleasant all the way through'],
-      ['Great', 'Just what this kind of cookie should be'],
-      ['Perfect', 'I can’t imagine it eating any better'],
-    ],
-  }),
-  taste: scale({
-    id: 'quick.taste',
-    category: 'taste',
-    title: 'Overall taste',
-    prompt: 'How did it taste?',
-    weight: 1,
-    rungs: [
-      ['Bad', 'I couldn’t finish it'],
-      ['Disappointing', 'Bland, or something tasted off'],
-      ['Fine', 'Like the bag recipe: good, nothing special'],
-      ['Good', 'Clearly better than homemade'],
-      ['Delicious', 'I’d go out of my way for it'],
-      ['Unforgettable', 'One of the best I’ve ever had'],
-    ],
-  }),
+  appearance: numberQuestion('quick.look', 'appearance', 'Your number', 'How did it look?'),
+  texture: numberQuestion('quick.bite', 'texture', 'Your number', 'How was the texture?'),
+  taste: numberQuestion('quick.taste', 'taste', 'Your number', 'How did it taste?'),
 }
 
 export const QUICK_QUESTION_LIST: ScaleQuestion[] = [

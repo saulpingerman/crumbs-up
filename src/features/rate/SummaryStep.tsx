@@ -172,8 +172,7 @@ export function SummaryStep({
           ),
         )}
         <p className="border-t border-line/70 pt-3 text-xs leading-relaxed text-ink-faint">
-          Overall is {WEIGHT_PRESETS[settings.weightPreset].label.toLowerCase()}:{' '}
-          {WEIGHT_PRESETS[settings.weightPreset].detail.replace(/\.$/, '').toLowerCase()}.{' '}
+          Overall: {WEIGHT_PRESETS[settings.weightPreset].label.toLowerCase()}.{' '}
           {quick
             ? 'Use − and + to fine-tune a score. '
             : !draft.manual && 'Tap a score to revisit it. '}

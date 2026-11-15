@@ -17,6 +17,7 @@ test('rates a cookie from photo to journal', async ({ page }) => {
     city: 'State College',
     photo: true,
   })
+  await page.getByRole('radio', { name: /^Full tasting/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
 
   // Look
@@ -95,6 +96,7 @@ test('rates a cookie from photo to journal', async ({ page }) => {
 test('keeps an unfinished rating as a draft', async ({ page }) => {
   await page.goto('/rate')
   await fillDetails(page, { type: 'Snickerdoodle', bakery: 'Half Batch', state: 'OH' })
+  await page.getByRole('radio', { name: /^Full tasting/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
   await answer(page, 'How did it look sitting in the case?', 'Inviting')
   await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
@@ -111,6 +113,7 @@ test('the back gesture steps through the questions', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('link', { name: 'Rate your first cookie' }).click()
   await fillDetails(page, { type: 'Sugar', bakery: 'Test Kitchen', state: 'NY' })
+  await page.getByRole('radio', { name: /^Full tasting/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
   await answer(page, 'How did it look sitting in the case?', 'Inviting')
   await expect(page.getByRole('heading', { name: 'How’s the color of the bake?' })).toBeVisible()
@@ -154,6 +157,7 @@ test('logs a cookie that was already scored, then edits it', async ({ page }) =>
 test('resuming a draft never skips a flaw check that was not seen', async ({ page }) => {
   await page.goto('/rate')
   await fillDetails(page, { type: 'Sugar', bakery: 'Half Batch', state: 'OH' })
+  await page.getByRole('radio', { name: /^Full tasting/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
   await answer(page, 'How did it look sitting in the case?', 'Inviting')
   await answer(page, 'How’s the color of the bake?', 'Evenly baked')
@@ -198,27 +202,32 @@ test('typed-in scores survive a detour through the questions', async ({ page }) 
   await expect(page.getByLabel('Taste score')).toHaveText('8')
 
   await page.getByRole('button', { name: 'Let the questions score it instead' }).click()
-  await expect(
-    page.getByRole('heading', { name: 'How did it look sitting in the case?' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'How did it look?' })).toBeVisible()
   await page.goBack()
   await page.getByRole('button', { name: /Already scored it/ }).click()
   await expect(page.getByLabel('Taste score')).toHaveText('8')
 })
 
-test('a quick review gets from three questions to a saved cookie', async ({ page }) => {
+test('a quick review gets from three numbers to a saved cookie', async ({ page }) => {
   await page.goto('/rate')
   await fillDetails(page, { type: 'Peanut Butter', bakery: 'Corner Market', state: 'PA' })
-  // The full tasting is the default until someone picks otherwise.
-  await expect(page.getByRole('radio', { name: /^Full tasting/ })).toBeChecked()
-  await page.getByRole('radio', { name: /^Quick/ }).click()
+  // A number for each is the default.
+  await expect(page.getByRole('radio', { name: /^Quick/ })).toBeChecked()
   await page.getByRole('button', { name: 'Start tasting' }).click()
 
-  await answer(page, 'How did it look?', 'Inviting')
-  await answer(page, 'How was the texture?', 'Great')
-  await answer(page, 'How did it taste?', 'Delicious')
+  // Every number says what it means, and 5 is average.
+  await expect(page.getByRole('heading', { name: 'How did it look?' })).toBeVisible()
+  await expect(page.getByRole('radio')).toHaveCount(10)
+  await expect(
+    page.getByRole('radio', { name: /^5 Average: A normal-looking cookie/ }),
+  ).toBeVisible()
+  await expect(page.getByRole('radio').first()).toHaveAccessibleName(/^10 Perfect/)
 
-  // (6.5 + 8 + 8) / 3 = 7.5
+  await answer(page, 'How did it look?', /^6 /)
+  await answer(page, 'How was the texture?', /^8 /)
+  await answer(page, 'How did it taste?', /^8 /)
+
+  // Taste and texture count 40% each, appearance 20%: (8×2 + 8×2 + 6) / 5 = 7.6 → 7.5
   await expect(page.getByRole('img', { name: 'Overall score 7.5 out of 10' })).toBeVisible()
   // One answer only gets close; the steppers land the exact half point.
   await page.getByRole('button', { name: 'Raise Taste' }).click()
@@ -226,10 +235,10 @@ test('a quick review gets from three questions to a saved cookie', async ({ page
   await page.getByRole('button', { name: 'Save to journal' }).click()
 
   await expect(page).toHaveURL(/\/cookie\//)
-  await expect(page.getByText(/A quick review: one overall answer behind each score/)).toBeVisible()
+  await expect(page.getByText(/A quick review: one number for each/)).toBeVisible()
   await expect(page.getByRole('meter', { name: 'Taste' })).toHaveAttribute('aria-valuenow', '8.5')
   await page.getByText('Taste', { exact: true }).last().click()
-  await expect(page.getByText('Your answer suggested 8; you moved it up to 8.5.')).toBeVisible()
+  await expect(page.getByText('Your number suggested 8; you moved it up to 8.5.')).toBeVisible()
 
   // Editing brings it back as a quick review, fine-tuning and all.
   await page.getByRole('link', { name: 'Edit' }).click()
@@ -250,11 +259,10 @@ test('a quick review gets from three questions to a saved cookie', async ({ page
 test('a quick review can be traded for the full tasting', async ({ page }) => {
   await page.goto('/rate')
   await fillDetails(page, { type: 'Ginger Molasses', bakery: 'Second Thoughts', state: 'OR' })
-  await page.getByRole('radio', { name: /^Quick/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
-  await answer(page, 'How did it look?', 'Gorgeous')
-  await answer(page, 'How was the texture?', 'Great')
-  await answer(page, 'How did it taste?', 'Delicious')
+  await answer(page, 'How did it look?', /^8 /)
+  await answer(page, 'How was the texture?', /^8 /)
+  await answer(page, 'How did it taste?', /^8 /)
   await expect(page.getByRole('img', { name: 'Overall score 8 out of 10' })).toBeVisible()
 
   await page.getByRole('button', { name: /Do the full tasting/ }).click()
@@ -268,12 +276,13 @@ test('a quick review can be traded for the full tasting', async ({ page }) => {
   await expect(page.getByRole('radio', { name: /^Full tasting/ })).toBeChecked()
   await page.getByRole('radio', { name: /^Quick/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
-  await expect(page.getByRole('radio', { name: /Gorgeous/ })).toBeChecked()
+  await expect(page.getByRole('radio', { name: /^8 / })).toBeChecked()
 })
 
 test('a second tap does not answer the next question unseen', async ({ page }) => {
   await page.goto('/rate')
   await fillDetails(page, { type: 'Sugar', bakery: 'Twice Tapped', state: 'NY' })
+  await page.getByRole('radio', { name: /^Full tasting/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
   await expect(
     page.getByRole('heading', { name: 'How did it look sitting in the case?' }),

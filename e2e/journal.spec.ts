@@ -64,8 +64,18 @@ test('the map opens a state and its cookies', async ({ page }) => {
 
 test('changing the weighting re-scores the journal', async ({ page }) => {
   await addSamples(page)
-  // Birthday Cake: taste 3.5, texture 5.5, appearance 8.5.
+  // Birthday Cake: taste 3.5, texture 5.5, appearance 8.5. Pretty, but it
+  // doesn't eat well, and the default counts how it eats most:
+  // 0.4·3.5 + 0.4·5.5 + 0.2·8.5 = 5.3 → 5.5
   const card = page.getByRole('link', { name: /Birthday Cake/ })
+  await expect(card.getByRole('img', { name: /Overall score/ })).toHaveAccessibleName(
+    'Overall score 5.5 out of 10',
+  )
+  await page.goto('/settings')
+  await page.getByRole('radio', { name: /Equal thirds/ }).click()
+  await expect(page.getByText('Every cookie re-scored')).toBeVisible()
+  await page.goto('/')
+  // (3.5 + 5.5 + 8.5) / 3 = 5.83 → 6
   await expect(card.getByRole('img', { name: /Overall score/ })).toHaveAccessibleName(
     'Overall score 6 out of 10',
   )

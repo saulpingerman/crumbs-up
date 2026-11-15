@@ -57,7 +57,7 @@ export interface CategoryAssessment {
  * Turn one category's answers into a suggested score.
  *
  * 1. Each answer sits on an anchor (1.5 · 3.5 · 5 · 6.5 · 8 · 10) where
- *    5 is "a standard Toll House cookie".
+ *    5 is an average cookie.
  * 2. The category's base score is the weighted mean of those anchors.
  *    "Doesn't apply" answers drop out rather than pulling toward the middle.
  * 3. Flagged flaws subtract their penalty, capped at MAX_FLAW_PENALTY.
@@ -144,7 +144,7 @@ export function quickAnswer(category: Category, answers: Answers): Option | unde
 
 /**
  * Scores from a quick review: each answer taken at face value. A category
- * that hasn't been answered yet sits at the standard.
+ * that hasn't been answered yet sits at average.
  */
 export function quickScores(answers: Answers): Scores {
   const score = (category: Category) => quickAnswer(category, answers)?.score ?? STANDARD_SCORE
@@ -171,19 +171,24 @@ export function answersFor(answers: Answers, style: 'quick' | 'full'): Answers {
 export type Weights = Record<Category, number>
 
 export const WEIGHT_PRESETS = {
+  eating: {
+    label: 'Taste and texture first',
+    detail: '40% taste, 40% texture, 20% appearance.',
+    weights: { taste: 2, texture: 2, appearance: 1 },
+  },
   equal: {
     label: 'Equal thirds',
-    detail: 'Taste, texture and appearance count the same.',
+    detail: 'A third each for taste, texture and appearance.',
     weights: { taste: 1, texture: 1, appearance: 1 },
   },
   fair: {
     label: 'Fair judge',
-    detail: 'The classic baking-contest split: 40% taste, 30% texture, 30% appearance.',
+    detail: 'The baking-contest split: 40% taste, 30% texture, 30% appearance.',
     weights: { taste: 4, texture: 3, appearance: 3 },
   },
   taste: {
     label: 'Taste first',
-    detail: 'Flavor carries half the score: 50% taste, 30% texture, 20% appearance.',
+    detail: '50% taste, 30% texture, 20% appearance.',
     weights: { taste: 5, texture: 3, appearance: 2 },
   },
 } as const satisfies Record<string, { label: string; detail: string; weights: Weights }>

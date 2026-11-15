@@ -6,6 +6,7 @@ import {
   overallScore,
   type Category,
   type OverallPrecision,
+  type RankBy,
   type Weights,
 } from '@/lib/rubric'
 import { ELSEWHERE } from '@/lib/states'
@@ -51,6 +52,17 @@ export function byScoreDesc(a: RatedCookie, b: RatedCookie): number {
     b.eatenOn.localeCompare(a.eatenOn) ||
     b.createdAt - a.createdAt
   )
+}
+
+/** Best first by one category, the overall breaking ties. */
+export function byCategoryDesc(category: Category) {
+  return (a: RatedCookie, b: RatedCookie): number =>
+    b.scores[category] - a.scores[category] || byScoreDesc(a, b)
+}
+
+/** Best first by whatever the list is ranked by. */
+export function rankedBy(by: RankBy) {
+  return by === 'overall' ? byScoreDesc : byCategoryDesc(by)
 }
 
 export function byNewest(a: CookieRecord, b: CookieRecord): number {

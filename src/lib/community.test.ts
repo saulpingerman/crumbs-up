@@ -6,6 +6,7 @@ import {
   rankBakeries,
   rankCookies,
   rankTypes,
+  reweigh,
   sameCookie,
   type CommunityRow,
 } from './community'
@@ -66,6 +67,30 @@ describe('ordering the list', () => {
       ]),
     )
     expect(ranked[0]!.cookieType).toBe('Five People')
+  })
+})
+
+describe('ranking by what matters to the person looking', () => {
+  // Pretty but plain against plain-looking but delicious.
+  const pair = () =>
+    fromRows([
+      row({ cookie_type: 'Showpiece', raters: 5, taste: 6, texture: 6, appearance: 10 }),
+      row({ cookie_type: 'Ugly Delicious', raters: 5, taste: 9, texture: 9, appearance: 4 }),
+    ])
+
+  it('orders by one category on its own', () => {
+    expect(rankCookies(pair(), 'appearance')[0]!.cookieType).toBe('Showpiece')
+    expect(rankCookies(pair(), 'taste')[0]!.cookieType).toBe('Ugly Delicious')
+    expect(rankBakeries(pair(), 'texture')[0]!.best.cookieType).toBe('Ugly Delicious')
+  })
+
+  it('works the overall out with their own weighting', () => {
+    // A plain average puts them level; 40/40/20 doesn't.
+    const weighted = reweigh(pair(), { taste: 2, texture: 2, appearance: 1 })
+    expect(weighted.map((c) => c.overall)).toEqual([6.8, 8])
+    expect(rankCookies(weighted)[0]!.cookieType).toBe('Ugly Delicious')
+    // The category averages themselves don't change.
+    expect(weighted[0]!.scores).toEqual(pair()[0]!.scores)
   })
 })
 

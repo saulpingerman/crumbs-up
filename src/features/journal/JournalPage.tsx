@@ -6,12 +6,13 @@ import { CookiePhoto } from '@/components/CookiePhoto'
 import { Segmented, Select } from '@/components/Field'
 import { LogoMark } from '@/components/Logo'
 import { Empty, Page } from '@/components/Page'
+import { RankByChips } from '@/components/RankBy'
 import { Medallion } from '@/components/Score'
 import { formatPlace, plural } from '@/lib/format'
-import { tierFor } from '@/lib/rubric'
+import { tierFor, type RankBy } from '@/lib/rubric'
 import { useSettings } from '@/lib/settings'
 import { stateName } from '@/lib/states'
-import { byNewest, byScoreDesc, summarize, type RatedCookie } from '@/lib/stats'
+import { byNewest, rankedBy, summarize, type RatedCookie } from '@/lib/stats'
 import { townKey, townLabel } from '@/lib/towns'
 import { useCookies } from '@/lib/use-cookies'
 import { useTitle } from '@/lib/use-title'
@@ -26,8 +27,9 @@ type Sort = 'recent' | 'ranked'
  * should return to the same search, town and order, not start again; a
  * fresh launch of the app does start again.
  */
-const lastView: { sort: Sort; query: string; town: string } = {
+const lastView: { sort: Sort; rankBy: RankBy; query: string; town: string } = {
   sort: 'recent',
+  rankBy: 'overall',
   query: '',
   town: '',
 }
@@ -36,11 +38,12 @@ export function JournalPage() {
   const cookies = useCookies()
   const { overallPrecision } = useSettings()
   const [sort, setSort] = useState<Sort>(lastView.sort)
+  const [rankBy, setRankBy] = useState<RankBy>(lastView.rankBy)
   const [query, setQuery] = useState(lastView.query)
   const [chosenTown, setTown] = useState(lastView.town)
   useEffect(() => {
-    Object.assign(lastView, { sort, query, town: chosenTown })
-  }, [sort, query, chosenTown])
+    Object.assign(lastView, { sort, rankBy, query, town: chosenTown })
+  }, [sort, rankBy, query, chosenTown])
 
   const summary = useMemo(() => (cookies ? summarize(cookies) : undefined), [cookies])
 
@@ -59,9 +62,9 @@ export function JournalPage() {
 
   const ranks = useMemo(() => {
     const map = new Map<string, number>()
-    ;[...(cookies ?? [])].sort(byScoreDesc).forEach((c, i) => map.set(c.id, i + 1))
+    ;[...(cookies ?? [])].sort(rankedBy(rankBy)).forEach((c, i) => map.set(c.id, i + 1))
     return map
-  }, [cookies])
+  }, [cookies, rankBy])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -75,8 +78,8 @@ export function JournalPage() {
             .toLowerCase()
             .includes(q),
       )
-      .sort(sort === 'ranked' ? byScoreDesc : byNewest)
-  }, [cookies, query, town, sort])
+      .sort(sort === 'ranked' ? rankedBy(rankBy) : byNewest)
+  }, [cookies, query, town, sort, rankBy])
 
   if (!cookies || !summary) return null
   if (cookies.length === 0) return <FirstRun />
@@ -151,6 +154,9 @@ export function JournalPage() {
             { value: 'ranked', label: 'Ranked' },
           ]}
         />
+        {sort === 'ranked' && (
+          <RankByChips value={rankBy} onChange={setRankBy} className="w-full" />
+        )}
       </div>
 
       {visible.length === 0 ? (
@@ -175,6 +181,7 @@ export function JournalPage() {
                 cookie={cookie}
                 precision={overallPrecision}
                 rank={sort === 'ranked' ? ranks.get(cookie.id) : undefined}
+                highlight={sort === 'ranked' && rankBy !== 'overall' ? rankBy : undefined}
               />
             </li>
           ))}
@@ -238,8 +245,8 @@ function FirstRun() {
         Every cookie deserves a fair score.
       </h1>
       <p className="mt-4 text-[17px] leading-relaxed text-ink-soft short:mt-3 short:text-base short:leading-normal">
-        Answer a few questions about your cookie and get a score out of 10. A Toll House cookie is a{' '}
-        <strong className="text-ink">5</strong>.
+        Score each cookie out of 10 for how it looks, eats and tastes, and keep them all in one
+        place.
       </p>
       <div className="mt-8 flex flex-col items-center gap-3 short:mt-5 short:gap-1">
         <ButtonLink to="/rate" size="lg">

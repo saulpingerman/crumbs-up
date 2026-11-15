@@ -6,7 +6,7 @@
  * groups them.
  */
 import { normalizePlace } from '@/lib/places'
-import { CATEGORIES, type Scores } from '@/lib/rubric'
+import { CATEGORIES, overallExact, type RankBy, type Scores, type Weights } from '@/lib/rubric'
 import { ELSEWHERE } from '@/lib/states'
 
 /** One cookie at one bakery in one town, as everyone scored it. */
@@ -19,8 +19,17 @@ export interface CommunityCookie {
   raters: number
   /** Their average for each category. */
   scores: Scores
-  /** The plain average of the three: the same for everyone looking. */
+  /** The three averages combined: plainly, until `reweigh` applies someone's own weighting. */
   overall: number
+}
+
+function valueOf(item: { overall: number; scores: Scores }, by: RankBy): number {
+  return by === 'overall' ? item.overall : item.scores[by]
+}
+
+/** The same totals with the overall worked out the way this person weighs the three. */
+export function reweigh(cookies: CommunityCookie[], weights: Weights): CommunityCookie[] {
+  return cookies.map((c) => ({ ...c, overall: overallExact(c.scores, weights) }))
 }
 
 /** A row as the database hands it over. */
@@ -73,9 +82,9 @@ function standing(overall: number, raters: number, typical: number): number {
   return (overall * raters + typical * BENEFIT_OF_DOUBT) / (raters + BENEFIT_OF_DOUBT)
 }
 
-function typicalScore(cookies: { overall: number; raters: number }[]): number {
+function typicalScore(cookies: CommunityCookie[], by: RankBy): number {
   const raters = cookies.reduce((sum, c) => sum + c.raters, 0)
-  return raters ? cookies.reduce((sum, c) => sum + c.overall * c.raters, 0) / raters : 5
+  return raters ? cookies.reduce((sum, c) => sum + valueOf(c, by) * c.raters, 0) / raters : 5
 }
 
 /** One key per town, however its name was typed; '' when there is no town. */
@@ -109,12 +118,12 @@ export function inTown(cookies: CommunityCookie[], town: string): CommunityCooki
   return town ? cookies.filter((c) => communityTownKey(c) === town) : cookies
 }
 
-/** Best first. */
-export function rankCookies(cookies: CommunityCookie[]): CommunityCookie[] {
-  const typical = typicalScore(cookies)
+/** Best first, by the overall score or by one category. */
+export function rankCookies(cookies: CommunityCookie[], by: RankBy = 'overall'): CommunityCookie[] {
+  const typical = typicalScore(cookies, by)
   return [...cookies].sort(
     (a, b) =>
-      standing(b.overall, b.raters, typical) - standing(a.overall, a.raters, typical) ||
+      standing(valueOf(b, by), b.raters, typical) - standing(valueOf(a, by), a.raters, typical) ||
       b.raters - a.raters ||
       a.cookieType.localeCompare(b.cookieType),
   )
@@ -139,6 +148,7 @@ export interface CommunityGroup {
 
 function group(
   cookies: CommunityCookie[],
+  by: RankBy,
   describe: (cookie: CommunityCookie) => { key: string; name: string; place: string },
 ): CommunityGroup[] {
   const groups = new Map<string, { name: string; place: string; members: CommunityCookie[] }>()
@@ -148,7 +158,7 @@ function group(
     if (found) found.members.push(cookie)
     else groups.set(key, { name, place, members: [cookie] })
   }
-  const typical = typicalScore(cookies)
+  const typical = typicalScore(cookies, by)
   return [...groups]
     .map(([key, { name, place, members }]): CommunityGroup => {
       const ratings = members.reduce((sum, c) => sum + c.raters, 0)
@@ -168,20 +178,21 @@ function group(
         ratings,
         scores,
         overall: average((c) => c.overall),
-        best: rankCookies(members)[0]!,
+        best: rankCookies(members, by)[0]!,
       }
     })
     .sort(
       (a, b) =>
-        standing(b.overall, b.ratings, typical) - standing(a.overall, a.ratings, typical) ||
+        standing(valueOf(b, by), b.ratings, typical) -
+          standing(valueOf(a, by), a.ratings, typical) ||
         b.ratings - a.ratings ||
         a.name.localeCompare(b.name),
     )
 }
 
 /** Bakeries, best first, each judged on everything rated there. */
-export function rankBakeries(cookies: CommunityCookie[]): CommunityGroup[] {
-  return group(cookies, (c) => ({
+export function rankBakeries(cookies: CommunityCookie[], by: RankBy = 'overall'): CommunityGroup[] {
+  return group(cookies, by, (c) => ({
     key: `${c.bakery.trim().toLowerCase()}|${communityTownKey(c)}|${c.state}`,
     name: c.bakery,
     place: communityTownLabel(c),
@@ -189,8 +200,8 @@ export function rankBakeries(cookies: CommunityCookie[]): CommunityGroup[] {
 }
 
 /** Kinds of cookie, best first: how chocolate chip does against snickerdoodle. */
-export function rankTypes(cookies: CommunityCookie[]): CommunityGroup[] {
-  return group(cookies, (c) => ({
+export function rankTypes(cookies: CommunityCookie[], by: RankBy = 'overall'): CommunityGroup[] {
+  return group(cookies, by, (c) => ({
     key: c.cookieType.trim().toLowerCase(),
     name: c.cookieType,
     place: '',
