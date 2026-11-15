@@ -13,13 +13,15 @@ import {
   rankBakeries,
   rankCookies,
   rankTypes,
+  reweigh,
   sameCookie,
   type CommunityCookie,
 } from '@/lib/community'
 import { cn } from '@/lib/cn'
 import { formatAverage, plural } from '@/lib/format'
-import { CATEGORIES, CATEGORY_META, formatScore, type Scores } from '@/lib/rubric'
-import { useSettings } from '@/lib/settings'
+import { CATEGORIES, CATEGORY_META, formatScore, type RankBy, type Scores } from '@/lib/rubric'
+import { useSettings, weightsFor } from '@/lib/settings'
+import { RankByChips } from '@/components/RankBy'
 import { useCommunity } from '@/lib/use-community'
 import { useCookies } from '@/lib/use-cookies'
 import { DiscoverTabs } from './DiscoverTabs'
@@ -33,19 +35,27 @@ const FIRST_PAGE = 25
 export function TopRatedPage() {
   const community = useCommunity()
   const mine = useCookies()
-  const { overallPrecision } = useSettings()
+  const settings = useSettings()
+  const { overallPrecision } = settings
   const [view, setView] = useState<View>('cookies')
+  const [rankBy, setRankBy] = useState<RankBy>('overall')
   const [chosenTown, setTown] = useState('')
   const [showing, setShowing] = useState(FIRST_PAGE)
 
-  const all = community.status === 'ready' ? community.cookies : null
+  // The overall is worked out the way this person weighs the three, as in
+  // their own journal.
+  const weights = weightsFor(settings)
+  const all = useMemo(
+    () => (community.status === 'ready' ? reweigh(community.cookies, weights) : null),
+    [community, weights],
+  )
   const towns = useMemo(() => (all ? communityTowns(all) : []), [all])
   const town = towns.some((t) => t.key === chosenTown) ? chosenTown : ''
   const here = useMemo(() => (all ? inTown(all, town) : []), [all, town])
 
-  const cookies = useMemo(() => rankCookies(here), [here])
-  const bakeries = useMemo(() => rankBakeries(here), [here])
-  const types = useMemo(() => rankTypes(here), [here])
+  const cookies = useMemo(() => rankCookies(here, rankBy), [here, rankBy])
+  const bakeries = useMemo(() => rankBakeries(here, rankBy), [here, rankBy])
+  const types = useMemo(() => rankTypes(here, rankBy), [here, rankBy])
   const count = { cookies: cookies.length, bakeries: bakeries.length, types: types.length }[view]
 
   return (
@@ -113,6 +123,14 @@ export function TopRatedPage() {
                 </Select>
               </div>
             )}
+            <RankByChips
+              value={rankBy}
+              onChange={(next) => {
+                setRankBy(next)
+                setShowing(FIRST_PAGE)
+              }}
+              className="w-full"
+            />
           </div>
 
           <ol className="space-y-2">

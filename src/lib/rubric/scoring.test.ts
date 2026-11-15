@@ -18,6 +18,8 @@ import {
   overallExact,
   overallScore,
   quickScores,
+  quickAnswer,
+  NUMBER_NAMES,
   roundToHalf,
   tierFor,
   type Answers,
@@ -50,7 +52,7 @@ describe('question bank', () => {
     }
   })
 
-  it('puts the Toll House standard at 5 on every scored question', () => {
+  it('puts average at 5 on every scored question', () => {
     for (const q of ALL_QUESTIONS) {
       if (q.kind !== 'scale') continue
       expect(q.options[STANDARD_OPTION_INDEX]!.score).toBe(5)
@@ -220,10 +222,10 @@ describe('helpers', () => {
     expect(formatScore(7, 'tenth')).toBe('7.0')
   })
 
-  it('names the tiers around the standard', () => {
-    expect(tierFor(5).name).toBe('Standard')
-    expect(tierFor(5.5).name).toBe('Standard')
-    expect(tierFor(4.5).name).toBe('Below standard')
+  it('names the tiers around average', () => {
+    expect(tierFor(5).name).toBe('Average')
+    expect(tierFor(5.5).name).toBe('Average')
+    expect(tierFor(4.5).name).toBe('Below average')
     expect(tierFor(10).name).toBe('Perfect')
     expect(tierFor(1).name).toBe('Skip it')
   })
@@ -231,27 +233,49 @@ describe('helpers', () => {
 
 describe('quick review', () => {
   const quick: Answers = {
-    'quick.look': 'quick.look.4',
-    'quick.bite': 'quick.bite.5',
-    'quick.taste': 'quick.taste.6',
+    'quick.look': 'quick.look.n6',
+    'quick.bite': 'quick.bite.n8',
+    'quick.taste': 'quick.taste.n9',
   }
 
-  it('asks one question per category, on the same rungs as the full tasting', () => {
+  it('asks for one number per category, 1 to 10, with words for every number', () => {
     expect(QUICK_QUESTION_LIST.map((q) => q.category)).toEqual(['appearance', 'texture', 'taste'])
     for (const category of CATEGORIES) {
       const question = QUICK_QUESTIONS[category]
       expect(question.category).toBe(category)
-      expect(question.options.map((o) => o.score)).toEqual([...ANCHORS])
+      expect(question.numbered).toBe(true)
+      const offered = question.options.filter((o) => !o.retired)
+      expect(offered.map((o) => o.score)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+      for (const option of offered) {
+        expect(option.label).toBe(NUMBER_NAMES[option.score!])
+        expect(option.detail?.length).toBeGreaterThan(5)
+        // Plain words on screen: no long dashes.
+        expect(option.detail).not.toMatch(/—/)
+      }
+      // 5 is average everywhere, and the scale names no particular cookie.
+      expect(offered.find((o) => o.score === 5)!.label).toBe('Average')
+      expect(offered.map((o) => o.detail).join(' ')).not.toMatch(/toll house|bag recipe/i)
       expect(getQuestion(question.id)).toBe(question)
     }
   })
 
-  it('takes each answer at face value', () => {
-    expect(quickScores(quick)).toEqual({ appearance: 6.5, texture: 8, taste: 10 })
+  it('takes each number at face value', () => {
+    expect(quickScores(quick)).toEqual({ appearance: 6, texture: 8, taste: 9 })
   })
 
-  it('leaves a category nobody has answered at the standard', () => {
-    expect(quickScores({ 'quick.taste': 'quick.taste.5' })).toEqual({
+  it('still reads quick reviews saved before numbers, on the old rungs', () => {
+    const old: Answers = {
+      'quick.look': 'quick.look.4',
+      'quick.bite': 'quick.bite.5',
+      'quick.taste': 'quick.taste.6',
+    }
+    expect(quickScores(old)).toEqual({ appearance: 6.5, texture: 8, taste: 10 })
+    expect(isQuickReview(old)).toBe(true)
+    expect(quickAnswer('appearance', old)?.label).toBe('Inviting')
+  })
+
+  it('leaves a category nobody has answered at average', () => {
+    expect(quickScores({ 'quick.taste': 'quick.taste.n8' })).toEqual({
       appearance: 5,
       texture: 5,
       taste: 8,
@@ -261,7 +285,7 @@ describe('quick review', () => {
 
   it('counts as a quick review only once all three are answered', () => {
     expect(isQuickReview(quick)).toBe(true)
-    expect(isQuickReview({ 'quick.look': 'quick.look.4', 'quick.bite': 'quick.bite.5' })).toBe(
+    expect(isQuickReview({ 'quick.look': 'quick.look.n4', 'quick.bite': 'quick.bite.n5' })).toBe(
       false,
     )
     expect(isQuickReview({})).toBe(false)

@@ -2,9 +2,10 @@
 
 **A guided cookie-rating journal for your phone and the web.**
 
-Buy a cookie, take its photo, answer fifteen quick questions about how it looks, eats and tastes,
-and Crumbs Up works out what it should score — in half points from 1 to 10, always measured
-against one fixed reference: **a standard Toll House cookie is a 5.**
+Buy a cookie, take its photo, and give it a number from 1 to 10 for how it looks, eats and
+tastes. Every number comes with words saying what it means, and **5 is an average cookie**: good,
+nothing special. For more detail there is a full tasting: five worded questions per category,
+from which Crumbs Up works out the score.
 
 <p>
   <img src="docs/journal.png" width="24%" alt="The cookie journal" />
@@ -66,13 +67,17 @@ against one fixed reference: **a standard Toll House cookie is a 5.**
 ## How the scoring works
 
 The full rule book is in the app under **Settings → How the scoring works**, and it is generated
-from the same data the questionnaire uses, so it can't drift. In short:
+from the same data the questionnaire uses, so it can't drift.
+
+**The quick review** (the default) asks for one number per category. Each number from 1 to 10 has
+a name ("Average", "Excellent"…) and a line saying what it means for that category, so the same
+cookie gets the same score whoever rates it. The **full tasting** works like this:
 
 1. **Each category asks five questions** (plus a quick "anything off?" flaw check). Texture first
    asks what style the cookie is going for — chewy, crisp, cakey… — so a shortbread isn't marked
    down for not being gooey.
-2. **Answers are worded, never numbered.** Every question has six rungs: two below the standard,
-   the standard itself, and three above it. Behind the words the rungs are worth
+2. **Answers are worded, never numbered.** Every question has six rungs: two below average,
+   average itself, and three above it. Behind the words the rungs are worth
    `1.5 · 3.5 · 5 · 6.5 · 8 · 10`.
 3. **The category score is the weighted average** of those rungs (first impressions, being true to
    style, and flavor depth count the most). "Doesn't apply" answers drop out.
@@ -80,12 +85,14 @@ from the same data the questionnaire uses, so it can't drift. In short:
 5. **It's rounded to the half point** and kept between 1 and 10.
 6. **You get the last word.** The suggestion can be nudged; the journal remembers both numbers.
 
-The **overall** score combines the three categories. The default is a plain average ("equal
-thirds"); Settings also offers the classic baking-contest split (40/30/30) and a taste-first split
-(50/30/20). Changing it re-ranks the whole journal instantly without touching category scores.
+The **overall** score combines the three categories. The default counts how it eats most: 40%
+taste, 40% texture, 20% appearance. Settings also offers equal thirds, the classic baking-contest
+split (40/30/30) and a taste-first split (50/30/20). Changing it re-ranks the whole journal, and
+the overall in Top rated, without touching category scores. The journal and Top rated can also be
+ranked by taste, texture or appearance alone.
 
 The questions were shaped by how cookies are actually judged — fair and 4-H score sheets, sensory
-evaluation practice (fully-worded scales, anchoring to a reference sample, judging texture as
+evaluation practice (fully-worded scales, judging texture as
 "characteristic of type"), and food-science writing on what separates a great cookie from a fine
 one. The rubric lives in [`src/lib/rubric/questions.ts`](src/lib/rubric/questions.ts) and is meant
 to be edited: change a prompt, a weight or a penalty there and the wizard, the guide and the tests

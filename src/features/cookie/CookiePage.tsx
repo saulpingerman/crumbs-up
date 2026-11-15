@@ -113,7 +113,7 @@ export function CookiePage() {
             ))}
             <p className="flex items-center justify-center gap-1.5 border-t border-line/70 pt-3 text-xs font-medium text-ink-faint">
               <span aria-hidden className="inline-block h-3 w-0.5 rounded-full bg-ink/35" />
-              The notch marks 5, a standard Toll House cookie
+              The notch marks 5, an average cookie
             </p>
           </section>
 
@@ -283,7 +283,7 @@ function Breakdown({ cookie }: { cookie: RatedCookie }) {
       {quick ? (
         <>
           <p className="mt-1.5 text-sm text-ink-soft">
-            A quick review: one overall answer behind each score. Choose{' '}
+            A quick review: one number for each. Choose{' '}
             <strong className="font-semibold text-ink">Edit</strong> to do the full tasting.
           </p>
           <div className="mt-3 space-y-2">
@@ -378,7 +378,7 @@ function CategoryBreakdown({
         </ul>
         {moved !== 0 && (
           <p className="mt-2 text-[13px] text-ink-soft">
-            {quick ? 'Your answer' : 'The questions'} suggested {formatScore(suggested)}; you moved
+            {quick ? 'Your number' : 'The questions'} suggested {formatScore(suggested)}; you moved
             it {moved > 0 ? 'up' : 'down'} to {formatScore(recorded)}.
           </p>
         )}

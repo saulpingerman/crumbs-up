@@ -155,11 +155,10 @@ test('a rating saved before the cut-out arrives still gets it', async ({ page })
     photo: true,
   })
   // Three taps and a save: quicker than the cookie finder.
-  await page.getByRole('radio', { name: /^Quick/ }).click()
   await page.getByRole('button', { name: 'Start tasting' }).click()
-  await answer(page, 'How did it look?', 'Inviting')
-  await answer(page, 'How was the texture?', 'Great')
-  await answer(page, 'How did it taste?', 'Delicious')
+  await answer(page, 'How did it look?', /^6 /)
+  await answer(page, 'How was the texture?', /^8 /)
+  await answer(page, 'How did it taste?', /^8 /)
   await page.getByRole('button', { name: 'Save to journal' }).click()
 
   const photo = page.getByAltText('Snickerdoodle cookie from In A Hurry')

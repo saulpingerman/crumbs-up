@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 import { CookiePhoto } from '@/components/CookiePhoto'
 import { Medallion, MiniScores } from '@/components/Score'
 import { formatDate, formatPlace } from '@/lib/format'
-import type { OverallPrecision } from '@/lib/rubric'
+import type { Category, OverallPrecision } from '@/lib/rubric'
 import type { RatedCookie } from '@/lib/stats'
 
 interface Props {
@@ -10,9 +10,11 @@ interface Props {
   precision: OverallPrecision
   /** 1-based position when the journal is shown as a ranking. */
   rank?: number
+  /** The category the journal is ranked by, picked out on the card. */
+  highlight?: Category
 }
 
-export function CookieCard({ cookie, precision, rank }: Props) {
+export function CookieCard({ cookie, precision, rank, highlight }: Props) {
   return (
     <Link
       to={`/cookie/${cookie.id}`}
@@ -44,7 +46,7 @@ export function CookieCard({ cookie, precision, rank }: Props) {
         <p className="truncate text-xs text-ink-faint">
           {formatPlace(cookie)} · {formatDate(cookie.eatenOn, 'short')}
         </p>
-        <MiniScores scores={cookie.scores} className="mt-2" />
+        <MiniScores scores={cookie.scores} highlight={highlight} className="mt-2" />
       </div>
     </Link>
   )

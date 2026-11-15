@@ -65,7 +65,13 @@ export function SettingsPage() {
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  onClick={() => updateSettings({ weightPreset: key })}
+                  onClick={() => {
+                    if (on) return
+                    updateSettings({ weightPreset: key })
+                    // Every overall is worked out from the weighting as it is
+                    // shown, so the whole journal follows at once. Say so.
+                    toast.success('Every cookie re-scored', { description: preset.detail })
+                  }}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-2xl border-[1.5px] px-4 py-3 text-left transition active:scale-[0.99]',
                     on ? 'border-crust bg-texture-soft' : 'border-line hover:border-ink-faint',

@@ -20,7 +20,7 @@ export async function fillDetails(
 }
 
 /** Answer the question on screen; the wizard moves on by itself. */
-export async function answer(page: Page, prompt: string | RegExp, choice: string) {
+export async function answer(page: Page, prompt: string | RegExp, choice: string | RegExp) {
   await expect(page.getByRole('heading', { level: 1, name: prompt })).toBeVisible()
   await page.getByRole('radio', { name: choice }).click()
 }

@@ -496,7 +496,7 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
                 onPick={() => pickStyle('quick')}
                 icon={<Zap className="size-4" />}
                 title="Quick"
-                detail={`${QUESTION_COUNT.quick} questions`}
+                detail="A number for each, 1 to 10"
               />
               <StyleChoice
                 checked={!draft.quick}

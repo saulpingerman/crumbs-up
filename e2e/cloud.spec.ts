@@ -650,8 +650,9 @@ test('Top rated adds up what everyone signed in has rated', async ({ browser }) 
   const row = visitor.getByRole('listitem').filter({ hasText: 'Ginger Molasses' })
   await expect(row).toContainText(`Totals ${tag}`)
   await expect(row).toContainText('1 person')
-  // Taste 7, texture 5, appearance 5: an average of 5.7.
-  await expect(row.getByRole('img', { name: 'Average score 5.7 out of 10' })).toBeVisible()
+  // Taste 7, texture 5, appearance 5, with taste and texture counting 40%
+  // each: 2.8 + 2 + 1 = 5.8.
+  await expect(row.getByRole('img', { name: 'Average score 5.8 out of 10' })).toBeVisible()
   await expect(row.getByRole('link', { name: 'Rate it' })).toBeVisible()
 
   // The same cookie ranked as a bakery and as a kind of cookie.
@@ -665,7 +666,8 @@ test('Top rated adds up what everyone signed in has rated', async ({ browser }) 
   // The person who rated it sees their own score against it.
   await rater.goto('/top')
   await rater.getByRole('combobox', { name: 'Town' }).selectOption({ label: `${town}, OR` })
-  await expect(rater.getByRole('link', { name: 'You gave it 5.5' })).toBeVisible()
+  // Their own overall, rounded to the half point as in their journal: 5.8 → 6.
+  await expect(rater.getByRole('link', { name: 'You gave it 6' })).toBeVisible()
 
   // Everyone who is signed in is counted: there is no switch to leave by.
   await rater.goto('/account')

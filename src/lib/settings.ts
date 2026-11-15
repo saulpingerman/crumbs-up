@@ -7,7 +7,7 @@ import {
 } from '@/lib/rubric'
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
-/** Three overall questions, or the full tasting. */
+/** A number for each category, or the full tasting. */
 export type ReviewStyle = 'quick' | 'full'
 
 export interface Settings {
@@ -25,18 +25,28 @@ export interface Settings {
   onlinePlaces: boolean
   /** How the last cookie was rated, so the next one starts the same way. */
   reviewStyle: ReviewStyle
+  /** Which round of changes to the defaults these settings have been through. */
+  version: number
 }
+
+/**
+ * 2: quick reviews (a number per category) and "Taste and texture first"
+ * became the defaults. Settings saved before then held the old defaults
+ * whether or not anyone chose them, so they move over once.
+ */
+const SETTINGS_VERSION = 2
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
-  weightPreset: 'equal',
+  weightPreset: 'eating',
   overallPrecision: 'half',
   lastState: '',
   lastBackupAt: null,
   changesSinceBackup: 0,
   autoCutout: true,
   onlinePlaces: true,
-  reviewStyle: 'full',
+  reviewStyle: 'quick',
+  version: SETTINGS_VERSION,
 }
 
 const KEY = 'crumbs-up:settings'
@@ -49,8 +59,13 @@ function read(): Settings {
     const raw = localStorage.getItem(KEY)
     const parsed = raw ? (JSON.parse(raw) as Partial<Settings>) : {}
     cache = { ...DEFAULT_SETTINGS, ...parsed }
+    if ((parsed.version ?? 1) < 2) {
+      if (cache.weightPreset === 'equal') cache.weightPreset = DEFAULT_SETTINGS.weightPreset
+      cache.reviewStyle = DEFAULT_SETTINGS.reviewStyle
+      cache.version = SETTINGS_VERSION
+    }
     if (!(cache.weightPreset in WEIGHT_PRESETS)) cache.weightPreset = DEFAULT_SETTINGS.weightPreset
-    if (cache.reviewStyle !== 'quick') cache.reviewStyle = 'full'
+    if (cache.reviewStyle !== 'full') cache.reviewStyle = 'quick'
   } catch {
     cache = { ...DEFAULT_SETTINGS }
   }

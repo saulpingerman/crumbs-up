@@ -104,7 +104,7 @@ export function InsightsPage() {
           value={summary.average.toFixed(1)}
           note={tierFor(roundToHalf(summary.average)).name}
         />
-        <Tile label="Beat the standard" value={`${beat}%`} note="scored above a 5" />
+        <Tile label="Above average" value={`${beat}%`} note="scored over 5" />
         <Tile
           label="Towns"
           value={String(summary.towns)}
@@ -136,9 +136,7 @@ export function InsightsPage() {
 
         <Card>
           <SectionTitle>Where your scores land</SectionTitle>
-          <p className="mt-1 mb-3 text-sm text-ink-soft">
-            Cookies by overall score. A 5 is the Toll House standard.
-          </p>
+          <p className="mt-1 mb-3 text-sm text-ink-soft">Cookies by overall score.</p>
           <DistributionChart data={bands} />
         </Card>
 

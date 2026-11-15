@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn'
 import {
   CATEGORY_META,
   STANDARD_OPTION_INDEX,
+  STANDARD_SCORE,
   type Category,
   type ContextQuestion,
   type FlawQuestion,
@@ -90,23 +91,30 @@ export function ChoiceStep({
     const timer = setTimeout(() => setSettled(true), SETTLE_MS)
     return () => clearTimeout(timer)
   }, [])
-  const scored = question.options.filter((o) => o.score !== null)
-  const notApplicable = question.options.filter(
-    (o) => o.score === null && question.kind === 'scale',
-  )
-  const list = question.kind === 'scale' ? scored : question.options
+  const offered = question.options.filter((o) => !o.retired)
+  const numbered = question.kind === 'scale' && question.numbered === true
+  const scored = offered.filter((o) => o.score !== null)
+  const notApplicable = offered.filter((o) => o.score === null && question.kind === 'scale')
+  // A number scale reads best from the top down; worded rungs from the bottom up.
+  const list = question.kind === 'scale' ? (numbered ? [...scored].reverse() : scored) : offered
 
-  // Number keys answer the question on a keyboard.
+  // Number keys answer the question on a keyboard: on a number scale the key
+  // is the score itself (0 for 10), otherwise the choice's place in the list.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const n = Number(e.key)
-      const option = Number.isInteger(n) && n >= 1 ? list[n - 1] : undefined
-      if (option && settled) onChoose(option.id)
+      if (!Number.isInteger(n) || !settled) return
+      const option = numbered
+        ? scored.find((o) => o.score === (n === 0 ? 10 : n))
+        : n >= 1
+          ? list[n - 1]
+          : undefined
+      if (option) onChoose(option.id)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [list, onChoose, settled])
+  }, [list, scored, numbered, onChoose, settled])
 
   const prompt = styleName ? question.prompt.replace('that style', styleName) : question.prompt
 
@@ -139,17 +147,28 @@ export function ChoiceStep({
             <span className="font-semibold text-ink">{option.label}</span> · {option.detail}
           </button>
         ))}
-        {list.map((option, i) => (
-          <ChoiceButton
-            key={option.id}
-            option={option}
-            category={question.category}
-            selected={value === option.id}
-            standard={question.kind === 'scale' && i === STANDARD_OPTION_INDEX}
-            disabled={!settled}
-            onChoose={onChoose}
-          />
-        ))}
+        {list.map((option, i) =>
+          numbered ? (
+            <NumberButton
+              key={option.id}
+              option={option}
+              category={question.category}
+              selected={value === option.id}
+              disabled={!settled}
+              onChoose={onChoose}
+            />
+          ) : (
+            <ChoiceButton
+              key={option.id}
+              option={option}
+              category={question.category}
+              selected={value === option.id}
+              standard={question.kind === 'scale' && i === STANDARD_OPTION_INDEX}
+              disabled={!settled}
+              onChoose={onChoose}
+            />
+          ),
+        )}
       </div>
       {revisit && value !== undefined && (
         <StickyFooter>
@@ -160,6 +179,55 @@ export function ChoiceStep({
         </StickyFooter>
       )}
     </div>
+  )
+}
+
+/** One number on a 1 to 10 scale: the number, its name, and what it means here. */
+function NumberButton({
+  option,
+  category,
+  selected,
+  disabled,
+  onChoose,
+}: {
+  option: Option
+  category: Category
+  selected: boolean
+  disabled: boolean
+  onChoose: (id: string) => void
+}) {
+  const standard = option.score === STANDARD_SCORE
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      aria-label={`${option.score} ${option.label}: ${option.detail ?? ''}`}
+      disabled={disabled}
+      onClick={() => onChoose(option.id)}
+      className={cn(
+        'flex min-h-[56px] w-full items-center gap-3 rounded-2xl border-[1.5px] px-3 py-2 text-left transition duration-150 active:scale-[0.985]',
+        selected
+          ? cn(categoryBorder[category], categorySoft[category])
+          : standard
+            ? 'border-ink-faint/50 bg-oat/60 hover:border-ink-faint'
+            : 'border-line bg-paper hover:border-ink-faint',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'numerals flex size-10 shrink-0 items-center justify-center rounded-xl font-display text-[22px] font-semibold transition',
+          selected ? cn(categoryBg[category], 'text-white dark:text-black') : 'bg-oat text-ink',
+        )}
+      >
+        {option.score}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] leading-tight font-semibold">{option.label}</span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-ink-soft">{option.detail}</span>
+      </span>
+    </button>
   )
 }
 
@@ -197,7 +265,7 @@ function ChoiceButton({
           <span className="text-[16px] leading-tight font-semibold">{option.label}</span>
           {standard && (
             <span className="rounded-full bg-oat px-2 py-0.5 text-[10px] font-bold tracking-wider text-ink-soft uppercase">
-              The standard
+              Average
             </span>
           )}
         </span>
