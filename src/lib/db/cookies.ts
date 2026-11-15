@@ -215,7 +215,7 @@ export async function deleteSampleCookies(): Promise<number> {
 export async function deleteEverything(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.cookies, db.photos, db.thumbs, db.originals, db.drafts, db.outbox],
+    [db.cookies, db.photos, db.thumbs, db.originals, db.drafts, db.outbox, db.wantToGo],
     async () => {
       // Deleting the journal deletes it everywhere it is synced to.
       const now = Date.now()
@@ -228,6 +228,7 @@ export async function deleteEverything(): Promise<void> {
         db.thumbs.clear(),
         db.originals.clear(),
         db.drafts.clear(),
+        db.wantToGo.clear(),
       ])
     },
   )

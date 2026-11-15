@@ -9,11 +9,11 @@ import { cn } from '@/lib/cn'
 import { db } from '@/lib/db/db'
 
 const TABS = [
-  { to: '/', label: 'Journal', icon: BookOpen, end: true, also: '' },
-  { to: '/map', label: 'Map', icon: MapIcon, end: false, also: '' },
-  // Top rated is the other half of Discover, so it keeps this tab lit.
-  { to: '/discover', label: 'Discover', icon: Compass, end: false, also: '/top' },
-  { to: '/insights', label: 'Insights', icon: BarChart3, end: false, also: '' },
+  { to: '/', label: 'Journal', icon: BookOpen, end: true, also: [] },
+  { to: '/map', label: 'Map', icon: MapIcon, end: false, also: [] },
+  // Top rated and Want to go are parts of Discover, so they keep this tab lit.
+  { to: '/discover', label: 'Discover', icon: Compass, end: false, also: ['/top', '/want-to-go'] },
+  { to: '/insights', label: 'Insights', icon: BarChart3, end: false, also: [] },
 ] as const
 
 export function AppShell() {
@@ -54,7 +54,7 @@ export function AppShell() {
                 className={({ isActive }) =>
                   cn(
                     'rounded-full px-4 py-2 text-[15px] font-semibold transition',
-                    isActive || (t.also && pathname.startsWith(t.also))
+                    isActive || t.also.some((path) => pathname.startsWith(path))
                       ? 'bg-oat text-ink'
                       : 'text-ink-soft hover:text-ink',
                   )
@@ -178,7 +178,7 @@ function AccountLink() {
 
 function Tab({ to, label, icon: Icon, end, also }: (typeof TABS)[number]) {
   const { pathname } = useLocation()
-  const alsoHere = Boolean(also) && pathname.startsWith(also)
+  const alsoHere = also.some((path) => pathname.startsWith(path))
   return (
     <NavLink
       to={to}

@@ -5,6 +5,7 @@ import { Button } from '@/components/Button'
 import { Medallion } from '@/components/Score'
 import type { CommunityCookie } from '@/lib/community'
 import { formatAverage, plural } from '@/lib/format'
+import { WantToGoButton } from '@/features/want-to-go/WantToGoButton'
 import { OpenInMaps } from './OpenInMaps'
 import { rateLink, type Suggestion } from './suggest'
 import type { PlacesLookup } from './use-places-lookup'
@@ -117,6 +118,7 @@ export function PlacesToTry({ favourites, lookup, places, online, towns = [] }: 
                   Rate here
                 </Link>
                 <OpenInMaps bakery={place.name} city={place.city} state={place.state} />
+                <WantToGoButton place={place} />
               </div>
             </li>
           ))}

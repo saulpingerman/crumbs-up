@@ -12,6 +12,7 @@ import { bakeriesWithin, formatMiles, type NearbyPlace, type OsmPlace } from '@/
 import { loadPlaces, type PlaceIndex } from '@/lib/places'
 import { resolveTheme, useSettings } from '@/lib/settings'
 import type { RatedCookie } from '@/lib/stats'
+import { WantToGoButton } from '@/features/want-to-go/WantToGoButton'
 import { OpenInMaps } from './OpenInMaps'
 import { SETTLE_MS, TOO_WIDE_KM, searchBounds, worthSearching, type SearchedArea } from './nearby'
 import type { MapPin as Pin, MapView } from './PlacesMap'
@@ -371,6 +372,7 @@ function FoundPlace({ place }: { place: NearbyPlace }) {
           Rate a cookie here
         </ButtonLink>
         <OpenInMaps bakery={place.name} city={place.city} state={place.state} />
+        <WantToGoButton place={place} />
       </div>
       <p className="mt-3 text-xs text-ink-faint">
         From OpenStreetMap, which lists bakeries, not whether they sell cookies.{' '}

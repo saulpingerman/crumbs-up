@@ -3,20 +3,20 @@ import { cloudConfigured } from '@/lib/cloud/client'
 import { cn } from '@/lib/cn'
 
 const TABS = [
-  { to: '/discover', label: 'For you' },
-  { to: '/top', label: 'Top rated' },
+  { to: '/discover', label: 'For you', everyone: false },
+  { to: '/top', label: 'Top rated', everyone: true },
+  { to: '/want-to-go', label: 'Want to go', everyone: false },
 ]
 
 /**
- * The two halves of Discover: suggestions from your own ratings, and what
- * everyone has rated highest. Only shown where there is an "everyone" — a
- * copy of the app with accounts.
+ * The parts of Discover: suggestions from your own ratings, what everyone
+ * has rated highest (only where there is an "everyone": a copy of the app
+ * with accounts), and the places saved to go to.
  */
 export function DiscoverTabs() {
-  if (!cloudConfigured) return null
   return (
     <nav aria-label="Discover" className="inline-flex rounded-full bg-oat p-1">
-      {TABS.map((tab) => (
+      {TABS.filter((tab) => cloudConfigured || !tab.everyone).map((tab) => (
         <NavLink
           key={tab.to}
           to={tab.to}

@@ -417,3 +417,44 @@ test('a pinned cookie keeps its spot through save and edit', async ({ page, cont
   await page.getByRole('button', { name: 'Back' }).click()
   await expect(page.getByText('Exact spot saved for the map.')).toBeVisible()
 })
+
+test('a bakery can be saved to Want to go and found again there', async ({ page }) => {
+  await fakeTiles(page)
+  await fakePlaceSearch(page)
+  await addSamples(page)
+  await page.goto('/map')
+  const map = page.getByRole('application')
+  await expect(map).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
+
+  // A bakery the map has found, saved with the heart on its card.
+  await page.getByRole('button', { name: /Butter & Ember/ }).click()
+  await expect(page.getByRole('heading', { name: 'Somewhere new nearby' })).toBeVisible({
+    timeout: 15_000,
+  })
+  await page.getByRole('button', { name: /Rise & Shine Cookie Co\./ }).click()
+  const heart = page.getByRole('button', { name: 'Want to go' })
+  await expect(heart).toHaveAttribute('aria-pressed', 'false')
+  await heart.click()
+  await expect(heart).toHaveAttribute('aria-pressed', 'true')
+
+  // It is waiting under Discover, which stays lit in the tab bar.
+  await page.getByRole('link', { name: 'Discover' }).last().click()
+  await page.getByRole('link', { name: 'Want to go' }).click()
+  await expect(page.getByRole('heading', { name: 'Want to go' })).toBeVisible()
+  const saved = page.getByRole('listitem').filter({ hasText: 'Rise & Shine Cookie Co.' })
+  await expect(saved).toContainText('12 Northwest Flanders Street, Portland, OR')
+
+  // Saved on this device: still there after a reload.
+  await page.reload()
+  await expect(saved).toBeVisible()
+
+  // Off to rate it, with its details carried over.
+  await saved.getByRole('link', { name: 'Rate here' }).click()
+  await expect(page.getByLabel('Bakery')).toHaveValue('Rise & Shine Cookie Co.')
+  await expect(page.getByLabel('City')).toHaveValue('Portland')
+  await page.goBack()
+
+  // And off the list again with the same heart.
+  await saved.getByRole('button', { name: 'Want to go' }).click()
+  await expect(page.getByText('Nowhere saved yet')).toBeVisible()
+})
