@@ -16,7 +16,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      // A new service worker takes over as soon as it has installed, rather
+      // than waiting to be told to. Waiting left phones running a copy of the
+      // app hours or days old. When to reload the page is decided in
+      // UpdatePrompt, which holds off while someone is rating a cookie.
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         id: base,
