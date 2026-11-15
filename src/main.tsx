@@ -9,6 +9,19 @@ import { applyTheme, watchSystemTheme } from './lib/settings'
 applyTheme()
 watchSystemTheme()
 
+// A page left open across a new version can ask for a piece of the old one
+// that is no longer there. Reload into the new version rather than break,
+// but only once in a short while, so a piece that is genuinely missing
+// can't send the page round in circles.
+window.addEventListener('vite:preloadError', (event) => {
+  const key = 'crumbs-up:reloaded-for-update'
+  const last = Number(sessionStorage.getItem(key) ?? 0)
+  if (Date.now() - last < 30_000) return
+  event.preventDefault()
+  sessionStorage.setItem(key, String(Date.now()))
+  window.location.reload()
+})
+
 // Accounts are optional: only when a Supabase project is configured does the
 // app look for a session and start syncing.
 if (cloudConfigured) {

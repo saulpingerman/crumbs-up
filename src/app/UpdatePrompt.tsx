@@ -1,20 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router'
-import { toast } from 'sonner'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 
 /**
- * When a newer version of the app is found, switch to it straight away,
- * unless someone is in the middle of rating a cookie: swapping the app out
- * from under them there would be rude, so they are asked instead. Left to
- * a prompt everywhere, a phone could go on running an old copy for days,
- * and a fix that is live wouldn't reach it.
+ * A newer version of the app takes over by itself (see vite.config.ts); this
+ * reloads the page into it, with nothing to tap. The one wait is on the
+ * rating screens: the reload happens as soon as someone leaves them, so a
+ * cookie halfway through being rated isn't swapped out from under them.
  */
 export function UpdatePrompt() {
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
+  const [stale, setStale] = useState(false)
+  useRegisterSW({
+    onNeedReload: () => setStale(true),
     // Look again whenever the app comes back to the front, not only when it
     // is opened from scratch: on a phone it is mostly brought back.
     onRegisteredSW(_url, registration) {
@@ -27,18 +24,8 @@ export function UpdatePrompt() {
   const rating = useLocation().pathname.startsWith('/rate')
 
   useEffect(() => {
-    if (!needRefresh) return
-    if (!rating) {
-      void updateServiceWorker(true)
-      return
-    }
-    toast('A fresh batch is ready', {
-      id: 'app-update',
-      description: 'Update to get the newest version of Crumbs Up.',
-      duration: Infinity,
-      action: { label: 'Update', onClick: () => void updateServiceWorker(true) },
-    })
-  }, [needRefresh, rating, updateServiceWorker])
+    if (stale && !rating) window.location.reload()
+  }, [stale, rating])
 
   return null
 }

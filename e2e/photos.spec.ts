@@ -180,7 +180,9 @@ test('a cookie finder that can’t start says why, for a screenshot to carry bac
   await page.goto('/rate')
   await page.getByTestId('photo-input').setInputFiles(fixture('cookie.jpg'))
   const photo = page.getByTestId('pick-cookie')
-  await expect(photo).toBeVisible({ timeout: 60_000 })
+  // The photo takes a tap once its own search has given up, which it does
+  // quietly: nobody asked for that one.
+  await expect(page.getByText('Tap the cookie, or circle it')).toBeVisible({ timeout: 60_000 })
   const box = (await photo.boundingBox())!
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
   const toast = page.locator('[data-sonner-toast]').filter({
