@@ -100,6 +100,19 @@ async function signIn(page: Page, email: string, how: 'Sign in' | 'Create accoun
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 }
 
+/**
+ * Sign out, then wipe the journal off the device as a separate, deliberate
+ * step: the way to get a device back to nothing now that signing out keeps it.
+ */
+async function signOutAndClear(page: Page) {
+  await page.goto('/account')
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page.getByRole('link', { name: 'Create account' })).toBeVisible()
+  await page.getByRole('button', { name: 'Delete everything' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete everything' }).click()
+  await expect(page.getByText('Journal deleted')).toBeVisible()
+}
+
 async function syncNow(page: Page) {
   await page.goto('/account')
   await page.getByRole('button', { name: 'Sync now' }).click()
@@ -145,15 +158,13 @@ test('a journal follows its account from one device to another', async ({ browse
   await expect(laptop.getByRole('link', { name: /Snickerdoodle/ })).toBeVisible()
   await expect(laptop.getByRole('link', { name: /Chocolate Chip/ })).toHaveCount(0)
 
-  // Signing out can take the journal off the device without touching the account.
+  // Signing out just signs out: no questions, and the journal stays put.
   await laptop.goto('/account')
   await laptop.getByRole('button', { name: 'Sign out' }).click()
-  await laptop.getByRole('button', { name: 'Remove it from this device' }).click()
+  await expect(laptop.getByText('Signed out')).toBeVisible()
   await expect(laptop.getByRole('link', { name: 'Create account' })).toBeVisible()
   await laptop.goto('/')
-  await expect(
-    laptop.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
-  ).toBeVisible()
+  await expect(laptop.getByRole('link', { name: /Snickerdoodle/ })).toBeVisible()
   await phone.goto('/')
   await expect(phone.getByRole('link', { name: /Snickerdoodle/ })).toBeVisible()
 })
@@ -180,7 +191,6 @@ test('a device refuses to merge one account’s journal into another', async ({ 
 
   // Sign out but keep the journal, then a different person signs in.
   await device.getByRole('button', { name: 'Sign out' }).click()
-  await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
   await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
 
   const second = `second-${crypto.randomUUID()}@example.com`
@@ -208,7 +218,6 @@ test('a kept journal can be added to a different account on purpose', async ({ b
   await rateByHand(device, 'Pecan', 'Old Account Bakery')
   await signIn(device, `old-${crypto.randomUUID()}@example.com`, 'Create account')
   await device.getByRole('button', { name: 'Sign out' }).click()
-  await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
   await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
 
   const fresh = `new-${crypto.randomUUID()}@example.com`
@@ -304,8 +313,7 @@ test('a forgotten password is reset on its own page, with an emailed code', asyn
   const phone = await openDevice(browser)
   await rateByHand(phone, 'Oatmeal Raisin', 'Remembered Bakery')
   await signIn(phone, email, 'Create account')
-  await phone.getByRole('button', { name: 'Sign out' }).click()
-  await phone.getByRole('button', { name: 'Remove it from this device' }).click()
+  await signOutAndClear(phone)
 
   // "Forgot password?" opens a page that asks for the address.
   await phone.getByRole('link', { name: 'Forgot password?' }).click()
@@ -335,8 +343,7 @@ test('a forgotten password is reset on its own page, with an emailed code', asyn
   expect(new URL(phone.url()).pathname).toBe('/account')
 
   // The old password is dead; the new one brings the journal back.
-  await phone.getByRole('button', { name: 'Sign out' }).click()
-  await phone.getByRole('button', { name: 'Remove it from this device' }).click()
+  await signOutAndClear(phone)
   await phone.getByLabel('Email').fill(email)
   await phone.getByLabel('Password').fill(password)
   await phone.getByRole('button', { name: 'Sign in' }).click()
@@ -443,11 +450,12 @@ test('coming back from a sign-in provider signs the device in', async ({ browser
   await expect(second.getByText(email)).toBeVisible()
 })
 
-test('a device is not cleared while it holds cookies the account has not received', async ({
+test('signing out keeps cookies the account hasn’t received, and signing in sends them', async ({
   browser,
 }) => {
+  const email = `offline-${crypto.randomUUID()}@example.com`
   const device = await openDevice(browser)
-  await signIn(device, `offline-${crypto.randomUUID()}@example.com`, 'Create account')
+  await signIn(device, email, 'Create account')
 
   // Rated with no connection, so it exists only on this device. (Wait for the
   // app to finish caching itself first, so it can be used offline.)
@@ -458,23 +466,21 @@ test('a device is not cleared while it holds cookies the account has not receive
   await device.waitForTimeout(1500)
   await device.context().setOffline(true)
   await rateByHand(device, 'Macaroon', 'Offline Bakery')
-  await device.goto('/account')
-  await device.getByRole('button', { name: 'Sign out' }).click()
-  await device.getByRole('button', { name: 'Remove it from this device' }).click()
-  await expect(device.getByText('Some cookies haven’t reached your account yet')).toBeVisible()
-  await device.goto('/')
-  await expect(device.getByText('Offline Bakery')).toBeVisible()
 
-  // Back online it is sent first, and then the device can be cleared.
+  // Signing out (which needs a connection) leaves it on the device.
   await device.context().setOffline(false)
   await device.goto('/account')
   await device.getByRole('button', { name: 'Sign out' }).click()
-  await device.getByRole('button', { name: 'Remove it from this device' }).click()
   await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
   await device.goto('/')
-  await expect(
-    device.getByRole('heading', { name: 'Every cookie deserves a fair score.' }),
-  ).toBeVisible()
+  await expect(device.getByText('Offline Bakery')).toBeVisible()
+
+  // Signed in again, it is in the account, and so on any other device.
+  await signIn(device, email, 'Sign in')
+  const elsewhere = await openDevice(browser)
+  await signIn(elsewhere, email, 'Sign in')
+  await elsewhere.goto('/')
+  await expect(elsewhere.getByText('Offline Bakery')).toBeVisible({ timeout: 20_000 })
 })
 
 test('deleting everything on a signed-out device leaves the account alone', async ({ browser }) => {
@@ -485,7 +491,6 @@ test('deleting everything on a signed-out device leaves the account alone', asyn
 
   // Sign out but keep the journal here, then wipe the device.
   await device.getByRole('button', { name: 'Sign out' }).click()
-  await device.getByRole('button', { name: 'Keep the journal on this device' }).click()
   await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
   await device.goto('/settings')
   await device.getByRole('button', { name: 'Delete everything' }).click()

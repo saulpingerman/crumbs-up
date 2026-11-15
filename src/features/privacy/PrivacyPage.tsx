@@ -156,7 +156,8 @@ export function PrivacyPage() {
             )}
             {cloudConfigured && (
               <li>
-                <strong>Sign out</strong> and, if you like, remove the journal from that device.
+                <strong>Sign out.</strong> The journal stays on that device; Settings → Delete
+                everything takes it off.
               </li>
             )}
             <li>
