@@ -100,44 +100,25 @@ Supabase's guide: https://supabase.com/docs/guides/auth/social-login/auth-apple
 
 ### 2. The iPhone app
 
-The README has always pointed at [Capacitor](https://capacitorjs.com) for this: wrap the built
-site (`dist/`) in a native shell. Decisions and traps found so far (check each against current
-docs; none of this has been built yet):
+Built with [Capacitor](https://capacitorjs.com): the built site (`dist/`) in a native shell,
+`ios/App`, bundle id `com.crumbsup.app`. Checked in the simulator (Xcode 27.2): it opens, and the
+cookie finder works inside it (finds the cookie in the test photo, none in the photo without
+one). A release build archives cleanly.
 
-- **Bundle id** `com.crumbsup.app`, the same App ID as step 1.
-- **Signing in inside the app.** Google refuses its sign-in pages inside an app's web view
-  (`disallowed_useragent`), and the redirect flow can't come back into the app without deep
-  links. The clean route is native sign-in plugins that return an ID token:
-  - Google: a native Google Sign-In plugin (needs an iOS OAuth client in Google Cloud, whose id
-    is added to Supabase's Google provider as an authorized client id) → the existing
-    `signInWithGoogleToken(token, nonce)`.
-  - Apple: native Sign in with Apple → `signInWithIdToken({ provider: 'apple', token, nonce })`;
-    add the App ID `com.crumbsup.app` to Supabase's Apple Client IDs, **after** the Services ID.
-  - Email and password with codes works inside the app as it is.
-- **App Review rules to plan for:** an app with Google sign-in must also offer Sign in with
-  Apple (or a similar private option), so step 1 and native Apple sign-in come first. Apps
-  with accounts must let people delete them in the app: already there (Account → Delete
-  account). Apps that are "just a website" can be rejected under minimum functionality; the
-  camera, the on-device cut-out and offline use are the native-feeling parts to lean on. Check
-  the current App Store Review Guidelines before submitting.
-- **Service worker:** inside the app the files are bundled, so the PWA service worker isn't
-  needed, and WKWebView only allows service workers in limited cases. Plan to skip
-  registration on native (`Capacitor.isNativePlatform()`) and make `UpdatePrompt` do nothing
-  there; app updates come through the App Store.
-- **Permissions (Info.plist):** camera (`NSCameraUsageDescription`), photo library
-  (`NSPhotoLibraryUsageDescription`), location when in use
-  (`NSLocationWhenInUseUsageDescription`, for "Use my location").
-- **Origin:** Capacitor serves from `capacitor://localhost`. The http→https script in
-  `index.html` only acts on `http:`, so it leaves that alone. Supabase sync and storage work
-  from any origin; OAuth redirects are the only part that cares, and native sign-in avoids
-  them.
-- **Cookie finder:** downloads its models from `storage.googleapis.com` on first use, as on the
-  web. Already safe for web-view user agents (see the PR #31 fix).
-- **"Open in the app" on the website:** once the app has an App Store id, add
-  `<meta name="apple-itunes-app" content="app-id=…">` to `index.html` for Safari's banner.
-  This replaces the old "Add to Home Screen" hint, which was removed at the owner's request.
-- **Then:** TestFlight build for the owner to try, App Store listing (screenshots: `docs/` has
-  some from the web app), privacy details matching the privacy page, submit.
+- **Sending a build:** `scripts/ios-release.sh TEAMID` builds the site, archives, signs and
+  uploads to App Store Connect; build numbers count up by themselves. Xcode must be signed in to
+  the developer account, and the app must exist in App Store Connect.
+- **The listing**, App Privacy answers, review notes and screenshots are in
+  [`docs/app-store/`](app-store/README.md), with the steps for the owner.
+- **Signing in inside the app** is email and password only: the Google and Apple buttons are
+  hidden there (`src/lib/cloud/providers.ts`), because Google refuses its sign-in pages inside an
+  app's web view. With no third-party sign-in, App Review doesn't require Sign in with Apple. To
+  add them later, use native plugins that return an ID token (an iOS OAuth client for Google; the
+  App ID added to Supabase's Apple Client IDs, after the Services ID).
+- **No service worker** in the app: `UpdatePrompt` isn't rendered there, so nothing registers
+  one. App updates come through the App Store.
+- **Once it has an App Store id:** add `<meta name="apple-itunes-app" content="app-id=…">` to
+  `index.html` for Safari's "Open in the app" banner.
 
 ### 3. Later
 
