@@ -8,10 +8,13 @@ import { Sheet } from '@/components/Sheet'
 import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
 import { findProviders } from '@/lib/cloud/client'
 import { googleBoxAvailable } from '@/lib/cloud/google'
+import { readPending, rememberPending, type PendingCode } from '@/lib/cloud/pending-code'
 import { useProviders, type Provider } from '@/lib/cloud/providers'
 import {
   AuthError,
+  confirmCode,
   deleteMyAccount,
+  sendCodeAgain,
   sendPasswordReset,
   setNewPassword,
   signInWith,
@@ -72,6 +75,9 @@ const PROVIDER_BUTTON: Record<Provider, { name: string; className: string; mark:
   },
 }
 const MIN_PASSWORD = 8
+/** The shortest code the account service sends; projects can ask for longer. */
+const SHORTEST_CODE = 6
+const LONGEST_CODE = 10
 
 const time = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -79,6 +85,11 @@ const time = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle
 export function AccountCard() {
   const session = useSession()
   const recovering = useRecovering()
+  const signedIn = session.status === 'signed-in'
+  // Signed in — by code, by Google, by anything — means no code is awaited.
+  useEffect(() => {
+    if (signedIn) rememberPending(null)
+  }, [signedIn])
   if (session.status === 'off') return null
 
   return (
@@ -107,6 +118,12 @@ function SignIn() {
   const [busy, setBusy] = useState<'in' | 'up' | 'reset' | Provider | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  // Read once on arrival: someone back from their email finds the code step
+  // waiting, even if the phone threw the page away while they were gone.
+  const [pending, setPending] = useState<PendingCode | null>(readPending)
+  // Asked for just now, as opposed to found waiting: only then does the
+  // field take the keyboard, so opening Settings an hour later doesn't.
+  const [justAsked, setJustAsked] = useState(false)
   const dark = resolveTheme(useSettings().theme) === 'dark'
   const [googleBox] = useState(googleBoxAvailable)
   const [googleBoxFailed, setGoogleBoxFailed] = useState(false)
@@ -127,13 +144,30 @@ function SignIn() {
 
   const valid = /\S+@\S+\.\S+/.test(email)
 
+  function awaitCode(next: PendingCode | null) {
+    rememberPending(next)
+    setPending(next)
+    setJustAsked(next !== null)
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!valid || !password) {
       setProblem('Enter your email and password.')
       return
     }
-    void attempt('in', () => signInWithPassword(email.trim(), password))
+    void attempt('in', async () => {
+      try {
+        await signInWithPassword(email.trim(), password)
+      } catch (error) {
+        if (!(error instanceof AuthError) || error.reason !== 'unconfirmed') throw error
+        // The account was made but never confirmed. Rather than send them
+        // hunting for an old email, send a fresh code and ask for that. If
+        // one went out moments ago the service declines; that one will do.
+        await sendCodeAgain(email.trim(), 'signup').catch(() => {})
+        awaitCode({ email: email.trim(), purpose: 'signup' })
+      }
+    })
   }
 
   function create() {
@@ -141,11 +175,10 @@ function SignIn() {
     if (password.length < MIN_PASSWORD) {
       return setProblem(`Choose a password of at least ${MIN_PASSWORD} characters.`)
     }
-    void attempt('up', async () =>
-      (await signUp(email.trim(), password)) === 'confirm'
-        ? 'Almost there — check your inbox and tap the link to confirm your email.'
-        : undefined,
-    )
+    void attempt('up', async () => {
+      if ((await signUp(email.trim(), password)) === 'confirm')
+        awaitCode({ email: email.trim(), purpose: 'signup' })
+    })
   }
 
   function reset() {
@@ -153,9 +186,12 @@ function SignIn() {
       return setProblem('Enter your email address first, then tap “Forgot password?” again.')
     void attempt('reset', async () => {
       await sendPasswordReset(email.trim())
-      return 'If there’s an account for that address, a reset link is on its way.'
+      awaitCode({ email: email.trim(), purpose: 'recovery' })
     })
   }
+
+  if (pending)
+    return <EnterCode pending={pending} focus={justAsked} onLeave={() => awaitCode(null)} />
 
   return (
     <>
@@ -266,6 +302,115 @@ function SignIn() {
         </button>
       </form>
     </>
+  )
+}
+
+/** The step after "we emailed you a code": typing it in. */
+function EnterCode({
+  pending,
+  focus,
+  onLeave,
+}: {
+  pending: PendingCode
+  focus: boolean
+  onLeave: () => void
+}) {
+  const id = useId()
+  const { email, purpose } = pending
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState<'confirm' | 'again' | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  async function attempt(kind: NonNullable<typeof busy>, action: () => Promise<string | void>) {
+    setBusy(kind)
+    setProblem(null)
+    setNotice(null)
+    try {
+      const message = await action()
+      if (message) setNotice(message)
+    } catch (error) {
+      setProblem(error instanceof AuthError ? error.message : 'Something went wrong. Try again.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    if (code.length < SHORTEST_CODE) return setProblem('Enter the code from the email.')
+    // Signing in takes this step off the screen; nothing more to do here.
+    void attempt('confirm', () => confirmCode(email, code, purpose))
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="mt-2 space-y-3">
+      <p className="text-sm text-ink-soft">
+        {purpose === 'signup' ? (
+          <>
+            We emailed a code to <strong className="font-semibold text-ink">{email}</strong>. Enter
+            it to finish creating your account.
+          </>
+        ) : (
+          <>
+            If <strong className="font-semibold text-ink">{email}</strong> has an account, we
+            emailed it a code. Enter it to choose a new password.
+          </>
+        )}
+      </p>
+      <Field label="Code" htmlFor={`${id}-code`}>
+        <TextInput
+          id={`${id}-code`}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="one-time-code"
+          autoFocus={focus}
+          maxLength={LONGEST_CODE}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+          className="text-center font-display text-2xl font-semibold tracking-[0.3em]"
+        />
+      </Field>
+
+      {problem && (
+        <p role="alert" className="text-sm font-medium text-danger">
+          {problem}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="rounded-xl bg-look-soft px-3 py-2 text-sm font-medium">
+          {notice}
+        </p>
+      )}
+
+      <Button type="submit" disabled={busy !== null} className="w-full">
+        {busy === 'confirm' && <LoaderCircle className="size-4 animate-spin" />}
+        {purpose === 'signup' ? 'Confirm' : 'Continue'}
+      </Button>
+      <p className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-ink-soft">
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() =>
+            void attempt('again', async () => {
+              await sendCodeAgain(email, purpose)
+              return 'Sent. The newest code is the one that works.'
+            })
+          }
+          className="underline underline-offset-4 hover:text-ink"
+        >
+          Send a new code
+        </button>
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={onLeave}
+          className="underline underline-offset-4 hover:text-ink"
+        >
+          Use a different email
+        </button>
+      </p>
+    </form>
   )
 }
 

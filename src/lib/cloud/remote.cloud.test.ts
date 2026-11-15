@@ -16,6 +16,7 @@ import type { CookieRecord, PhotoImages } from '@/lib/db/schema'
 import { deleteAccount } from './account'
 import { SupabaseRemote } from './remote'
 import { sync, type SyncTools } from './sync'
+import { signUpConfirmed } from './test-accounts'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -60,13 +61,8 @@ async function signUp(): Promise<{
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const email = `test-${crypto.randomUUID()}@example.com`
-  const { data, error } = await client.auth.signUp({
-    email,
-    password: PASSWORD,
-  })
-  if (error || !data.session || !data.user)
-    throw new Error(`sign-up failed: ${error?.message ?? 'no session'}`)
-  return { client, remote: new SupabaseRemote(client, data.user.id), id: data.user.id, email }
+  const user = await signUpConfirmed(client, email, PASSWORD)
+  return { client, remote: new SupabaseRemote(client, user.id), id: user.id, email }
 }
 
 const tools: SyncTools = {
