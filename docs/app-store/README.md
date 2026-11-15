@@ -6,15 +6,17 @@ changes: `node scripts/app-store-screenshots.mjs`.
 
 ## Getting a build up
 
-1. **Xcode → Settings → Accounts → +**, and sign in with the Apple developer account.
+Steps 1–3 were done on 15 November 2026, and the first build (1.0) was uploaded that day.
+
+1. **Xcode → Settings → Accounts → +**, and sign in with the Apple developer account (team
+   `34AL6NWG29`).
 2. **developer.apple.com → Certificates, Identifiers & Profiles → Identifiers → +** → App IDs →
-   App. Description `Crumbs Up`, Bundle ID **Explicit** `com.crumbsup.app`. Tick **Sign in with
-   Apple** too (the website will use it later).
+   App. Description `Crumbs Up`, Bundle ID **Explicit** `com.crumbsup.app`, with **Sign in with
+   Apple** ticked (the website will use it later).
 3. **appstoreconnect.apple.com → Apps → + → New App.** iOS, name `Crumbs Up`, English (U.S.),
-   bundle ID `com.crumbsup.app`, SKU `crumbsup`, full access. If the name is taken, try
-   `Crumbs Up: Cookie Ratings`.
-4. `scripts/ios-release.sh TEAMID` builds, signs and uploads. The Team ID is on
-   developer.apple.com → Membership. Build numbers count up by themselves.
+   bundle ID `com.crumbsup.app`, SKU `crumbsup`, full access.
+4. `scripts/ios-release.sh 34AL6NWG29` builds, signs and uploads. Build numbers count up by
+   themselves. No iPhone needs registering: the archive is signed for the App Store only.
 5. **TestFlight** (in App Store Connect), once Apple has processed the build: Internal Testing →
    add a group with yourself in it, then install with the TestFlight app on the iPhone.
 

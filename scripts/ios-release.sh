@@ -22,18 +22,20 @@ npm run build
 npx cap sync ios
 
 echo "› Archiving"
+# Unsigned here: automatic signing would sign the archive for development,
+# which needs an iPhone registered to the team. The export below signs it for
+# the App Store instead, which doesn't.
 xcodebuild \
   -project ios/App/App.xcodeproj \
   -scheme App \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$work/CrumbsUp.xcarchive" \
-  -allowProvisioningUpdates \
   DEVELOPMENT_TEAM="$team" \
-  CODE_SIGN_STYLE=Automatic \
+  CODE_SIGNING_ALLOWED=NO \
   archive
 
-echo "› Uploading to App Store Connect"
+echo "› Signing for the App Store and uploading"
 plist="$work/ExportOptions.plist"
 cp ios/ExportOptions.plist "$plist"
 /usr/libexec/PlistBuddy -c "Add :teamID string $team" "$plist"
