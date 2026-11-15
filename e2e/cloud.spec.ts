@@ -466,13 +466,16 @@ test('signing out keeps cookies the account hasn’t received, and signing in se
   await device.waitForTimeout(1500)
   await device.context().setOffline(true)
   await rateByHand(device, 'Macaroon', 'Offline Bakery')
+
+  // Signing out (which needs a connection) leaves it on the device.
+  await device.context().setOffline(false)
   await device.goto('/account')
   await device.getByRole('button', { name: 'Sign out' }).click()
+  await expect(device.getByRole('link', { name: 'Create account' })).toBeVisible()
   await device.goto('/')
   await expect(device.getByText('Offline Bakery')).toBeVisible()
 
-  // Back online and signed in again, it goes up to the account.
-  await device.context().setOffline(false)
+  // Signed in again, it is in the account, and so on any other device.
   await signIn(device, email, 'Sign in')
   const elsewhere = await openDevice(browser)
   await signIn(elsewhere, email, 'Sign in')
