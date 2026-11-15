@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { BarChart3, BookOpen, Compass, Map as MapIcon, Plus, Settings } from 'lucide-react'
-import { NavLink, Outlet, useLocation, useNavigation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigation } from 'react-router'
 import { ButtonLink } from '@/components/Button'
+import type { HomeState } from '@/features/journal/JournalPage'
 import { Wordmark } from '@/components/Logo'
 import { useSession } from '@/lib/cloud/session'
 import { cn } from '@/lib/cn'
@@ -43,9 +44,7 @@ export function AppShell() {
       {/* Desktop / tablet: top bar */}
       <header className="sticky top-0 z-30 hidden border-b border-line/70 bg-cream/85 backdrop-blur-lg md:block">
         <div className="mx-auto flex h-16 max-w-5xl items-center gap-8 px-6">
-          <NavLink to="/" aria-label="Crumbs Up home" className="rounded-lg">
-            <Wordmark />
-          </NavLink>
+          <HomeLink />
           <nav aria-label="Main" className="flex flex-1 items-center gap-1">
             {TABS.map((t) => (
               <NavLink
@@ -76,9 +75,7 @@ export function AppShell() {
       {/* Phone: brand strip */}
       <header className="pt-safe md:hidden">
         <div className="flex h-14 items-center justify-between pr-2 pl-4">
-          <NavLink to="/" aria-label="Crumbs Up home" className="rounded-lg">
-            <Wordmark />
-          </NavLink>
+          <HomeLink />
           <AccountLink />
         </div>
       </header>
@@ -116,6 +113,22 @@ export function AppShell() {
         </div>
       </nav>
     </div>
+  )
+}
+
+/** The logo: back to the journal as it first opens, from anywhere, at the top. */
+function HomeLink() {
+  const home: HomeState = { home: true }
+  return (
+    <Link
+      to="/"
+      state={home}
+      aria-label="Crumbs Up home"
+      className="rounded-lg"
+      onClick={() => window.scrollTo({ top: 0 })}
+    >
+      <Wordmark />
+    </Link>
   )
 }
 

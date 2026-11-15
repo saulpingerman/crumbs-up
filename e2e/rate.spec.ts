@@ -58,7 +58,7 @@ test('rates a cookie from photo to journal', async ({ page }) => {
 
   // Back lands on the journal, not somewhere inside the finished wizard.
   await page.goBack()
-  await expect(page.getByRole('heading', { name: 'Cookie journal' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cookie Journal' })).toBeVisible()
   await expect(page.getByRole('link', { name: /Brown Butter Chocolate Chip/ })).toHaveCount(1)
 })
 
