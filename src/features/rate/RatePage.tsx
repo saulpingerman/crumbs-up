@@ -2,6 +2,7 @@ import { ArrowLeft, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
+import { errorDetail } from '@/lib/error-detail'
 import { NotFound } from '@/app/Errors'
 import { IconButton } from '@/components/Button'
 import { categoryBg, categoryText } from '@/components/category-styles'
@@ -203,7 +204,15 @@ export function RatePage() {
     } catch (error) {
       console.error(error)
       toast.error('Couldn’t save this cookie', {
-        description: 'Your answers are still here. Try again.',
+        description: (
+          <>
+            Your answers are still here. Try again.
+            <span className="mt-1 block font-mono text-[11px] opacity-70">
+              {errorDetail(error)}
+            </span>
+          </>
+        ),
+        duration: 15_000,
       })
       setSaving(false)
     }

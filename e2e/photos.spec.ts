@@ -169,3 +169,23 @@ test('a rating saved before the cut-out arrives still gets it', async ({ page })
     .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 180_000 })
     .toBe(1600)
 })
+
+test('a cookie finder that can’t start says why, for a screenshot to carry back', async ({
+  page,
+}) => {
+  // The model files can't be fetched: as on a network that blocks them.
+  await page.route('https://storage.googleapis.com/**', (route) =>
+    route.fulfill({ status: 404, body: '' }),
+  )
+  await page.goto('/rate')
+  await page.getByTestId('photo-input').setInputFiles(fixture('cookie.jpg'))
+  const photo = page.getByTestId('pick-cookie')
+  await expect(photo).toBeVisible({ timeout: 60_000 })
+  const box = (await photo.boundingBox())!
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  const toast = page.locator('[data-sonner-toast]').filter({
+    hasText: 'The cookie finder couldn’t load',
+  })
+  await expect(toast).toBeVisible({ timeout: 60_000 })
+  await expect(toast).toContainText('Download failed (404)')
+})

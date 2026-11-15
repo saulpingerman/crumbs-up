@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Camera, ImagePlus, LoaderCircle, MousePointerClick, Trash2, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
 import { toast } from 'sonner'
+import { errorDetail } from '@/lib/error-detail'
 import { Button } from '@/components/Button'
 import { RollingCookie } from '@/components/RollingCookie'
 import { Segmented } from '@/components/Field'
@@ -101,11 +102,15 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
   async function cutOut(source: ProcessedPhoto, pick: Pick | undefined, asked: boolean) {
     const token = ++run.current
     setFinding('starting')
+    // How far it got, for the error message if it doesn't get all the way.
+    let reached = 'loading'
     try {
       const { cutOutCookie } = await import('@/lib/cutout')
+      reached = 'preparing'
       const result = await trackCutout(
         source,
         cutOutCookie(source, pick, (progress) => {
+          reached = progress.stage
           if (run.current === token) setFinding(progress)
         }),
       )
@@ -125,7 +130,15 @@ export function PhotoPicker({ photo, editId, onChange }: Props) {
       console.warn('Cookie finder failed', error)
       if (run.current === token && asked) {
         toast.error('The cookie finder couldn’t load', {
-          description: 'It needs a connection the first time. Your photo is fine as it is.',
+          description: (
+            <>
+              It needs a connection the first time. Your photo is fine as it is.
+              <span className="mt-1 block font-mono text-[11px] opacity-70">
+                {errorDetail(error, reached)}
+              </span>
+            </>
+          ),
+          duration: 15_000,
         })
       }
     } finally {
