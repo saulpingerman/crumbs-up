@@ -103,9 +103,10 @@ Supabase's guide: https://supabase.com/docs/guides/auth/social-login/auth-apple
 Built with [Capacitor](https://capacitorjs.com): the built site (`dist/`) in a native shell,
 `ios/App`, bundle id `com.crumbsup.app`. Checked in the simulator (Xcode 27.2): it opens, and the
 cookie finder works inside it (finds the cookie in the test photo, none in the photo without
-one). A release build archives cleanly.
+one). The app exists in App Store Connect ("Crumbs Up", team `34AL6NWG29`), and build 1.0 was
+uploaded on 15 November 2026.
 
-- **Sending a build:** `scripts/ios-release.sh TEAMID` builds the site, archives, signs and
+- **Sending a build:** `scripts/ios-release.sh 34AL6NWG29` builds the site, archives, signs and
   uploads to App Store Connect; build numbers count up by themselves. Xcode must be signed in to
   the developer account, and the app must exist in App Store Connect.
 - **The listing**, App Privacy answers, review notes and screenshots are in
