@@ -58,6 +58,7 @@ export function draftFromCookie(cookie: CookieRecord): DraftRecord {
       state: cookie.state,
       price: cookie.price,
       place: cookie.place ?? null,
+      online: cookie.online ?? false,
     },
     notes: cookie.notes,
     answers: cookie.answers,

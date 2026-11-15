@@ -84,7 +84,9 @@ export async function saveCookie(input: SaveCookieInput): Promise<CookieRecord> 
       city: input.details.city.trim(),
       state: input.details.state,
       price: input.details.price,
-      place: input.details.place,
+      // An online shop has no spot on a map.
+      place: input.details.online ? null : input.details.place,
+      online: input.details.online ? true : undefined,
       notes: input.notes.trim(),
       answers: input.answers,
       suggested: input.suggested,

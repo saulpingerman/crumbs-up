@@ -1,5 +1,5 @@
 import type { CookieRecord } from '@/lib/db/schema'
-import { ELSEWHERE, stateName } from '@/lib/states'
+import { ANYWHERE, ELSEWHERE, stateName } from '@/lib/states'
 
 /** Today's date in the device's own timezone, as `YYYY-MM-DD`. */
 export function todayIso(now = new Date()): string {
@@ -44,8 +44,18 @@ export function formatPrice(price: number): string {
 }
 
 /** "Portland, OR" · "Oregon" · "Outside the U.S." */
-export function formatPlace(cookie: Pick<CookieRecord, 'city' | 'state'>): string {
+export function formatPlace(
+  cookie: Pick<CookieRecord, 'city' | 'state'> & { online?: boolean },
+): string {
+  if (cookie.online) {
+    const area =
+      cookie.state === ANYWHERE.code
+        ? cookie.city
+        : formatPlace({ city: cookie.city, state: cookie.state })
+    return area ? `Online · ${area}` : 'Online'
+  }
   if (cookie.state === ELSEWHERE.code) return cookie.city || ELSEWHERE.name
+  if (cookie.state === ANYWHERE.code) return cookie.city || ANYWHERE.name
   return cookie.city ? `${cookie.city}, ${cookie.state}` : stateName(cookie.state)
 }
 

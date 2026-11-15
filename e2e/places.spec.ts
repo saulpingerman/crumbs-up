@@ -55,11 +55,13 @@ test('fills in the town from the phone’s location and keeps the exact spot', a
   await expect(page.getByLabel('State')).toHaveValue('OR')
   await expect(page.getByText('Exact spot saved for the map.')).toBeVisible()
 
-  // Typing a different town drops the pin: it was for somewhere else.
+  // Typing in the town box is taken as a correction: the pin stays.
   await page.getByLabel('City').fill('Sal')
-  await expect(page.getByText('Exact spot saved for the map.')).toBeHidden()
+  await expect(page.getByText('Exact spot saved for the map.')).toBeVisible()
+  // Picking a town 70 km away drops it: the pin was for somewhere else.
   await page.getByRole('button', { name: 'Salem, OR' }).click()
   await expect(page.getByLabel('City')).toHaveValue('Salem')
+  await expect(page.getByText('Exact spot saved for the map.')).toBeHidden()
 })
 
 test('suggests towns in any state and sets the state to match', async ({ page }) => {
@@ -80,6 +82,31 @@ test('pins a bakery found by name', async ({ page }) => {
   await expect(page.getByLabel('City')).toHaveValue('Portland')
   await expect(page.getByLabel('State')).toHaveValue('OR')
   await expect(page.getByText('Exact spot saved for the map.')).toBeVisible()
+
+  // Correcting the town keeps the bakery that was picked, pin and all.
+  await page.getByLabel('City').fill('Portland Metro')
+  await expect(page.getByLabel('Bakery')).toHaveValue('Rise & Shine Cookie Co.')
+  await expect(page.getByText('Exact spot saved for the map.')).toBeVisible()
+  await expect(page.getByRole('list', { name: 'Matching places on the map' })).toHaveCount(0)
+})
+
+test('an online shop has no storefront: no town needed, and kept off the map', async ({ page }) => {
+  await fakeTiles(page)
+  await page.goto('/rate')
+  await fillDetails(page, { type: 'Sugar', bakery: 'Crumb Club Delivery' })
+  await page.getByRole('switch', { name: 'Online shop, no storefront' }).check()
+  // Nothing to find a location for, and it can sell anywhere.
+  await expect(page.getByRole('button', { name: 'Use my location' })).toHaveCount(0)
+  await expect(page.getByLabel('State')).toHaveValue('WW')
+  await expect(page.getByLabel(/Area it serves/)).toBeVisible()
+  await page.getByRole('button', { name: /Already scored it/ }).click()
+  await page.getByRole('button', { name: 'Save to journal' }).click()
+  await expect(page.getByRole('heading', { name: 'Sugar' })).toBeVisible()
+  await expect(page.getByText('Online', { exact: true }).first()).toBeVisible()
+
+  // The map neither shows it nor says it couldn't place it.
+  await page.goto('/map')
+  await expect(page.getByText('Not on the map yet')).toHaveCount(0)
 })
 
 test('skips online lookups when they are turned off', async ({ page }) => {
@@ -207,6 +234,55 @@ test('the map shades counties, and any county says where to try', async ({ page 
   await expect(page.getByLabel('Bakery')).toHaveValue('Rise & Shine Cookie Co.')
   await expect(page.getByLabel('City')).toHaveValue('Portland')
   await expect(page.getByLabel('State')).toHaveValue('OR')
+})
+
+test('the county and state maps zoom in and out, and still take taps', async ({ page }) => {
+  await fakePlaceSearch(page)
+  await addSamples(page)
+  await page.goto('/map')
+  await page.getByRole('radio', { name: 'Counties' }).click()
+  const map = page.getByRole('group', { name: /by county/ })
+  const width = async () => Number((await map.getAttribute('viewBox'))!.split(' ')[2])
+  const whole = await width()
+
+  await page.getByRole('button', { name: 'Zoom in' }).click()
+  await page.getByRole('button', { name: 'Zoom in' }).click()
+  expect(await width()).toBeCloseTo(whole / 4, 1)
+  // Zoomed in, a county is still a tap away.
+  await page.getByRole('button', { name: /^Multnomah County/ }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Multnomah County' })).toBeVisible()
+  await page.getByRole('button', { name: 'Zoom out' }).click()
+  expect(await width()).toBeCloseTo(whole / 2, 1)
+  await page.getByRole('button', { name: 'Show the whole map' }).click()
+  expect(await width()).toBeCloseTo(whole, 1)
+
+  // A pinch, with two real fingers.
+  const box = (await map.boundingBox())!
+  const cx = box.x + box.width / 2
+  const cy = box.y + box.height / 2
+  const touch = await page.context().newCDPSession(page)
+  const fingers = (gap: number) => [
+    { x: cx - gap, y: cy, id: 1 },
+    { x: cx + gap, y: cy, id: 2 },
+  ]
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(30) })
+  for (const gap of [45, 60, 75, 90]) {
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(gap) })
+  }
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  expect(await width()).toBeLessThan(whole / 2)
+
+  // Another state starts zoomed out.
+  await page.getByRole('combobox', { name: 'State' }).selectOption('VT')
+  expect(await width()).not.toBeCloseTo(whole, 1)
+  await expect(page.getByRole('button', { name: 'Zoom out' })).toBeDisabled()
+
+  // The state map zooms too.
+  await page.getByRole('radio', { name: 'States' }).click()
+  await expect(page.getByRole('group', { name: /United States/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Zoom in' }).click()
+  await expect(page.getByRole('button', { name: 'Show the whole map' })).toBeVisible()
 })
 
 test('any state can be opened by county, rated in or not', async ({ page }) => {

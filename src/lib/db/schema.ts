@@ -23,7 +23,7 @@ export const cookieSchema = z.object({
   cookieType: z.string().trim().min(1).max(80),
   bakery: z.string().trim().min(1).max(120),
   city: z.string().trim().max(80).default(''),
-  /** USPS code, or `XX` for outside the U.S. */
+  /** USPS code, `XX` for outside the U.S., or `WW` for an online shop that sells anywhere. */
   state: z.string().length(2),
   price: z.number().nonnegative().nullable().default(null),
   /**
@@ -34,6 +34,8 @@ export const cookieSchema = z.object({
     .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
     .nullable()
     .default(null),
+  /** Bought from a shop with no storefront to visit: kept off the map. */
+  online: z.boolean().optional(),
   notes: z.string().max(4000).default(''),
   answers: answersSchema.default({}),
   /** What the questionnaire recommended. */
@@ -61,6 +63,8 @@ export interface CookieDetails {
   state: string
   price: number | null
   place: { lat: number; lng: number } | null
+  /** An online shop, with no storefront to visit. */
+  online?: boolean
 }
 
 export interface StoredImage {

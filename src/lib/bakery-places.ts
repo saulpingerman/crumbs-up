@@ -31,6 +31,8 @@ export function placeKey(c: Pick<RatedCookie, 'bakery' | 'city' | 'state'>): str
 export function bakeryPlaces(cookies: RatedCookie[], index: PlaceIndex | null): BakeryPlace[] {
   const groups = new Map<string, RatedCookie[]>()
   for (const cookie of cookies) {
+    // An online shop has nowhere to put on a map.
+    if (cookie.online) continue
     const key = placeKey(cookie)
     const group = groups.get(key)
     if (group) group.push(cookie)
@@ -86,6 +88,8 @@ export interface YourPlace {
   state: string
   /** The pinned spot, from whichever of its cookies has one (the newest that does). */
   place: LatLng | null
+  /** An online shop, with no storefront. */
+  online: boolean
   /** How many cookies in the journal came from here. */
   cookies: number
   /** The most recent visit, for ordering. */
@@ -118,6 +122,7 @@ export function yourPlaces(cookies: RatedCookie[]): YourPlace[] {
         city: cookie.city.trim(),
         state: cookie.state,
         place: cookie.place ?? null,
+        online: Boolean(cookie.online),
         cookies: 1,
         lastEaten: cookie.eatenOn,
       })
@@ -134,9 +139,10 @@ export function fromSamePlace(cookie: RatedCookie, cookies: RatedCookie[]): Rate
 
 /** A "rate another one from here" link: the new cookie starts at the same place, pin and all. */
 export function rateHereLink(
-  place: Pick<YourPlace, 'bakery' | 'city' | 'state' | 'place'>,
+  place: Pick<YourPlace, 'bakery' | 'city' | 'state' | 'place'> & { online?: boolean },
 ): string {
   const params = new URLSearchParams({ bakery: place.bakery })
+  if (place.online) params.set('online', '1')
   if (place.city) params.set('city', place.city)
   if (place.state) params.set('state', place.state)
   if (place.place) {

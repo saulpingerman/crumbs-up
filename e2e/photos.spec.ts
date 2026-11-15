@@ -209,3 +209,49 @@ test.describe('as Chrome on an iPhone', () => {
     })
   })
 })
+
+test('a loop drawn with a finger cuts out what it goes round', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.goto('/rate')
+  await page.getByTestId('photo-input').setInputFiles(fixture('cookie-off-centre.jpg'))
+  const cutout = page.getByAltText('Your cookie, cut out of its photo')
+  await expect(cutout).toBeVisible({ timeout: 180_000 })
+
+  // "Not the cookie?" says what to do next, in so many words.
+  await page.getByRole('button', { name: 'Not the cookie?' }).click()
+  await expect(page.getByText('Tap the middle of the cookie')).toBeVisible()
+  await expect(page.getByText('Draw a loop all the way around the cookie')).toBeVisible()
+
+  // A real touch, as on a phone: finger down, round the cookie, finger up.
+  const photo = page.getByTestId('pick-cookie')
+  await expect(page.getByText('Tap the cookie, or circle it')).toBeVisible()
+  const box = (await photo.boundingBox())!
+  const centre = { x: box.x + box.width * 0.275, y: box.y + box.height * 0.745 }
+  const at = (step: number) => {
+    const angle = (step / 24) * Math.PI * 2
+    return {
+      x: Math.round(centre.x + box.width * 0.27 * Math.cos(angle)),
+      y: Math.round(centre.y + box.height * 0.2 * Math.sin(angle)),
+    }
+  }
+  const touch = await page.context().newCDPSession(page)
+  const send = (type: string, point?: { x: number; y: number }) =>
+    touch.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: point ? [{ x: point.x, y: point.y, id: 1 }] : [],
+    })
+  await send('touchStart', at(0))
+  for (let step = 1; step <= 26; step++) await send('touchMove', at(step))
+  await send('touchEnd')
+
+  await expect(cutout).toBeVisible({ timeout: 120_000 })
+  const [red, , blue] = await cutout.evaluate((img: HTMLImageElement) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 9
+    const context = canvas.getContext('2d')!
+    context.drawImage(img, img.naturalWidth * 0.45, img.naturalHeight * 0.45, 9, 9, 0, 0, 9, 9)
+    return [...context.getImageData(4, 4, 1, 1).data]
+  })
+  // The cookie, golden, not the white napkin beside it.
+  expect(red! - blue!).toBeGreaterThan(60)
+})

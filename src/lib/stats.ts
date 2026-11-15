@@ -9,7 +9,7 @@ import {
   type RankBy,
   type Weights,
 } from '@/lib/rubric'
-import { ELSEWHERE } from '@/lib/states'
+import { ANYWHERE, ELSEWHERE } from '@/lib/states'
 import { countTowns } from '@/lib/towns'
 
 export interface RatedCookie extends CookieRecord {
@@ -146,7 +146,12 @@ export function summarize(cookies: RatedCookie[]): Summary {
     categoryAverages,
     bakeries: new Set(cookies.map(bakeryKey)).size,
     towns: countTowns(cookies),
-    states: new Set(cookies.map((c) => c.state).filter((s) => s !== ELSEWHERE.code)).size,
+    states: new Set(
+      cookies
+        .filter((c) => !c.online)
+        .map((c) => c.state)
+        .filter((s) => s !== ELSEWHERE.code && s !== ANYWHERE.code),
+    ).size,
     best: [...cookies].sort(byScoreDesc)[0],
     aboveStandard: cookies.filter((c) => c.overallExact > 5).length,
   }

@@ -10,7 +10,9 @@ import { ELSEWHERE } from '@/lib/states'
 type Located = Pick<CookieRecord, 'city' | 'state'>
 
 /** One key per town however its name was typed, or '' for a cookie with no town. */
-export function townKey(cookie: Located): string {
+export function townKey(cookie: Located & { online?: boolean }): string {
+  // An online shop's area isn't somewhere it was eaten at.
+  if (cookie.online) return ''
   const city = normalizePlace(cookie.city)
   return city ? `${city}|${cookie.state}` : ''
 }

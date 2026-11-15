@@ -61,7 +61,13 @@ export function RatePage() {
     if (state && isKnownStateCode(state)) seed.state = state
     const lat = Number(params.get('lat'))
     const lng = Number(params.get('lng'))
-    if (params.has('lat') && params.has('lng') && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+    if (params.get('online') === '1') seed.online = true
+    else if (
+      params.has('lat') &&
+      params.has('lng') &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180
+    ) {
       seed.place = { lat, lng }
     }
     return Object.keys(seed).length > 0 ? seed : undefined

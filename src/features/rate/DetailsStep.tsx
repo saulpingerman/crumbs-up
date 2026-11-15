@@ -19,7 +19,8 @@ import { placeKey, yourPlaces } from '@/lib/bakery-places'
 import { findBakery, type OsmPlace } from '@/lib/osm'
 import { loadPlaces, normalizePlace, type PlaceIndex } from '@/lib/places'
 import { useSettings } from '@/lib/settings'
-import { ELSEWHERE, US_STATES } from '@/lib/states'
+import { ANYWHERE, ELSEWHERE, US_STATES } from '@/lib/states'
+import { distanceKm } from '@/lib/geo'
 import { byNewest } from '@/lib/stats'
 import { useCookies } from '@/lib/use-cookies'
 import { PhotoPicker } from './PhotoPicker'
@@ -50,6 +51,9 @@ function distinct(values: string[]): string[] {
   })
 }
 
+/** A pinned bakery this close to a picked town is taken to be in it. */
+const SAME_TOWN_KM = 25
+
 export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, onResume }: Props) {
   const { draft, setDetails } = api
   const { details } = draft
@@ -61,6 +65,7 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
   const [confirmStartOver, setConfirmStartOver] = useState(false)
 
   const errors: DetailErrors = showErrors ? validateDetails(details) : {}
+  const online = Boolean(details.online)
 
   // Name the draft that was picked up, so it is obvious when it isn't the
   // cookie someone just asked to rate.
@@ -123,7 +128,7 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
   const pinned = Boolean(details.place)
   useEffect(() => {
     // With the exact spot already known there is nothing to look up.
-    if (pinned || !onlinePlaces || typedBakery.length < 3 || !navigator.onLine) return
+    if (pinned || online || !onlinePlaces || typedBakery.length < 3 || !navigator.onLine) return
     const controller = new AbortController()
     const timer = setTimeout(() => {
       const near =
@@ -138,7 +143,7 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
       clearTimeout(timer)
       controller.abort()
     }
-  }, [pinned, onlinePlaces, typedBakery, nearLat, nearLng])
+  }, [pinned, online, onlinePlaces, typedBakery, nearLat, nearLng])
   const mapMatches =
     lookup?.query === typedBakery && !details.place
       ? lookup.matches
@@ -321,7 +326,11 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
               label="Places you’ve been"
               items={bakerySuggestions.map((p) => ({
                 key: p.key,
-                label: p.city ? `${p.bakery} · ${p.city}` : p.bakery,
+                label: p.online
+                  ? `${p.bakery} · Online`
+                  : p.city
+                    ? `${p.bakery} · ${p.city}`
+                    : p.bakery,
               }))}
               onPick={(_, key) => {
                 const match = bakerySuggestions.find((p) => p.key === key)
@@ -331,12 +340,13 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
                     city: match.city,
                     state: match.state,
                     place: match.place,
+                    online: match.online,
                   })
                 }
               }}
             />
           )}
-          {mapMatches.length > 0 && (
+          {mapMatches.length > 0 && !online && (
             <div className="mt-2 rounded-2xl border border-line bg-paper p-1.5">
               <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-bold tracking-[0.1em] text-ink-faint uppercase">
                 Pick one to pin it on the map
@@ -373,24 +383,47 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
           )}
         </Field>
 
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3">
+          <span className="text-sm font-semibold">Online shop, no storefront</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={online}
+            onChange={(e) =>
+              setDetails(
+                e.target.checked
+                  ? { online: true, place: null, state: details.state || ANYWHERE.code }
+                  : {
+                      online: false,
+                      state: details.state === ANYWHERE.code ? '' : details.state,
+                    },
+              )
+            }
+            className="size-5 accent-crust"
+          />
+        </label>
+
         <div>
           <div className="mb-1.5 flex items-baseline justify-between gap-3">
             <label htmlFor={`${id}-city`} className="text-sm font-semibold">
-              City <span className="ml-1 text-xs font-medium text-ink-faint">Optional</span>
+              {online ? 'Area it serves' : 'City'}{' '}
+              <span className="ml-1 text-xs font-medium text-ink-faint">Optional</span>
             </label>
-            <button
-              type="button"
-              onClick={() => void locate()}
-              disabled={locating}
-              className="flex items-center gap-1.5 text-sm font-semibold text-crust underline-offset-4 hover:underline disabled:opacity-60"
-            >
-              {locating ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <LocateFixed className="size-4" />
-              )}
-              Use my location
-            </button>
+            {!online && (
+              <button
+                type="button"
+                onClick={() => void locate()}
+                disabled={locating}
+                className="flex items-center gap-1.5 text-sm font-semibold text-crust underline-offset-4 hover:underline disabled:opacity-60"
+              >
+                {locating ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <LocateFixed className="size-4" />
+                )}
+                Use my location
+              </button>
+            )}
           </div>
           <TextInput
             id={`${id}-city`}
@@ -398,10 +431,11 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
             onFocus={wantPlaces}
             onChange={(e) => {
               wantPlaces()
-              // A typed city replaces any pinned spot: the pin was somewhere else.
-              setDetails({ city: e.target.value, place: null })
+              // Correcting the town ("Washington" to "Washington, D.C.") keeps
+              // the bakery's pinned spot: the pin is the bakery itself.
+              setDetails({ city: e.target.value })
             }}
-            placeholder="Town or city"
+            placeholder={online ? 'A town, county or market' : 'Town or city'}
             autoComplete="off"
             autoCapitalize="words"
             enterKeyHint="next"
@@ -415,10 +449,14 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
             }))}
             onPick={(_, key) => {
               const match = citySuggestions.find((p) => `${p.name}|${p.state}` === key)
-              if (match) setDetails({ city: match.name, state: match.state, place: null })
+              if (!match) return
+              // Picking a different town keeps the pin only if it is in that town.
+              const pin = details.place
+              const near = pin && distanceKm(pin, match) < SAME_TOWN_KM
+              setDetails({ city: match.name, state: match.state, place: near ? pin : null })
             }}
           />
-          {details.place && (
+          {details.place && !online && (
             <p className="mt-2 flex items-center gap-1.5 text-[13px] text-ink-soft">
               <MapPin className="size-4 shrink-0 text-crust" aria-hidden />
               Exact spot saved for the map.
@@ -438,7 +476,7 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
             <Select
               id={`${id}-state`}
               value={details.state}
-              onChange={(e) => setDetails({ state: e.target.value, place: null })}
+              onChange={(e) => setDetails({ state: e.target.value })}
               aria-invalid={Boolean(errors.state)}
               aria-describedby={errors.state ? `${id}-state-error` : undefined}
             >
@@ -451,6 +489,7 @@ export function DetailsStep({ api, editId, onContinue, onQuestions, onManual, on
                 </option>
               ))}
               <option value={ELSEWHERE.code}>{ELSEWHERE.name}</option>
+              {online && <option value={ANYWHERE.code}>{ANYWHERE.name}</option>}
             </Select>
           </Field>
           <Field label="Date" htmlFor={`${id}-date`} error={errors.eatenOn}>

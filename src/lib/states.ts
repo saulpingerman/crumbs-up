@@ -62,6 +62,8 @@ export const US_STATES: UsState[] = [
 
 /** For cookies bought outside the fifty states and DC. */
 export const ELSEWHERE = { code: 'XX', name: 'Outside the U.S.' } as const
+/** Where an online shop is "from" when it sells everywhere. */
+export const ANYWHERE = { code: 'WW', name: 'Anywhere' } as const
 
 const BY_CODE = new Map(US_STATES.map((s) => [s.code, s]))
 const BY_FIPS = new Map(US_STATES.map((s) => [s.fips, s]))
@@ -76,11 +78,12 @@ export function stateByFips(fips: string): UsState | undefined {
 
 export function stateName(code: string): string {
   if (code === ELSEWHERE.code) return ELSEWHERE.name
+  if (code === ANYWHERE.code) return ANYWHERE.name
   return BY_CODE.get(code)?.name ?? code
 }
 
 export function isKnownStateCode(code: string): boolean {
-  return code === ELSEWHERE.code || BY_CODE.has(code)
+  return code === ELSEWHERE.code || code === ANYWHERE.code || BY_CODE.has(code)
 }
 
 /** Number of places on the passport: fifty states plus DC. */
