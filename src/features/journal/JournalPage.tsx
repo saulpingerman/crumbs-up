@@ -237,14 +237,9 @@ function FirstRun() {
       <h1 className="mt-2 font-display text-[40px] leading-[1.02] font-semibold md:text-6xl short:text-[32px]">
         Every cookie deserves a fair score.
       </h1>
-      <p className="mt-4 text-[17px] leading-relaxed text-ink-soft short:hidden">
-        Snap a photo, answer a few quick questions about how it looks, eats and tastes, and Crumbs
-        Up works out what it should score — always measured against the same standard: a classic
-        Toll House cookie is a <strong className="text-ink">5</strong>.
-      </p>
-      <p className="mt-3 hidden text-base leading-normal text-ink-soft short:block">
-        Answer a few questions and Crumbs Up works out the score, always against one standard: a
-        classic Toll House cookie is a <strong className="text-ink">5</strong>.
+      <p className="mt-4 text-[17px] leading-relaxed text-ink-soft short:mt-3 short:text-base short:leading-normal">
+        Answer a few questions about your cookie and get a score out of 10. A Toll House cookie is a{' '}
+        <strong className="text-ink">5</strong>.
       </p>
       <div className="mt-8 flex flex-col items-center gap-3 short:mt-5 short:gap-1">
         <ButtonLink to="/rate" size="lg">

@@ -4,6 +4,7 @@ import {
   Outlet,
   RouterProvider,
   ScrollRestoration,
+  useLocation,
   useNavigate,
 } from 'react-router'
 import { Toaster } from 'sonner'
@@ -65,6 +66,18 @@ const router = createBrowserRouter(
                 Component: (await import('@/features/privacy/PrivacyPage')).PrivacyPage,
               }),
             },
+            {
+              path: 'account/new',
+              lazy: async () => ({
+                Component: (await import('@/features/account/CreateAccountPage')).CreateAccountPage,
+              }),
+            },
+            {
+              path: 'account/reset',
+              lazy: async () => ({
+                Component: (await import('@/features/account/ResetPasswordPage')).ResetPasswordPage,
+              }),
+            },
             { path: '*', element: <NotFound /> },
           ],
         },
@@ -89,13 +102,15 @@ const router = createBrowserRouter(
  * opening a cookie and coming back returns to the same spot in the journal.
  */
 function Root() {
-  // A "reset password" email lands on the journal; the form for choosing the
-  // new password lives in Settings.
+  // A "reset password" link from an email lands on the journal; the form for
+  // choosing the new password is in Settings. A reset done with a code never
+  // leaves its own page, which has that form too.
   const recovering = useRecovering()
   const navigate = useNavigate()
+  const resetting = useLocation().pathname === '/account/reset'
   useEffect(() => {
-    if (recovering) void navigate('/settings', { replace: true })
-  }, [recovering, navigate])
+    if (recovering && !resetting) void navigate('/settings', { replace: true })
+  }, [recovering, resetting, navigate])
 
   return (
     <>

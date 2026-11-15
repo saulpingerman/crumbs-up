@@ -1,27 +1,24 @@
 import { Cloud, CloudOff, LoaderCircle, LogOut, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { Button } from '@/components/Button'
+import { Button, ButtonLink } from '@/components/Button'
 import { Field, TextInput } from '@/components/Field'
 import { Card, SectionTitle } from '@/components/Page'
 import { Sheet } from '@/components/Sheet'
 import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
 import { findProviders } from '@/lib/cloud/client'
 import { googleBoxAvailable } from '@/lib/cloud/google'
-import { readPending, rememberPending, type PendingCode } from '@/lib/cloud/pending-code'
+import { rememberPending } from '@/lib/cloud/pending-code'
 import { useProviders, type Provider } from '@/lib/cloud/providers'
 import {
   AuthError,
-  confirmCode,
   deleteMyAccount,
   sendCodeAgain,
-  sendPasswordReset,
-  setNewPassword,
   signInWith,
   signInWithGoogleToken,
   signInWithPassword,
   signOut,
-  signUp,
   useRecovering,
   useSession,
 } from '@/lib/cloud/session'
@@ -30,6 +27,11 @@ import { db } from '@/lib/db/db'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/format'
 import { resolveTheme, useSettings } from '@/lib/settings'
+import type { AccountPageState } from '@/features/account/CreateAccountPage'
+import { Outcome } from '@/features/account/form'
+import { useAttempt } from '@/features/account/use-attempt'
+import { NewPassword } from '@/features/account/NewPassword'
+import { looksLikeEmail } from '@/features/account/passwords'
 import { GoogleButton } from './GoogleButton'
 
 /**
@@ -74,11 +76,6 @@ const PROVIDER_BUTTON: Record<Provider, { name: string; className: string; mark:
     ),
   },
 }
-const MIN_PASSWORD = 8
-/** The shortest code the account service sends; projects can ask for longer. */
-const SHORTEST_CODE = 6
-const LONGEST_CODE = 10
-
 const time = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 /** Sign in to back the journal up and keep it in step across devices. */
@@ -102,57 +99,36 @@ export function AccountCard() {
       )}
       {session.status === 'signed-out' && <SignIn />}
       {session.status === 'signed-in' &&
-        (recovering ? <NewPassword /> : <SignedIn email={session.email} />)}
+        (recovering ? (
+          <div className="mt-3">
+            <NewPassword />
+          </div>
+        ) : (
+          <SignedIn email={session.email} />
+        ))}
     </Card>
   )
 }
 
 function SignIn() {
   const id = useId()
+  const navigate = useNavigate()
   const providers = useProviders()
   // Asked for here rather than at start-up, so that someone who never opens
   // the sign-in form never contacts the account service at all.
   useEffect(() => void findProviders(), [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState<'in' | 'up' | 'reset' | Provider | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [problem, setProblem] = useState<string | null>(null)
-  // Read once on arrival: someone back from their email finds the code step
-  // waiting, even if the phone threw the page away while they were gone.
-  const [pending, setPending] = useState<PendingCode | null>(readPending)
-  // Asked for just now, as opposed to found waiting: only then does the
-  // field take the keyboard, so opening Settings an hour later doesn't.
-  const [justAsked, setJustAsked] = useState(false)
+  const { busy, problem, setProblem, attempt } = useAttempt<'in' | Provider>()
   const dark = resolveTheme(useSettings().theme) === 'dark'
   const [googleBox] = useState(googleBoxAvailable)
   const [googleBoxFailed, setGoogleBoxFailed] = useState(false)
-
-  async function attempt(kind: NonNullable<typeof busy>, action: () => Promise<string | void>) {
-    setBusy(kind)
-    setProblem(null)
-    setNotice(null)
-    try {
-      const message = await action()
-      if (message) setNotice(message)
-    } catch (error) {
-      setProblem(error instanceof AuthError ? error.message : 'Something went wrong. Try again.')
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  const valid = /\S+@\S+\.\S+/.test(email)
-
-  function awaitCode(next: PendingCode | null) {
-    rememberPending(next)
-    setPending(next)
-    setJustAsked(next !== null)
-  }
+  // Whatever address is in the box goes along to the other two pages.
+  const carried: AccountPageState = { email: email.trim() }
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (!valid || !password) {
+    if (!looksLikeEmail(email) || !password) {
       setProblem('Enter your email and password.')
       return
     }
@@ -165,33 +141,12 @@ function SignIn() {
         // hunting for an old email, send a fresh code and ask for that. If
         // one went out moments ago the service declines; that one will do.
         await sendCodeAgain(email.trim(), 'signup').catch(() => {})
-        awaitCode({ email: email.trim(), purpose: 'signup' })
+        rememberPending({ email: email.trim(), purpose: 'signup' })
+        const asked: AccountPageState = { asked: true }
+        void navigate('/account/new', { state: asked })
       }
     })
   }
-
-  function create() {
-    if (!valid) return setProblem('Enter your email address.')
-    if (password.length < MIN_PASSWORD) {
-      return setProblem(`Choose a password of at least ${MIN_PASSWORD} characters.`)
-    }
-    void attempt('up', async () => {
-      if ((await signUp(email.trim(), password)) === 'confirm')
-        awaitCode({ email: email.trim(), purpose: 'signup' })
-    })
-  }
-
-  function reset() {
-    if (!valid)
-      return setProblem('Enter your email address first, then tap “Forgot password?” again.')
-    void attempt('reset', async () => {
-      await sendPasswordReset(email.trim())
-      awaitCode({ email: email.trim(), purpose: 'recovery' })
-    })
-  }
-
-  if (pending)
-    return <EnterCode pending={pending} focus={justAsked} onLeave={() => awaitCode(null)} />
 
   return (
     <>
@@ -271,191 +226,26 @@ function SignIn() {
           />
         </Field>
 
-        {problem && (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {problem}
-          </p>
-        )}
-        {notice && (
-          <p role="status" className="rounded-xl bg-look-soft px-3 py-2 text-sm font-medium">
-            {notice}
-          </p>
-        )}
+        <Outcome problem={problem} />
 
         <div className="grid gap-2 pt-1 sm:grid-cols-2">
           <Button type="submit" disabled={busy !== null}>
             {busy === 'in' && <LoaderCircle className="size-4 animate-spin" />}
             Sign in
           </Button>
-          <Button variant="secondary" disabled={busy !== null} onClick={create}>
-            {busy === 'up' && <LoaderCircle className="size-4 animate-spin" />}
+          <ButtonLink to="/account/new" state={carried} variant="secondary">
             Create account
-          </Button>
+          </ButtonLink>
         </div>
-        <button
-          type="button"
-          onClick={reset}
-          disabled={busy !== null}
-          className="text-sm font-semibold text-ink-soft underline underline-offset-4 hover:text-ink"
+        <Link
+          to="/account/reset"
+          state={carried}
+          className="inline-block text-sm font-semibold text-ink-soft underline underline-offset-4 hover:text-ink"
         >
           Forgot password?
-        </button>
+        </Link>
       </form>
     </>
-  )
-}
-
-/** The step after "we emailed you a code": typing it in. */
-function EnterCode({
-  pending,
-  focus,
-  onLeave,
-}: {
-  pending: PendingCode
-  focus: boolean
-  onLeave: () => void
-}) {
-  const id = useId()
-  const { email, purpose } = pending
-  const [code, setCode] = useState('')
-  const [busy, setBusy] = useState<'confirm' | 'again' | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [problem, setProblem] = useState<string | null>(null)
-
-  async function attempt(kind: NonNullable<typeof busy>, action: () => Promise<string | void>) {
-    setBusy(kind)
-    setProblem(null)
-    setNotice(null)
-    try {
-      const message = await action()
-      if (message) setNotice(message)
-    } catch (error) {
-      setProblem(error instanceof AuthError ? error.message : 'Something went wrong. Try again.')
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    if (code.length < SHORTEST_CODE) return setProblem('Enter the code from the email.')
-    // Signing in takes this step off the screen; nothing more to do here.
-    void attempt('confirm', () => confirmCode(email, code, purpose))
-  }
-
-  return (
-    <form onSubmit={submit} noValidate className="mt-2 space-y-3">
-      <p className="text-sm text-ink-soft">
-        {purpose === 'signup' ? (
-          <>
-            We emailed a code to <strong className="font-semibold text-ink">{email}</strong>. Enter
-            it to finish creating your account.
-          </>
-        ) : (
-          <>
-            If <strong className="font-semibold text-ink">{email}</strong> has an account, we
-            emailed it a code. Enter it to choose a new password.
-          </>
-        )}
-      </p>
-      <Field label="Code" htmlFor={`${id}-code`}>
-        <TextInput
-          id={`${id}-code`}
-          inputMode="numeric"
-          pattern="[0-9]*"
-          autoComplete="one-time-code"
-          autoFocus={focus}
-          maxLength={LONGEST_CODE}
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-          className="text-center font-display text-2xl font-semibold tracking-[0.3em]"
-        />
-      </Field>
-
-      {problem && (
-        <p role="alert" className="text-sm font-medium text-danger">
-          {problem}
-        </p>
-      )}
-      {notice && (
-        <p role="status" className="rounded-xl bg-look-soft px-3 py-2 text-sm font-medium">
-          {notice}
-        </p>
-      )}
-
-      <Button type="submit" disabled={busy !== null} className="w-full">
-        {busy === 'confirm' && <LoaderCircle className="size-4 animate-spin" />}
-        {purpose === 'signup' ? 'Confirm' : 'Continue'}
-      </Button>
-      <p className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-ink-soft">
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() =>
-            void attempt('again', async () => {
-              await sendCodeAgain(email, purpose)
-              return 'Sent. The newest code is the one that works.'
-            })
-          }
-          className="underline underline-offset-4 hover:text-ink"
-        >
-          Send a new code
-        </button>
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={onLeave}
-          className="underline underline-offset-4 hover:text-ink"
-        >
-          Use a different email
-        </button>
-      </p>
-    </form>
-  )
-}
-
-function NewPassword() {
-  const id = useId()
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
-
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (password.length < MIN_PASSWORD) {
-      setProblem(`Choose a password of at least ${MIN_PASSWORD} characters.`)
-      return
-    }
-    setBusy(true)
-    setProblem(null)
-    try {
-      await setNewPassword(password)
-      toast.success('Password changed')
-    } catch (error) {
-      setProblem(error instanceof AuthError ? error.message : 'Something went wrong. Try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form onSubmit={(e) => void submit(e)} noValidate className="mt-3 space-y-3">
-      <p className="text-sm text-ink-soft">Choose a new password to finish resetting it.</p>
-      <Field label="New password" htmlFor={`${id}-new`} error={problem ?? undefined}>
-        <TextInput
-          id={`${id}-new`}
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          aria-invalid={Boolean(problem)}
-        />
-      </Field>
-      <Button type="submit" disabled={busy}>
-        {busy && <LoaderCircle className="size-4 animate-spin" />}
-        Save new password
-      </Button>
-    </form>
   )
 }
 
