@@ -123,6 +123,8 @@ function Root() {
     <>
       <Outlet />
       <ScrollRestoration />
+      {/* Inside the router: whether an update can go ahead depends on the page. */}
+      <UpdatePrompt />
     </>
   )
 }
@@ -162,7 +164,6 @@ export function App() {
           },
         }}
       />
-      <UpdatePrompt />
     </>
   )
 }
