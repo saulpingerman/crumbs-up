@@ -6,7 +6,7 @@ import { Button, ButtonLink } from '@/components/Button'
 import { Field, TextInput } from '@/components/Field'
 import { Card } from '@/components/Page'
 import { Sheet } from '@/components/Sheet'
-import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
+import { requestSync, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
 import { findProviders } from '@/lib/cloud/client'
 import { googleBoxAvailable } from '@/lib/cloud/google'
 import { rememberPending } from '@/lib/cloud/pending-code'
@@ -244,34 +244,20 @@ function SignIn() {
 
 function SignedIn({ email }: { email: string }) {
   const status = useSyncStatus()
-  const [leaving, setLeaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  async function leave(removeJournal: boolean) {
+  /**
+   * Sign out, and leave the journal on this device as it is. It stays linked
+   * to the account, so signing back in carries on where it left off (and
+   * sends anything that hadn't reached the account yet), while a different
+   * person signing in here is asked before anything is mixed.
+   */
+  async function leave() {
     setBusy(true)
     try {
-      // The device may hold changes the account doesn't have yet. Send them
-      // first, and if that can't be done, don't remove what may be the only copy.
-      if (removeJournal && !(await syncEverything())) {
-        toast.error('Some cookies haven’t reached your account yet', {
-          description: 'Check your connection and try again, or keep the journal on this device.',
-          duration: 10_000,
-        })
-        return
-      }
-      await withoutSyncing(async () => {
-        // Clear first, sign out second. If this is cut short — the app is
-        // closed, the connection drops — the device is still signed in and
-        // the journal simply comes back, rather than a journal being left
-        // on a device that was meant to be cleared.
-        // (A journal that is kept stays linked to its account, so a different
-        // person signing in here is asked before anything is mixed.)
-        if (removeJournal) await forgetAccount(db, true)
-        await signOut()
-      })
-      toast(removeJournal ? 'Signed out and removed from this device' : 'Signed out')
-      setLeaving(false)
+      await withoutSyncing(() => signOut())
+      toast('Signed out')
     } catch (error) {
       toast.error(error instanceof AuthError ? error.message : 'Couldn’t sign out')
     } finally {
@@ -402,7 +388,7 @@ function SignedIn({ email }: { email: string }) {
               <RefreshCw className="size-4" />
               Sync now
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setLeaving(true)}>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => void leave()}>
               <LogOut className="size-4" />
               Sign out
             </Button>
@@ -417,25 +403,6 @@ function SignedIn({ email }: { email: string }) {
       >
         Delete account…
       </button>
-
-      <Sheet
-        open={leaving}
-        onOpenChange={setLeaving}
-        title="Sign out"
-        description="Your journal stays safe in your account either way. What should happen to the copy on this device?"
-      >
-        <div className="grid gap-2">
-          <Button disabled={busy} onClick={() => void leave(false)}>
-            Keep the journal on this device
-          </Button>
-          <Button variant="danger" disabled={busy} onClick={() => void leave(true)}>
-            Remove it from this device
-          </Button>
-          <Button variant="ghost" disabled={busy} onClick={() => setLeaving(false)}>
-            Stay signed in
-          </Button>
-        </div>
-      </Sheet>
 
       <Sheet
         open={deleting}
