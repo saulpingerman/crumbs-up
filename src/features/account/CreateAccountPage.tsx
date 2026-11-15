@@ -6,7 +6,7 @@ import { Field, TextInput } from '@/components/Field'
 import { readPending, rememberPending, type PendingCode } from '@/lib/cloud/pending-code'
 import { signUp, useSession } from '@/lib/cloud/session'
 import { EnterCode } from './EnterCode'
-import { AccountPage, Outcome } from './form'
+import { AccountFrame, Outcome } from './form'
 import { useAttempt } from './use-attempt'
 import { looksLikeEmail, passwordProblem } from './passwords'
 
@@ -41,10 +41,10 @@ export function CreateAccountPage() {
   useEffect(() => {
     if (!signedIn) return
     rememberPending(null)
-    void navigate('/settings', { replace: true })
+    void navigate('/account', { replace: true })
   }, [signedIn, navigate])
 
-  if (session.status === 'off') return <Navigate to="/settings" replace />
+  if (session.status === 'off') return <Navigate to="/" replace />
 
   function awaitCode(next: PendingCode | null) {
     rememberPending(next)
@@ -64,7 +64,7 @@ export function CreateAccountPage() {
   }
 
   return (
-    <AccountPage title="Create account">
+    <AccountFrame title="Create account">
       {pending ? (
         <EnterCode pending={pending} focus={justAsked} onLeave={() => awaitCode(null)} />
       ) : (
@@ -105,6 +105,6 @@ export function CreateAccountPage() {
           </Button>
         </form>
       )}
-    </AccountPage>
+    </AccountFrame>
   )
 }

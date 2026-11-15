@@ -67,6 +67,12 @@ const router = createBrowserRouter(
               }),
             },
             {
+              path: 'account',
+              lazy: async () => ({
+                Component: (await import('@/features/account/AccountPage')).AccountPage,
+              }),
+            },
+            {
               path: 'account/new',
               lazy: async () => ({
                 Component: (await import('@/features/account/CreateAccountPage')).CreateAccountPage,
@@ -103,13 +109,13 @@ const router = createBrowserRouter(
  */
 function Root() {
   // A "reset password" link from an email lands on the journal; the form for
-  // choosing the new password is in Settings. A reset done with a code never
-  // leaves its own page, which has that form too.
+  // choosing the new password is on the account page. A reset done with a
+  // code never leaves its own page, which has that form too.
   const recovering = useRecovering()
   const navigate = useNavigate()
   const resetting = useLocation().pathname === '/account/reset'
   useEffect(() => {
-    if (recovering && !resetting) void navigate('/settings', { replace: true })
+    if (recovering && !resetting) void navigate('/account', { replace: true })
   }, [recovering, resetting, navigate])
 
   return (

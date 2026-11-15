@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { Button, ButtonLink } from '@/components/Button'
 import { Field, TextInput } from '@/components/Field'
-import { Card, SectionTitle } from '@/components/Page'
+import { Card } from '@/components/Page'
 import { Sheet } from '@/components/Sheet'
 import { requestSync, syncEverything, useSyncStatus, withoutSyncing } from '@/lib/cloud/auto'
 import { findProviders } from '@/lib/cloud/client'
@@ -27,11 +27,11 @@ import { db } from '@/lib/db/db'
 import { cn } from '@/lib/cn'
 import { plural } from '@/lib/format'
 import { resolveTheme, useSettings } from '@/lib/settings'
-import type { AccountPageState } from '@/features/account/CreateAccountPage'
-import { Outcome } from '@/features/account/form'
-import { useAttempt } from '@/features/account/use-attempt'
-import { NewPassword } from '@/features/account/NewPassword'
-import { looksLikeEmail } from '@/features/account/passwords'
+import type { AccountPageState } from './CreateAccountPage'
+import { Outcome } from './form'
+import { useAttempt } from './use-attempt'
+import { NewPassword } from './NewPassword'
+import { looksLikeEmail } from './passwords'
 import { GoogleButton } from './GoogleButton'
 
 /**
@@ -91,21 +91,14 @@ export function AccountCard() {
 
   return (
     <Card>
-      <SectionTitle>Account</SectionTitle>
       {session.status === 'loading' && (
-        <p className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
+        <p className="flex items-center gap-2 text-sm text-ink-soft">
           <LoaderCircle className="size-4 animate-spin" /> Checking…
         </p>
       )}
       {session.status === 'signed-out' && <SignIn />}
       {session.status === 'signed-in' &&
-        (recovering ? (
-          <div className="mt-3">
-            <NewPassword />
-          </div>
-        ) : (
-          <SignedIn email={session.email} />
-        ))}
+        (recovering ? <NewPassword /> : <SignedIn email={session.email} />)}
     </Card>
   )
 }
@@ -150,7 +143,7 @@ function SignIn() {
 
   return (
     <>
-      <p className="mt-1 text-sm text-ink-soft">
+      <p className="text-sm text-ink-soft">
         Sign in to keep your journal backed up and in step between your phone and computer.
         Everything already on this device comes with you.
       </p>
@@ -387,7 +380,7 @@ function SignedIn({ email }: { email: string }) {
 
   return (
     <>
-      <p className="mt-1 text-sm text-ink-soft">
+      <p className="text-sm text-ink-soft">
         Signed in as{' '}
         <strong className="font-semibold [overflow-wrap:anywhere] text-ink">{email}</strong>
       </p>

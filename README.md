@@ -167,7 +167,7 @@ Crumbs Up is a Progressive Web App: the website _is_ the phone app.
 
 Installing matters for more than convenience. Safari clears a website's saved data after about a
 week without a visit, but not an installed app's — and without an account the journal lives only
-on the device. Signing in (**Settings → Account**) keeps a copy safe in your account; otherwise use
+on the device. Signing in (the **Sign in** button at the top) keeps a copy safe in your account; otherwise use
 **Settings → Back up journal** now and then. The app reminds you after every few cookies.
 
 ## Run it locally
@@ -229,7 +229,7 @@ without an account. Signing in adds a copy in your account and keeps the two in 
   Deleting a cookie deletes it everywhere.
 - Photos (the picture and, for a cut-out, the original behind it) go to private storage that only
   your account can read.
-- An account can be deleted from Settings, with everything kept in it, at any time.
+- An account can be deleted from its Account page, with everything kept in it, at any time.
 - Signing out asks whether to keep the journal on the device or take it off. Taking it off is
   refused while the device holds cookies the account hasn't received. A device that holds one
   account's journal won't quietly merge it into another: signing in as someone else asks first.

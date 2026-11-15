@@ -14,7 +14,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
-import { AccountCard } from './AccountCard'
 import { Segmented } from '@/components/Field'
 import { useSession } from '@/lib/cloud/session'
 import { forgetAccount } from '@/lib/cloud/sync'
@@ -37,7 +36,6 @@ export function SettingsPage() {
   return (
     <Page title="Settings" className="max-w-2xl">
       <div className="space-y-5">
-        <AccountCard />
         <Card>
           <SectionTitle>Overall score</SectionTitle>
           <div role="radiogroup" aria-label="Overall score weighting" className="mt-4 space-y-2">
