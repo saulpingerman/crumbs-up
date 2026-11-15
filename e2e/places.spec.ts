@@ -167,6 +167,84 @@ test('the map asks for nothing when online lookups are turned off', async ({ pag
   await expect(map).toHaveAttribute('data-pins', '9')
 })
 
+test('the map shades counties, and any county says where to try', async ({ page }) => {
+  await fakePlaceSearch(page)
+  await addSamples(page)
+  await page.goto('/map')
+  await page.getByRole('radio', { name: 'Counties' }).click()
+
+  // It opens on the state with the most cookies: Oregon, with two in Portland.
+  await expect(page.getByRole('combobox', { name: 'State' })).toHaveValue('OR')
+  await expect(page.getByText('1 of 36 counties')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Multnomah County' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Multnomah County: 2 cookies, average 8.0' }),
+  ).toBeVisible()
+  await expect(page.getByRole('link', { name: /Brown Butter Chocolate Chip/ })).toBeVisible()
+
+  // Under the cookies rated there: a bakery in the county that isn't in the journal.
+  await expect(page.getByRole('heading', { name: 'Places to try' })).toBeVisible()
+  await expect(page.getByText('Rise & Shine Cookie Co.')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('12 Northwest Flanders Street, Portland')).toBeVisible()
+
+  // A county with nothing rated in it can be tapped too. The bakery found is
+  // over the line in Multnomah, so it isn't offered here.
+  await page.getByRole('button', { name: 'Washington County: no cookies yet' }).click()
+  await expect(page.getByRole('heading', { name: 'Washington County' })).toBeVisible()
+  await expect(page.getByText('No cookies yet')).toBeVisible()
+  await expect(page.getByText('No bakeries listed here that you haven’t tried.')).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page.getByText('Rise & Shine Cookie Co.')).toHaveCount(0)
+
+  // Back to Multnomah — by keyboard this time; it is a long, thin county and
+  // the middle of the box round it is in the county next door — and on to
+  // rating a cookie at the bakery.
+  await page.getByRole('button', { name: /^Multnomah County/ }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Multnomah County' })).toBeVisible()
+  await page.getByRole('link', { name: 'Rate here' }).click()
+  await expect(page.getByLabel('Bakery')).toHaveValue('Rise & Shine Cookie Co.')
+  await expect(page.getByLabel('City')).toHaveValue('Portland')
+  await expect(page.getByLabel('State')).toHaveValue('OR')
+})
+
+test('any state can be opened by county, rated in or not', async ({ page }) => {
+  await fakePlaceSearch(page)
+  await addSamples(page)
+  await page.goto('/map')
+  await page.getByRole('radio', { name: 'Counties' }).click()
+  const state = page.getByRole('combobox', { name: 'State' })
+
+  await state.selectOption({ label: 'Vermont' })
+  await expect(page.getByText('1 of 14 counties')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Chittenden County' })).toBeVisible()
+
+  // Nothing rated in Delaware: no county is chosen until one is tapped.
+  await state.selectOption({ label: 'Delaware' })
+  await expect(page.getByText('0 of 3 counties')).toBeVisible()
+  await expect(page.getByText('Tap a county to see where to try there.')).toBeVisible()
+  await page.getByRole('button', { name: 'Kent County: no cookies yet' }).click()
+  await expect(page.getByRole('heading', { name: 'Kent County' })).toBeVisible()
+})
+
+test('a county asks for nothing when online lookups are turned off', async ({ page }) => {
+  let asked = false
+  await page.route('https://photon.komoot.io/**', (route) => {
+    asked = true
+    return route.fulfill({ json: { type: 'FeatureCollection', features: [BAKERY] } })
+  })
+  await addSamples(page)
+  await page.goto('/settings')
+  await page.getByRole('switch', { name: 'Look up bakeries online' }).click()
+  await page.goto('/map')
+  await page.getByRole('radio', { name: 'Counties' }).click()
+  await expect(page.getByRole('heading', { name: 'Multnomah County' })).toBeVisible()
+  await expect(page.getByText('Looking up bakeries is switched off in Settings.')).toBeVisible()
+  await page.waitForTimeout(1500)
+  expect(asked).toBe(false)
+})
+
 test('new territory is towns nearby, and each opens the map there', async ({ page }) => {
   await fakeTiles(page)
   await fakePlaceSearch(page)

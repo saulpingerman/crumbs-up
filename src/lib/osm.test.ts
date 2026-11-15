@@ -162,6 +162,18 @@ describe('bakeries across a stretch of map', () => {
     expect(complete).toBe(false)
   })
 
+  it('asks about an area too wide for one question in squares from the start', async () => {
+    // About 180 km corner to corner: further than the service will look from one point.
+    const wide = { south: 40.4, north: 41.4, west: -78.6, east: -76.9 }
+    const asked = serve(() => [feature(1, 40.8, -77.86)])
+    const { places, complete } = await bakeriesWithin(wide)
+    expect(asked).toHaveLength(9)
+    for (const url of asked) expect(Number(url.searchParams.get('radius'))).toBeLessThanOrEqual(50)
+    // The same bakery turned up by several squares is still one bakery.
+    expect(places).toHaveLength(1)
+    expect(complete).toBe(true)
+  })
+
   it('gives up cleanly when the service is down', async () => {
     vi.stubGlobal(
       'fetch',
