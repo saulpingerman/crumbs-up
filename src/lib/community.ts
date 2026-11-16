@@ -191,10 +191,27 @@ function group(
     )
 }
 
+/** One key per bakery in a town, however its name was typed. */
+export function bakeryKey(c: Pick<CommunityCookie, 'bakery' | 'city' | 'state'>): string {
+  return `${c.bakery.trim().toLowerCase()}|${communityTownKey(c)}|${c.state}`
+}
+
+/** One key per kind of cookie, however its name was typed. */
+export function typeKey(c: Pick<CommunityCookie, 'cookieType'>): string {
+  return c.cookieType.trim().toLowerCase()
+}
+
+/** One key per cookie at a bakery in a town. */
+export function cookieKey(
+  c: Pick<CommunityCookie, 'cookieType' | 'bakery' | 'city' | 'state'>,
+): string {
+  return `${typeKey(c)}|${bakeryKey(c)}`
+}
+
 /** Bakeries, best first, each judged on everything rated there. */
 export function rankBakeries(cookies: CommunityCookie[], by: RankBy = 'overall'): CommunityGroup[] {
   return group(cookies, by, (c) => ({
-    key: `${c.bakery.trim().toLowerCase()}|${communityTownKey(c)}|${c.state}`,
+    key: bakeryKey(c),
     name: c.bakery,
     place: communityTownLabel(c),
   }))
@@ -203,7 +220,7 @@ export function rankBakeries(cookies: CommunityCookie[], by: RankBy = 'overall')
 /** Kinds of cookie, best first: how chocolate chip does against snickerdoodle. */
 export function rankTypes(cookies: CommunityCookie[], by: RankBy = 'overall'): CommunityGroup[] {
   return group(cookies, by, (c) => ({
-    key: c.cookieType.trim().toLowerCase(),
+    key: typeKey(c),
     name: c.cookieType,
     place: '',
   }))

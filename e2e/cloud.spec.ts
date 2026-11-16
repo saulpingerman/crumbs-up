@@ -668,6 +668,18 @@ test('Top rated adds up what everyone signed in has rated', async ({ browser }) 
   await visitor.getByRole('radio', { name: 'Types' }).click()
   await expect(visitor.getByRole('listitem').filter({ hasText: 'Ginger Molasses' })).toBeVisible()
 
+  // Names here were typed by someone, so any entry can be reported: it goes
+  // to the owner and off this person's list at once, and can be brought back.
+  await visitor.getByRole('radio', { name: 'Cookies' }).click()
+  await visitor.getByRole('button', { name: 'Report Ginger Molasses' }).click()
+  const sheet = visitor.getByRole('dialog', { name: 'Report this?' })
+  await expect(sheet).toContainText(`Totals ${tag}`)
+  await sheet.getByRole('button', { name: 'Report and hide' }).click()
+  await expect(visitor.getByText('Reported and hidden')).toBeVisible()
+  await expect(row).toHaveCount(0)
+  await visitor.getByRole('button', { name: 'Show 1 hidden entry' }).click()
+  await expect(row).toBeVisible()
+
   // The person who rated it sees their own score against it.
   await rater.goto('/top')
   await rater.getByRole('combobox', { name: 'Town' }).selectOption({ label: `${town}, OR` })
