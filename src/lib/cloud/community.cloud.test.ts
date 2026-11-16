@@ -122,6 +122,27 @@ describe.skipIf(!url || !key)('Top rated totals (real Supabase)', () => {
     expect((await here(passerby)).some((c) => c.cookieType === 'Regretted')).toBe(false)
   })
 
+  it('never shows a name with a blocked word in it, nor lets the app see the lists', async () => {
+    // A bakery of its own, so the totals the other tests count stay as they were.
+    const words = `${bakery} Words`
+    await rate(ben, cookie({ bakery: words, cookieType: 'Shit Biscuit' }))
+    await rate(ben, cookie({ bakery: words, cookieType: 'Shiitake Shortbread' }))
+    const names = (await readCommunity(passerby))
+      .filter((c) => c.bakery === words)
+      .map((c) => c.cookieType)
+    // Whole words only: the mushroom stays.
+    expect(names).not.toContain('Shit Biscuit')
+    expect(names).toContain('Shiitake Shortbread')
+    for (const table of ['community_blocked_words', 'community_removed']) {
+      for (const client of [ana.client, passerby]) {
+        const read = await client.from(table).select('*')
+        expect(read.error ?? (read.data?.length === 0 ? 'empty' : null)).not.toBeNull()
+        const written = await client.from(table).insert({ word: 'cookie', bakery })
+        expect(written.error).not.toBeNull()
+      }
+    }
+  })
+
   it('counts everyone, with no way to be left out', async () => {
     // There used to be a list of people whose ratings were skipped. It is
     // gone, for the people on it and for anyone trying to add to it.

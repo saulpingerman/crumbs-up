@@ -86,12 +86,64 @@ Functionality**. (Without an account nothing leaves the phone; these are what an
 
 ## App Review information
 
-**Sign-in required:** No.
+Apple asked for more on 16 November 2026 (Guideline 2.1, Information Needed). Everything below
+goes in App Store Connect → the version → **App Review Information**.
 
-**Notes:**
+**Sign-in information:** leave "Sign-in required" unticked; the app works without an account. The
+demo account goes in the Notes. Make it in Supabase → Authentication → Users → Add user, with
+"Auto Confirm User" on, then sign in with it on a phone and rate two or three cookies so its
+journal isn't empty.
 
-> Everything works without an account. To try accounts: Sign in → Create account; a 6-digit code
-> is emailed. Account → Delete account removes it. The first time a photo is added, the app
-> downloads the files that find the cookie in it (about 40 MB); after that it works offline.
-> The Top rated lists show cookie and bakery names with averaged scores. There are no profiles,
-> messages or comments.
+**Attachment:** the screen recording (see below).
+
+**Notes** (paste as is, filling in the two blanks):
+
+> Crumbs Up is a cookie-rating journal. People who like trying cookies at bakeries photograph a
+> cookie, give it a score for taste, texture and appearance, and keep a journal of everything
+> they've tried. It solves "which was the good one, and where?": the journal, a map of bakeries,
+> suggestions of what to try next, and Top rated (everyone's scores added up per cookie) make it
+> easy to remember favorites and find new ones. It's for anyone who enjoys cookies; there is
+> nothing to buy.
+>
+> Getting started: no account is needed. Tap + to rate a cookie: add a photo (the app finds the
+> cookie in it and cuts it out, on the device), type the cookie and bakery, give the three scores
+> and save. The first photo downloads the cut-out model files (about 40 MB) once.
+>
+> Accounts (optional, to back the journal up and sync it between devices): tap Sign in → Create
+> account, enter an email and a password twice, then the 6-digit code that is emailed. Demo
+> account: ________ / ________ (already confirmed, with cookies in its journal). Account → Delete
+> account… deletes the account and everything in it, at once.
+>
+> User-generated content: the only thing one person sees from others is Top rated (Discover → Top
+> rated), which lists cookie, bakery and town names with averaged scores. There are no profiles,
+> names of people, messages, comments or photos from others. Every entry has a flag button:
+> "Report and hide" sends a report to us and hides it at once; "Just hide it" hides it.
+> Names containing offensive words are filtered out automatically, and reported entries are
+> removed for everyone, usually within a day. Feedback and reports can also be sent from Settings
+> → Report a bug or suggest an idea, or to help@crumbs-up.com.
+>
+> External services: Supabase (accounts, sync and the Top rated totals; servers in the United
+> States), Resend (sends the sign-up and password codes), OpenStreetMap data through Photon
+> (photon.komoot.io, bakery and town search) and OpenFreeMap (map tiles). Finding the cookie in
+> a photo uses Google's MediaPipe machine-learning models, downloaded once from Google and run on
+> the device; photos are never uploaded for it. No payments or advertising.
+>
+> Regions: the app works the same in every region. Bakery search and the county and state maps
+> cover the United States; outside it, cookies can still be rated and kept in the journal.
+>
+> No regulated industry or third-party protected material.
+
+**The screen recording**, on an iPhone running the latest iOS, from the newest TestFlight build
+(Settings → Control Center → Screen Recording). Start on the Home Screen and keep it to about
+three minutes:
+
+1. Tap the Crumbs Up icon to open the app.
+2. Tap + : choose a photo, let the cookie be cut out, type the cookie and bakery (pick the
+   bakery from the list), give the three scores, save. The cookie's page opens.
+3. The journal, the map (tap a bakery; the heart saves it to Want to go), Discover → For you →
+   Top rated → Want to go.
+4. In Top rated, tap the flag on an entry → Report and hide, then "Show 1 hidden entry".
+5. Sign in → Create account: email, password twice, the code from the email; signed in.
+6. Sign out, then sign in again with the same account.
+7. Account → Delete account… → confirm.
+8. Settings → Report a bug or suggest an idea.

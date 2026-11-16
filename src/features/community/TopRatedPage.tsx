@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Flag, Plus } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/Button'
@@ -7,6 +7,7 @@ import { Card, Page } from '@/components/Page'
 import { Medallion } from '@/components/Score'
 import { categoryText } from '@/components/category-styles'
 import {
+  bakeryKey,
   communityTownLabel,
   communityTowns,
   inTown,
@@ -15,6 +16,8 @@ import {
   rankTypes,
   reweigh,
   sameCookie,
+  typeKey,
+  cookieKey,
   type CommunityCookie,
 } from '@/lib/community'
 import { cn } from '@/lib/cn'
@@ -24,7 +27,9 @@ import { useSettings, weightsFor } from '@/lib/settings'
 import { RankByChips } from '@/components/RankBy'
 import { useCommunity } from '@/lib/use-community'
 import { useCookies } from '@/lib/use-cookies'
+import { showAll, useHidden, withoutHidden } from '@/lib/hidden-top'
 import { DiscoverTabs } from './DiscoverTabs'
+import { ReportSheet, type Reportable } from './ReportSheet'
 
 type View = 'cookies' | 'bakeries' | 'types'
 
@@ -45,9 +50,15 @@ export function TopRatedPage() {
   // The overall is worked out the way this person weighs the three, as in
   // their own journal.
   const weights = weightsFor(settings)
+  // What this person hid or reported is left out before anything is counted.
+  const hidden = useHidden()
+  const [reporting, setReporting] = useState<Reportable | null>(null)
   const all = useMemo(
-    () => (community.status === 'ready' ? reweigh(community.cookies, weights) : null),
-    [community, weights],
+    () =>
+      community.status === 'ready'
+        ? reweigh(withoutHidden(community.cookies, hidden), weights)
+        : null,
+    [community, weights, hidden],
   )
   const towns = useMemo(() => (all ? communityTowns(all) : []), [all])
   const town = towns.some((t) => t.key === chosenTown) ? chosenTown : ''
@@ -146,6 +157,15 @@ export function TopRatedPage() {
                     scores={cookie.scores}
                     overall={cookie.overall}
                     count={plural(cookie.raters, 'person', 'people')}
+                    onReport={() =>
+                      setReporting({
+                        title: cookie.cookieType,
+                        detail: [cookie.bakery, communityTownLabel(cookie)]
+                          .filter(Boolean)
+                          .join(' · '),
+                        hidden: { kind: 'cookie', key: cookieKey(cookie) },
+                      })
+                    }
                     action={
                       yours ? (
                         <Link to={`/cookie/${yours.id}`} className={chip}>
@@ -162,40 +182,48 @@ export function TopRatedPage() {
                 )
               })}
             {view === 'bakeries' &&
-              bakeries
-                .slice(0, showing)
-                .map((bakery, i) => (
-                  <Row
-                    key={bakery.key}
-                    rank={i + 1}
-                    title={bakery.name}
-                    detail={[
-                      bakery.place,
-                      bakery.cookies > 1
-                        ? `best: ${bakery.best.cookieType}`
-                        : bakery.best.cookieType,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    scores={bakery.scores}
-                    overall={bakery.overall}
-                    count={`${plural(bakery.ratings, 'rating')}${bakery.cookies > 1 ? ` of ${bakery.cookies} cookies` : ''}`}
-                  />
-                ))}
+              bakeries.slice(0, showing).map((bakery, i) => (
+                <Row
+                  key={bakery.key}
+                  rank={i + 1}
+                  title={bakery.name}
+                  detail={[
+                    bakery.place,
+                    bakery.cookies > 1 ? `best: ${bakery.best.cookieType}` : bakery.best.cookieType,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  scores={bakery.scores}
+                  overall={bakery.overall}
+                  count={`${plural(bakery.ratings, 'rating')}${bakery.cookies > 1 ? ` of ${bakery.cookies} cookies` : ''}`}
+                  onReport={() =>
+                    setReporting({
+                      title: bakery.name,
+                      detail: bakery.place,
+                      hidden: { kind: 'bakery', key: bakeryKey(bakery.best) },
+                    })
+                  }
+                />
+              ))}
             {view === 'types' &&
-              types
-                .slice(0, showing)
-                .map((type, i) => (
-                  <Row
-                    key={type.key}
-                    rank={i + 1}
-                    title={type.name}
-                    detail={`best at ${type.best.bakery}`}
-                    scores={type.scores}
-                    overall={type.overall}
-                    count={`${plural(type.ratings, 'rating')}${type.cookies > 1 ? ` at ${type.cookies} bakeries` : ''}`}
-                  />
-                ))}
+              types.slice(0, showing).map((type, i) => (
+                <Row
+                  key={type.key}
+                  rank={i + 1}
+                  title={type.name}
+                  detail={`best at ${type.best.bakery}`}
+                  scores={type.scores}
+                  overall={type.overall}
+                  count={`${plural(type.ratings, 'rating')}${type.cookies > 1 ? ` at ${type.cookies} bakeries` : ''}`}
+                  onReport={() =>
+                    setReporting({
+                      title: type.name,
+                      detail: '',
+                      hidden: { kind: 'type', key: typeKey(type.best) },
+                    })
+                  }
+                />
+              ))}
           </ol>
 
           {count > showing && (
@@ -209,6 +237,17 @@ export function TopRatedPage() {
           )}
         </>
       )}
+
+      {hidden.length > 0 && community.status === 'ready' && (
+        <button
+          type="button"
+          onClick={showAll}
+          className="mt-4 text-sm font-semibold text-ink-soft underline underline-offset-4 hover:text-ink"
+        >
+          Show {plural(hidden.length, 'hidden entry', 'hidden entries')}
+        </button>
+      )}
+      <ReportSheet entry={reporting} onClose={() => setReporting(null)} />
     </Page>
   )
 }
@@ -231,6 +270,7 @@ function Row({
   overall,
   count,
   action,
+  onReport,
 }: {
   rank: number
   title: string
@@ -239,6 +279,7 @@ function Row({
   overall: number
   count: string
   action?: ReactNode
+  onReport: () => void
 }) {
   return (
     <li className="flex items-center gap-3 rounded-3xl border border-line bg-paper p-3.5 shadow-card">
@@ -264,6 +305,15 @@ function Row({
           </span>
           <span className="text-ink-faint">{count}</span>
           {action}
+          <button
+            type="button"
+            onClick={onReport}
+            aria-label={`Report ${title}`}
+            title="Report"
+            className="-m-1.5 inline-flex size-8 items-center justify-center rounded-full text-ink-faint transition hover:bg-oat hover:text-ink"
+          >
+            <Flag className="size-3.5" />
+          </button>
         </div>
       </div>
       <Medallion
